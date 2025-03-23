@@ -1,0 +1,106 @@
+﻿@{
+	ViewData["Title"] = "Recipes";
+}
+
+@model IngredientsVM
+
+
+<div class="bg-white">
+	<div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
+		<h2 class="sr-only">Products</h2>
+		
+		<form id="ingredientsForm" asp-action="SaveIngredients" method="post">
+			<div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-8">
+				@{
+					@Html.HiddenFor(m => Model.RecipeId)
+					@for (int i = 0; i < Model.Ingredients.Count; i++)
+					{
+						@Html.HiddenFor(m => Model.Ingredients[i].Id)
+						@Html.HiddenFor(m => Model.Ingredients[i].Name)
+						<div>
+							<img src="https://www.kroger.com/product/images/xlarge/front/@Model.Ingredients[i].Upc" class="aspect-square w-full rounded-lg bg-gray-200 object-cover group-hover:opacity-75 xl:aspect-[7/8]">
+							<h2 class="mt-4 text-sm text-gray-700">@Model.Ingredients[i].Name</h2>
+							<div class="padded-div">
+								<button type="button" onclick="decrementQuantity(@Model.Ingredients[i].Id)"><i class="fa-solid fa-circle-minus"></i></button>
+								@Html.TextBoxFor(mbox => Model.Ingredients[i].Quantity, new { id = "quantity-" + @Model.Ingredients[i].Id })
+								<!-- 
+								<input type="text" id="quantity-@Model.Ingredients[i].Id" name="@Model.Ingredients[i].Quantity" value="@Model.Ingredients[i].Quantity" />
+								--->
+								<button type="button" onclick="incrementQuantity(@Model.Ingredients[i].Id)"><i class="fa-solid fa-circle-plus"></i></button>
+							</div>
+						</div>
+					}
+				}
+			</div>
+			<button type="submit" class="btn btn-primary rounded-md bg-indigo-600">Add Ingredients To Recipe</button>
+
+		</form>
+	</div>
+</div>
+<style>
+	.padded-div {
+		display: flex;
+	}
+
+</style>
+<script>
+
+	function incrementQuantity(index) {
+		var quantityInput = document.getElementById("quantity-" + index);
+		var currentValue = parseInt(quantityInput.value);
+		if (!isNaN(currentValue)) {
+			quantityInput.value = currentValue + 1;
+		} else {
+			quantityInput.value = 1;
+		}
+		console.log("Incremented value: " + quantityInput.value);
+	}
+
+	function decrementQuantity(index) {
+		var quantityInput = document.getElementById("quantity-" + index);
+		var currentValue = parseInt(quantityInput.value);
+		if (!isNaN(currentValue) && currentValue > 0) {
+			quantityInput.value = currentValue - 1;
+		} else {
+			quantityInput.value = 0;
+		}
+		console.log("Decremented value: " + quantityInput.value);
+	}
+
+	function prepareAndSubmit() {
+		// Get the form element
+		var form = document.getElementById("ingredientsForm");
+
+		// Log form data before filtering
+		console.log("Form data before filtering:");
+		var allInputs = form.querySelectorAll('input[type="text"]');
+		allInputs.forEach(function(input) {
+			console.log(input.name + ": " + input.value);
+		});
+
+		// Remove ingredients with a quantity of 0 from the DOM
+		allInputs.forEach(function(input) {
+			var quantity = parseInt(input.value);
+			if (quantity <= 0) {
+				var parentDiv = input.closest("div");
+				if (parentDiv) {
+					parentDiv.remove();
+					console.log("Removing input: " + input.name);
+				}
+			}
+		});
+
+		// Log form data after filtering
+		console.log("Form data after filtering:");
+		var remainingInputs = form.querySelectorAll('input[type="text"]');
+		remainingInputs.forEach(function(input) {
+			console.log(input.name + ": " + input.value);
+		});
+
+		// Submit the form
+		console.log("Submitting the form...");
+		return true;
+	}
+
+</script>
+<script src="https://kit.fontawesome.com/253b9e5551.js" crossorigin="anonymous"></script>

@@ -55,7 +55,7 @@ namespace RecipeHelper.Services
             return null;
         }
 
-        public async Task<ProductResponse?> SearchProductByFilter(string filterTerm)
+        public async Task<List<Product>> SearchProductByFilter(string filterTerm)
         {
             var client = _httpClientFactory.CreateClient();
             var token = await GetProductToken();
@@ -69,8 +69,13 @@ namespace RecipeHelper.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var result = JsonConvert.DeserializeObject<ProductResponse>(content);
-                    return result;
+                    var krogerProducts = JsonConvert.DeserializeObject<KrogerProductSearchResponse>(content);
+
+                    if (krogerProducts != null)
+                    {
+                        return TransformKrogerResponseToProducts(krogerProducts);
+                    }
+                    return null;
                 }
                 else
                 {
@@ -80,6 +85,32 @@ namespace RecipeHelper.Services
             }
 
             return null;
+        }
+
+        public List<Product> TransformKrogerResponseToProducts(KrogerProductSearchResponse response)
+        {
+            var products = new List<Product>();
+
+            if (response?.data != null)
+            {
+                foreach (var datum in response.data)
+                {
+                    var product = new Product
+                    {
+                        ProductId = datum.productId,
+                        Upc = datum.upc,
+                        Categories = datum.categories.ToList(),
+                        Description = datum.description,
+                        SoldBy = datum.items.FirstOrDefault()?.soldBy ?? "N/A", // Assuming the first item is representative
+                        Size = datum.items.FirstOrDefault()?.size ?? "N/A",
+                        Price = datum.items.FirstOrDefault()?.price ?? new Price() // Handling potential nulls
+                    };
+
+                    products.Add(product);
+                }
+            }
+
+            return products;
         }
     }
 }

@@ -44,14 +44,14 @@ namespace RecipeHelper.Controllers
         public async Task<ActionResult> SearchProduct(string searchTerm)
         {
 
-            var results = await _krogerService.SearchProductByFilter(searchTerm);
+            var products = await _krogerService.SearchProductByFilter(searchTerm);
 
-            if (results != null)
+            if (products != null)
             {
                 return View("AddProduct", new ProductSearchVM
                 {
                     SearchTerm = searchTerm,
-                    ProductSearchResults = results.products
+                    ProductSearchResults = products
                 });
             }
             return View("AddProduct", new ProductSearchVM

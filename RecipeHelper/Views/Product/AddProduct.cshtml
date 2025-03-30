@@ -19,17 +19,17 @@
 
     @if (Model.ProductSearchResults != null && Model.ProductSearchResults.Any())
     {
-        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8">
-            <h2 class="text-xl font-semibold my-4">Search Results</h2>
-            <ul>
-                @foreach (var product in Model.ProductSearchResults)
-                {
-                    <li class="border-b border-gray-200 py-2">
-                        <span class="font-bold">@product.Description</span> - <span class="text-gray-600">@product.Price.Regular</span>
-                        <!-- Add button or link to add product to database -->
-                    </li>
-                }
-            </ul>
-        </div>
+    <div class="bg-white shadow-md rounded px-8 pt-6 pb-8">
+        <h2 class="text-xl font-semibold my-4">Search Results</h2>
+        <ul>
+            @foreach (var product in Model.ProductSearchResults)
+            {
+            <li class="border-b border-gray-200 py-2">
+                <span class="font-bold">@product.Description</span> - <span class="text-gray-600">@product.Price.regular</span>
+                <!-- Add button or link to add product to database -->
+            </li>
+            }
+        </ul>
+    </div>
     }
 </div>

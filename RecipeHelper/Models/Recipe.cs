@@ -23,6 +23,17 @@ namespace RecipeHelper.Models
         public List<IngredientNameVM> Ingredients { get; set; } = [];
     }
 
+    public class SubmitDinnerSelectionsVM
+    {
+        public List<SelectedRecipeVM> SelectedRecipes { get; set; }
+        public Dictionary<string, int> Ingredients { get; set; }
+    }
+
+    public class SelectedRecipeVM
+    {
+        public string RecipeName { get; set; }
+        public string ImageUri { get; set; }
+    }
     public class CreateRecipeVM
     {
         //[JsonPropertyName("recipeName")]

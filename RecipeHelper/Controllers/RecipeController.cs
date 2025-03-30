@@ -6,6 +6,7 @@ using RecipeHelper.Models;
 using System.Diagnostics;
 using RecipeHelper.Services;
 using Newtonsoft.Json;
+using System.Collections;
 
 
 namespace RecipeHelper.Controllers
@@ -24,32 +25,6 @@ namespace RecipeHelper.Controllers
             _storageService = storageService;
         }
 
-        /*  [HttpGet("{id}")]
-          public ActionResult<Recipe> Get(int id)
-          {
-              var recipe = _context.Recipes.Where(r => r.Id == id).Select(r => new RecipeVM
-              {
-                  RecipeName = r.Name,
-                  ImageUri = r.ImageUri,
-                  Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
-                  {
-                      Name = rp.Product.Name,
-                      Quantity = rp.Quantity,
-                  }).ToList(),
-              }).FirstOrDefault();
-
-
-              if (recipe != null)
-              {
-                  return Ok(recipe);
-              }
-              else
-              {
-                  return NotFound();
-              }
-
-          }
-        */
         public ActionResult Recipe()
         {
 
@@ -85,6 +60,70 @@ namespace RecipeHelper.Controllers
             return View(recipe);
         }
 
+        public ActionResult SelectWeeklyRecipes()
+        {
+            var recipes = _context.Recipes.Select(r => new ViewRecipeVM
+            {
+                Id = r.Id,
+                RecipeName = r.Name,
+                ImageUri = r.ImageUri,
+                Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
+                {
+                    Name = rp.Product.Name,
+                    Quantity = rp.Quantity,
+                }).ToList(),
+            }).ToList();
+
+            return View(recipes);
+        }
+
+        public ActionResult SubmitDinnerSelections(List<int> selectedRecipes)
+        {
+            SubmitDinnerSelectionsVM model = new SubmitDinnerSelectionsVM
+            {
+                SelectedRecipes = new List<SelectedRecipeVM>(),
+                Ingredients = new Dictionary<string, int>()
+            };
+
+            var recipes = _context.Recipes.Where(r => selectedRecipes.Contains(r.Id)).Select(r => new ViewRecipeVM
+            {
+                RecipeName = r.Name,
+                ImageUri = r.ImageUri,
+                Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
+                {
+                    Name = rp.Product.Name,
+                    Quantity = rp.Quantity,
+                }).ToList(),
+            }).ToList();
+
+            if (recipes != null)
+            {
+                foreach (var recipe in recipes)
+                {
+                    model.SelectedRecipes.Add(new SelectedRecipeVM
+                    {
+                        RecipeName = recipe.RecipeName,
+                        ImageUri = recipe.ImageUri
+                    });
+
+                    foreach (var ingredient in recipe.Ingredients)
+                    {
+                        if (model.Ingredients.ContainsKey(ingredient.Name))
+                        {
+                            model.Ingredients[ingredient.Name] += ingredient.Quantity;
+                        }
+                        else
+                        {
+                            model.Ingredients.Add(ingredient.Name, ingredient.Quantity);
+                        }
+                    }
+                }
+            }
+
+            return View("ReviewDinnerSelections", model);
+        }
+
+
         [HttpPost]
         public IActionResult SaveIngredients(IngredientsVM model)
         {
@@ -95,16 +134,16 @@ namespace RecipeHelper.Controllers
             var chosenIngredients = ingredients.Where(i => i.Quantity > 0);
 
             foreach (var ingredient in chosenIngredients)
+            {
+                var recipeProduct = new RecipeProduct
                 {
-                    var recipeProduct = new RecipeProduct
-                    {
-                        RecipeId = model.RecipeId,
-                        ProductId = ingredient.Id,
-                        Quantity = ingredient.Quantity,
-                    };
-                    _context.RecipeProducts.Add(recipeProduct);
-                    _context.SaveChanges();
-                }
+                    RecipeId = model.RecipeId,
+                    ProductId = ingredient.Id,
+                    Quantity = ingredient.Quantity,
+                };
+                _context.RecipeProducts.Add(recipeProduct);
+                _context.SaveChanges();
+            }
 
             var recipeToReview = _context.Recipes.Where(r => r.Id == model.RecipeId).Select(r => new ViewRecipeVM
             {
@@ -120,24 +159,7 @@ namespace RecipeHelper.Controllers
             return View("ReviewRecipe", recipeToReview);
         }
 
-        public ActionResult Product()
-        {
-
-            var products = _context.Products.Select(p => new ProductVM
-            {
-                Name = p.Name,
-                Upc = p.Upc,
-                Id = p.Id
-                //ImageUri = r.ImageUri,
-                /*Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
-                {
-                    Name = rp.Product.Name,
-                    Quantity = rp.Quantity,
-                }).ToList(),*/
-            }).ToList();
-
-            return View(products);
-        }
+       /* 
         /*
         public ActionResult IngredientsPicker()
         {
@@ -293,72 +315,31 @@ namespace RecipeHelper.Controllers
             //ViewBag.Ingredients = ingredients;
 
 
-            return View("Product", new IngredientsVM { RecipeId = recipe.Id, Ingredients = products });
+            return View("ProductToChoose", new IngredientsVM { RecipeId = recipe.Id, Ingredients = products });
 
             //return RedirectToAction("IngredientsPicker");
 
 
         }
-        /*
-        [HttpPost("")]
-        public IActionResult Create(CreateRecipeVM recipeCreateRequest)
-        {
-            _logger.LogInformation("Adding recipe");
-            try
-            {
-                var recipe = new Recipe
-                {
-                    Name = recipeCreateRequest.RecipeName,
-                    ImageUri = recipeCreateRequest.ImageUri,
-                };
-                _context.Recipes.Add(recipe);
-                _context.SaveChanges();
 
-                foreach (var ingredient in recipeCreateRequest.Ingredients)
-                {
-                    var recipeProduct = new RecipeProduct
-                    {
-                        RecipeId = recipe.Id,
-                        ProductId = ingredient.Id,
-                        Quantity = ingredient.Quantity,
-                    };
-                    _context.RecipeProducts.Add(recipeProduct);
-                    _context.SaveChanges();
-                }
-
-                var createdRecipe = _context.Recipes.Where(r => r.Id == recipe.Id).Select(r => new RecipeVM
-                {
-                    RecipeName = r.Name,
-                    ImageUri = r.ImageUri,
-                    Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
-                    {
-                        Name = rp.Product.Name,
-                        Quantity = rp.Quantity,
-                    }).ToList(),
-                });
-                return Ok(createdRecipe);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }*/
-
-        [HttpDelete("{id}")]
+        //[HttpDelete("{id}")]
         public ActionResult DeleteRecipe(int id)
         {
+            _logger.LogInformation("[DeleteRecipe] Finding recipe with id [{id}]", id);
             var recipe = _context.Recipes.Find(id);
 
             if (recipe != null)
             {
+                _logger.LogInformation("[DeleteRecipe] Found recipe with id [{id}]", id);
                 _context.Recipes.Remove(recipe);
                 _context.SaveChanges();
-                return RedirectToAction();
+                _logger.LogInformation("[DeleteRecipe] Deleted recipe [{recipeName}] with id [{id}]", recipe.Name, id);
+                return RedirectToAction("Recipe");
             }
             else
             {
-                _logger.LogInformation("recipe does not exist");
-                return RedirectToAction();
+                _logger.LogInformation("[DeleteRecipe] recipe with id [{id}] not found", id);
+                return RedirectToAction("Recipe");
             }
         }
 

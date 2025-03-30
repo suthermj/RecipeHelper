@@ -1,0 +1,92 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@model List<ViewRecipeVM>
+
+<h1 class="text-2xl font-bold text-center my-4">Select Your Weekly Dinners</h1>
+
+<form asp-action="SubmitDinnerSelections" asp-controller="Recipe" method="post">
+	<p class="text-center" id="selectionCount">Selected recipes: 0</p>
+	<div class="container mx-auto px-4">
+		<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+			@foreach (var recipe in Model)
+			{
+				<div class="p-4 max-w-sm mx-auto bg-white rounded-lg border shadow-md hover:bg-blue-100 cursor-pointer js-selectable" data-id="@recipe.Id">
+					<h2 class="text-lg font-semibold text-gray-900">@recipe.RecipeName</h2>
+				</div>
+			}
+		</div>
+		<button type="submit" class="mt-4 px-4 py-2 bg-blue-500 text-white font-bold rounded hover:bg-blue-700">Submit Selections</button>
+	</div>
+</form>
+
+<script>
+
+	// Adds recipe IDs to list of selected recipes
+	document.addEventListener('DOMContentLoaded', function () {
+		const selectableCards = document.querySelectorAll('.js-selectable');
+		const selectionCount = document.getElementById('selectionCount');
+
+		selectableCards.forEach(card => {
+			card.addEventListener('click', function () {
+				let recipeId = this.getAttribute('data-id');
+				let hiddenInput = document.getElementById('selected-' + recipeId);
+
+				if (this.classList.contains('border-blue-500')) {
+					this.classList.remove('border-blue-500', 'bg-blue-100');
+					if (hiddenInput) {
+						hiddenInput.remove();
+					}
+				} else {
+					// Check if there are already 5 selected items
+					if (document.querySelectorAll('.border-blue-500').length < 5) {
+						this.classList.add('border-blue-500', 'bg-blue-100');
+						if (!hiddenInput) {
+							hiddenInput = document.createElement('input');
+							hiddenInput.type = 'hidden';
+							hiddenInput.id = 'selected-' + recipeId;
+							hiddenInput.name = 'selectedRecipes';
+							hiddenInput.value = recipeId;
+							this.appendChild(hiddenInput);
+
+						}
+					}
+				}
+
+				updateSelectionCount();
+			});
+		});
+
+		function updateSelectionCount() {
+			const selectedCount = document.querySelectorAll('.border-blue-500').length;
+			selectionCount.textContent = `Selected recipes: ${selectedCount}`;
+		}
+	});
+
+	// increments total selected recipe count
+	/*
+		document.addEventListener('DOMContentLoaded', function () {
+		const selectableCards = document.querySelectorAll('.js-selectable');
+		const selectionCount = document.getElementById('selectionCount');
+
+		function updateSelectionCount() {
+			const selectedCount = document.querySelectorAll('.border-blue-500').length;
+			selectionCount.textContent = `Selected recipes: ${selectedCount}`;
+		}
+
+		selectableCards.forEach(card => {
+			card.addEventListener('click', function () {
+				if (this.classList.contains('border-blue-500')) {
+					this.classList.remove('border-blue-500', 'bg-blue-100');
+				} else {
+					// Ensure no more than five selections
+					if (document.querySelectorAll('.border-blue-500').length < 5) {
+						this.classList.add('border-blue-500', 'bg-blue-100');
+					}
+				}
+				updateSelectionCount(); // Update count display after any click
+			});
+		});
+	});*/
+
+</script>

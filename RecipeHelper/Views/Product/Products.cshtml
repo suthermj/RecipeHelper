@@ -1,0 +1,30 @@
+﻿@model List<ViewProductVM>
+
+@{
+    ViewData["Title"] = "Product List";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Current Products</h1>
+        <a href="@Url.Action("AddProduct", "Product")" class="inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Add Product
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        @foreach (var product in Model)
+        {
+            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                <img src="@($"https://www.kroger.com/product/images/xlarge/front/{product.Upc}")"
+                     alt="@($"Image of {product.Name}")"
+                     class="w-full h-48 object-cover">
+
+                <div class="p-4">
+                    <h5 class="text-lg font-semibold truncate">@product.Name</h5>
+                    <p class="text-sm text-gray-700">UPC: @product.Upc</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>

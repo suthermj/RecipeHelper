@@ -8,7 +8,7 @@ namespace RecipeHelper.Models
         public int Id { get; set; }
         public string Name { get; set; }
         public string Upc { get; set; }
-
+       // public decimal Price { get; set; }
 
         // Navigations
         public List<RecipeProduct>? RecipeProducts { get; set; }

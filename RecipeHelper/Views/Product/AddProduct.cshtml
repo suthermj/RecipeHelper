@@ -3,6 +3,33 @@
 <div class="max-w-2xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-center mb-6">Search for Products</h1>
 
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div id="successMessage" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+            <strong class="font-bold">Success! </strong>
+            <span class="block sm:inline">@TempData["SuccessMessage"].ToString()</span>
+            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('successMessage').style.display='none';">
+                <span class="text-2xl">&times;</span>
+            </button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div id="successMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong class="font-bold">Error! </strong>
+            <span class="block sm:inline">@TempData["ErrorMessage"].ToString()</span>
+            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('successMessage').style.display='none';">
+                <span class="text-2xl">&times;</span>
+            </button>
+        </div>
+    }
+    <div class="mb-4 text-left">
+        <a href="@Url.Action("Products", "Product")" class="inline-block bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            ← Back to Products
+        </a>
+    </div>
+
     <form asp-action="SearchProduct" asp-controller="Product" method="post" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
         <div class="mb-4">
             <label class="block text-gray-700 text-sm font-bold mb-2" for="searchTerm">
@@ -30,7 +57,12 @@
                             <div class="flex-grow">
                                 <span class="font-bold">@product.Description</span> - <span class="text-gray-600">$@product.Price.regular.ToString("0.00")</span>
                             </div>
-                            <input type="checkbox" name="selectedProducts" value="@product.Upc" class="ml-4">
+                            <div>
+                                <input type="checkbox" class="product-checkbox ml-4" data-upc="@product.Upc">
+                                <input type="hidden" name="selectedProducts" value="@product.Upc" disabled>
+                                <input type="hidden" name="productNames[@product.Upc]" value="@product.Description" disabled>
+                                <input type="hidden" name="productPrices[@product.Upc]" value="@product.Price.regular" disabled>
+                            </div>
                         </li>
                     }
                 </ul>
@@ -41,5 +73,26 @@
                 </div>
             </div>
         </form>
+
     }
 </div>
+
+<script>
+    document.querySelectorAll('.product-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            // Toggle the disabled property based on checkbox state
+            this.parentNode.querySelectorAll('input[type="hidden"]').forEach(hidden => {
+                hidden.disabled = !this.checked;
+            });
+        });
+    });
+
+    $(document).ready(function() {
+        // Check if the success message exists
+        if ($("#successMessage").length) {
+            setTimeout(function() {
+                $("#successMessage").fadeOut("slow");
+            }, 7000); // Adjust the time to your preference, here it's 7000ms (7 seconds)
+        }
+    });
+</script>

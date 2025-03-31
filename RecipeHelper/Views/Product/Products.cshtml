@@ -6,10 +6,18 @@
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
     <div class="flex justify-between items-center mb-6">
+        <!-- Title on the left -->
         <h1 class="text-2xl font-bold text-gray-900">Current Products</h1>
-        <a href="@Url.Action("AddProduct", "Product")" class="inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-            Add Product
-        </a>
+
+        <!-- Buttons on the right -->
+        <div class="flex space-x-4">
+            <a href="@Url.Action("Recipe", "Recipe")" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                ← Back to Recipes
+            </a>
+            <a href="@Url.Action("AddProduct", "Product")" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Add Product
+            </a>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

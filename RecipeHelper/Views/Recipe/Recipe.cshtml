@@ -4,24 +4,30 @@
 
 @model List<ViewRecipeVM>
 
-<div class="bg-white">
-    <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
-        <h2 class="sr-only">Products</h2>
-        <button type="button" onclick="location.href='@Url.Action("CreateEditRecipe", "Recipe")'" class="btn btn-primary rounded-md bg-indigo-600">Add Recipe</button>
-        <button type="button" onclick="location.href='@Url.Action("SelectWeeklyRecipes", "Recipe")'" class="btn btn-primary rounded-md bg-indigo-600">Create Dinner List</button>
-        <button type="button" onclick="location.href='@Url.Action("Products", "Product")'" class="btn btn-primary rounded-md bg-indigo-600">View Products</button>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">Recipes</h1>
+    <div class="flex space-x-4 mb-8">
+        <button onclick="location.href='@Url.Action("CreateEditRecipe", "Recipe")'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            Add Recipe
+        </button>
+        <button onclick="location.href='@Url.Action("SelectWeeklyRecipes", "Recipe")'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            Create Dinner List
+        </button>
+        <button onclick="location.href='@Url.Action("Products", "Product")'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            View Products
+        </button>
+    </div>
 
-        <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-8">
-            @{
-                foreach (var recipe in Model)
-                {
-                    <a href="@Url.Action("ViewRecipe", "Recipe", new { id = recipe.Id })" class="group">
-                        <img src=@recipe.ImageUri class="aspect-square w-full rounded-lg bg-gray-200 object-cover group-hover:opacity-75 xl:aspect-[7/8]">
-                        <h3 class="mt-4 text-sm text-gray-700">@recipe.RecipeName</h3>
-                        <!--<p class="mt-1 text-lg font-medium text-gray-900">$48</p>--->
-                    </a>
-                }
-            }
-        </div>
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        @foreach (var recipe in Model)
+        {
+            <a href="@Url.Action("ViewRecipe", "Recipe", new { id = recipe.Id })" class="block rounded-lg shadow-lg overflow-hidden group">
+                <img src=@recipe.ImageUri alt="Image of @recipe.RecipeName" class="w-full h-48 object-cover group-hover:opacity-75">
+                <div class="p-4 bg-white">
+                    <h3 class="text-lg font-semibold text-gray-900">@recipe.RecipeName</h3>
+                    <p class="text-sm text-gray-700">Ingredients: @recipe.Ingredients.Count</p>
+                </div>
+            </a>
+        }
     </div>
 </div>

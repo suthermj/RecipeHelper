@@ -159,92 +159,12 @@ namespace RecipeHelper.Controllers
             return View("ReviewRecipe", recipeToReview);
         }
 
-       /* 
-        /*
-        public ActionResult IngredientsPicker()
-        {
-            var products = _context.Products.Select(p => new ProductVM
-            {
-                Name = p.Name,
-                Upc = p.Upc,
-                Id = p.Id
-            }).ToList();
-
-            var ingredients = new IngredientsVM
-            {
-                Ingredients = products
-            };
-
-            ViewBag.Ingredients = ingredients;
-
-            return View("Product", new IngredientsVM { Ingredients = new List<ProductVM>() });
-        }
-        */
         public ActionResult NewRecipe()
         {
             return View();
         }
         public ActionResult CreateEditRecipe()
         {
-            /*_storageService.StoreRecipeImage(newRecipe.ImageFile);
-            try
-             {
-
-                 var recipe = new Recipe
-                 {
-                     Name = recipeCreateRequest.RecipeName,
-                     ImageUri = recipeCreateRequest.ImageUri,
-                 };
-                 _context.Recipes.Add(recipe);
-                 _context.SaveChanges();
-
-                 foreach (var ingredient in recipeCreateRequest.Ingredients)
-                 {
-                     var recipeProduct = new RecipeProduct
-                     {
-                         RecipeId = recipe.Id,
-                         ProductId = ingredient.Id,
-                         Quantity = ingredient.Quantity,
-                     };
-                     _context.RecipeProducts.Add(recipeProduct);
-                     _context.SaveChanges();
-                 }
-
-                 var createdRecipe = _context.Recipes.Where(r => r.Id == recipe.Id).Select(r => new RecipeVM
-                 {
-                     RecipeName = r.Name,
-                     ImageUri = r.ImageUri,
-                     Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
-                     {
-                         Name = rp.Product.Name,
-                         Quantity = rp.Quantity,
-                     }).ToList(),
-                 });
-                 return Ok(createdRecipe);
-             }
-             catch (Exception ex)
-             {
-                 return BadRequest(ex.Message);
-             }
-
-        //return View();
-
-        var products = _context.Products.Select(p => new ProductVM
-            {
-                Name = p.Name,
-                Upc = p.Upc,
-                Id = p.Id
-                //ImageUri = r.ImageUri,
-                /*Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
-                {
-                    Name = rp.Product.Name,
-                    Quantity = rp.Quantity,
-                }).ToList(),
-            }).ToList();
-
-            return View("Products", products);
-        }
-*/
             return View();
         }
 
@@ -312,28 +232,37 @@ namespace RecipeHelper.Controllers
                 Ingredients = products
             };
 
-            //ViewBag.Ingredients = ingredients;
-
-
             return View("ProductToChoose", new IngredientsVM { RecipeId = recipe.Id, Ingredients = products });
-
-            //return RedirectToAction("IngredientsPicker");
-
-
         }
 
         //[HttpDelete("{id}")]
-        public ActionResult DeleteRecipe(int id)
+        public async Task<ActionResult> DeleteRecipe(int id)
         {
             _logger.LogInformation("[DeleteRecipe] Finding recipe with id [{id}]", id);
-            var recipe = _context.Recipes.Find(id);
+            var recipe = await _context.Recipes.FindAsync(id);
 
             if (recipe != null)
             {
                 _logger.LogInformation("[DeleteRecipe] Found recipe with id [{id}]", id);
-                _context.Recipes.Remove(recipe);
-                _context.SaveChanges();
+                try
+                {
+                    _context.Recipes.Remove(recipe);
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex) 
+                { 
+                    _logger.LogError(ex.Message, "Error deleting recipe with id [{id}]", id);
+                    return RedirectToAction("Recipe");
+                }
                 _logger.LogInformation("[DeleteRecipe] Deleted recipe [{recipeName}] with id [{id}]", recipe.Name, id);
+                
+                if (recipe.ImageUri != null)
+                {
+                    var splitImageUri = recipe.ImageUri.Split("/");
+                    string fileName = splitImageUri[splitImageUri.Length -1];
+                    await _storageService.DeleteImageRecipe(fileName);
+                }
+
                 return RedirectToAction("Recipe");
             }
             else

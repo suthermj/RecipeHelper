@@ -54,5 +54,23 @@ namespace RecipeHelper.Services
 
         }
 
+        public async Task<bool> DeleteImageRecipe(string fileName)
+        {
+            try
+            {
+                _logger.LogInformation("Deleting recipe image blob [{fileName}]", fileName);
+                // Create a blob container if it doesn't exist
+                var containerClient = _blobServiceClient.GetBlobContainerClient("recipe-images");
+                var blobClient = containerClient.GetBlobClient(fileName);
+                await blobClient.DeleteAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message, "Error deleting image blob");
+                return false;
+            }
+        }
+
     }
 }

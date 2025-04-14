@@ -7,6 +7,8 @@ using System.Diagnostics;
 using RecipeHelper.Services;
 using Newtonsoft.Json;
 using System.Collections;
+using NuGet.Protocol;
+using RecipeHelper.Models.Kroger;
 
 
 namespace RecipeHelper.Controllers
@@ -33,7 +35,7 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
+                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
                 {
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
@@ -50,7 +52,7 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
+                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
                 {
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
@@ -67,7 +69,7 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
+                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
                 {
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
@@ -89,7 +91,7 @@ namespace RecipeHelper.Controllers
             {
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
+                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
                 {
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
@@ -127,8 +129,6 @@ namespace RecipeHelper.Controllers
         [HttpPost]
         public IActionResult SaveIngredients(IngredientsVM model)
         {
-            _logger.LogInformation("howe");
-
             var ingredients = model.Ingredients;
 
             var chosenIngredients = ingredients.Where(i => i.Quantity > 0);
@@ -141,8 +141,17 @@ namespace RecipeHelper.Controllers
                     ProductId = ingredient.Id,
                     Quantity = ingredient.Quantity,
                 };
-                _context.RecipeProducts.Add(recipeProduct);
-                _context.SaveChanges();
+
+                try
+                {
+                    _context.RecipeProducts.Add(recipeProduct);
+                    _context.SaveChanges();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error saving recipe ingredient");
+                }
+                
             }
 
             var recipeToReview = _context.Recipes.Where(r => r.Id == model.RecipeId).Select(r => new ViewRecipeVM
@@ -150,8 +159,9 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientNameVM
+                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
                 {
+                    Id = rp.ProductId,
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
                 }).ToList(),
@@ -159,80 +169,113 @@ namespace RecipeHelper.Controllers
             return View("ReviewRecipe", recipeToReview);
         }
 
-        public ActionResult NewRecipe()
+        public async Task<ActionResult> CreateEditRecipe(int? id)
         {
-            return View();
-        }
-        public ActionResult CreateEditRecipe()
-        {
-            return View();
+            if (id == null)
+            {
+                return View(new CreateRecipeVM());
+            }
+            else
+            {
+                var recipe = await _context.Recipes.Where(r => r.Id == id).Select(r => new CreateRecipeVM
+                {
+                    Id = r.Id,
+                    RecipeName = r.Name,
+                    ImageUri = r.ImageUri,
+                    Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
+                    {
+                        Id = rp.Id,
+                        Quantity = rp.Quantity,
+                    }).ToList(),
+                }).FirstOrDefaultAsync();
+
+                recipe.Modifying = true;
+
+                return View(recipe);
+            }
         }
 
         public async Task<ActionResult> CreateEditRecipeForm(CreateRecipeVM newRecipe)
         {
             var recipeExists = await _context.Recipes.Where(r => r.Name == newRecipe.RecipeName).FirstOrDefaultAsync();
 
-            // Serialize the model to JSON
-            var jsonString = JsonConvert.SerializeObject(newRecipe);
-
-            // Set the JSON string in session
-            HttpContext.Session.SetString("Recipe", jsonString);
-
-            if (recipeExists != null)
+            if (recipeExists != null && !newRecipe.Modifying)
             {
                 _logger.LogInformation($"Recipe name [{newRecipe.RecipeName}] already exists");
                 TempData["ErrorMessage"] = "Please correct the errors before proceeding.";
                 return RedirectToAction("CreateEditRecipe");
             }
 
-            StoreImageBlobResponse blobResponse = new();
-            if (newRecipe.ImageFile != null)
+            if (newRecipe.Modifying)
             {
-                _logger.LogInformation($"storing recipe image in blob storage [{newRecipe.ImageFile.FileName}]");
-                blobResponse = await _storageService.StoreRecipeImage(newRecipe.ImageFile);
-            }
+                var draftRecipe = new DraftRecipe();
+                draftRecipe.Name = newRecipe.RecipeName;
+                draftRecipe.PublishedRecipeId = newRecipe.Id;
 
-            var recipe = new Recipe
-            {
-                Name = newRecipe.RecipeName,
-                ImageUri = blobResponse.BlobUri,
-            };
-
-            try
-            {
-                _context.Recipes.Add(recipe);
-                _context.SaveChanges();
-
-                /*foreach (var ingredient in newRecipe.Ingredients)
+                // Detects new recipe image
+                if (newRecipe.ImageFile != null)
                 {
-                    var recipeProduct = new RecipeProduct
+                    StoreImageBlobResponse newImageBlobResponse = new();
+                    if (newRecipe.ImageFile != null)
                     {
-                        RecipeId = recipe.Id,
-                        ProductId = ingredient.Id,
-                        Quantity = ingredient.Quantity,
-                    };
-                    _context.RecipeProducts.Add(recipeProduct);
+                        _logger.LogInformation($"storing recipe image in blob storage [{newRecipe.ImageFile.FileName}]");
+                        newImageBlobResponse = await _storageService.StoreRecipeImage(newRecipe.ImageFile);
+                    }
+                    draftRecipe.ImageUri = newImageBlobResponse.BlobUri;
+                }
+
+                try
+                {
+                    _context.DraftRecipes.Add(draftRecipe);
                     _context.SaveChanges();
-                }*/
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(ex.Message);
+                }
+
+                return View("ProductToChoose", new IngredientsVM { RecipeId = draftRecipe.Id });
+
             }
-            catch (Exception ex)
+            else
             {
-                return BadRequest(ex.Message);
-            }
+                StoreImageBlobResponse blobResponse = new();
+                if (newRecipe.ImageFile != null)
+                {
+                    _logger.LogInformation($"storing recipe image in blob storage [{newRecipe.ImageFile.FileName}]");
+                    blobResponse = await _storageService.StoreRecipeImage(newRecipe.ImageFile);
+                }
 
-            var products = _context.Products.Select(p => new ProductVM
-            {
-                Name = p.Name,
-                Upc = p.Upc,
-                Id = p.Id
-            }).ToList();
+                var recipe = new Recipe
+                {
+                    Name = newRecipe.RecipeName,
+                    ImageUri = blobResponse.BlobUri,
+                };
 
-            var ingredients = new IngredientsVM
-            {
-                Ingredients = products
-            };
+                try
+                {
+                    _context.Recipes.Add(recipe);
+                    _context.SaveChanges();
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(ex.Message);
+                }
 
-            return View("ProductToChoose", new IngredientsVM { RecipeId = recipe.Id, Ingredients = products });
+                var products = _context.Products.Select(p => new ProductVM
+                {
+                    Name = p.Name,
+                    Upc = p.Upc,
+                    Id = p.Id
+                }).ToList();
+
+                var ingredients = new IngredientsVM
+                {
+                    Ingredients = products
+                };
+
+                return View("ProductToChoose", new IngredientsVM { RecipeId = recipe.Id, Ingredients = products });
+            }   
         }
 
         //[HttpDelete("{id}")]

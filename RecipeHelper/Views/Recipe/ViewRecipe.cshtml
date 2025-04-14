@@ -1,22 +1,40 @@
 ﻿@model ViewRecipeVM
 
-<div class="bg-white">
-	<div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
-		<h2>@Model.RecipeName</h2>
-		<img src=@Model.ImageUri class="aspect-square w-full rounded-lg bg-gray-200 object-cover group-hover:opacity-75 xl:aspect-[7/8]">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <!-- Recipe Header -->
+    <div class="text-center mb-10">
+        <h1 class="text-4xl font-bold text-gray-800">@Model.RecipeName</h1>
+    </div>
 
-		@{
-			if (Model.Ingredients != null) {
-				foreach (var ingredient in Model.Ingredients)
-				{
-					<p>@ingredient.Name</p>
-					<p>Quantity - @ingredient.Quantity</p>
-					<br />
-				}
-			}	
-		}
-		<button type="button" onclick="location.href='@Url.Action("Recipe", "Recipe")'" class="btn btn-primary rounded-md bg-indigo-600">Back</button>
-		<button type="button" onclick="location.href='@Url.Action("CreateEditRecipe", "Recipe",  new { id = Model.Id })'" class="btn btn-primary rounded-md bg-indigo-600">Modify</button>
-		<button type="button" onclick="location.href='@Url.Action("DeleteRecipe", "Recipe", new { id = Model.Id })'" class="btn btn-primary rounded-md bg-indigo-600">Delete</button>
-	</div>
+    <!-- Image Section -->
+    <div class="flex justify-center mb-6">
+        <img src=@Model.ImageUri alt="Image of @Model.RecipeName" class="rounded-lg shadow-lg max-w-lg w-full h-auto">
+    </div>
+
+    <!-- Ingredients List -->
+    <div class="mt-6 bg-white shadow-md rounded-lg p-6">
+        <h3 class="text-2xl font-semibold text-gray-800 mb-4">Ingredients</h3>
+        <ul class="list-disc list-inside">
+            @if (Model.Ingredients != null)
+            {
+                foreach (var ingredient in Model.Ingredients)
+                {
+                    <li class="text-gray-700 font-medium">@ingredient.Name - Quantity: @ingredient.Quantity</li>
+                }
+            }
+        </ul>
+    </div>
+
+    <!-- Buttons Section -->
+    <div class="mt-10 flex justify-center space-x-4">
+        <button onclick="location.href='@Url.Action("Recipe", "Recipe")'" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+            Back
+        </button>
+        <button onclick="location.href='@Url.Action("CreateEditRecipe", "Recipe", new { id = Model.Id })'" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+            Modify
+        </button>
+        <button onclick="location.href='@Url.Action("DeleteRecipe", "Recipe", new { id = Model.Id })'" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+            Delete
+        </button>
+    </div>
 </div>

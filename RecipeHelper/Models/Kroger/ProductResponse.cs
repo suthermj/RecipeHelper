@@ -3,18 +3,38 @@
     public class Product
     {
         public string ProductId { get; set; }
-        public string Upc { get; set; }
-        public List<string> Categories { get; set; }
-        public string Description { get; set; }
+        public string upc { get; set; }
+        public List<string> categories { get; set; }
+        public string description { get; set; }
 
-        public string SoldBy { get; set; }
-        public string Size { get; set; }
-        public Price Price { get; set; }
+        public string soldBy { get; set; }
+        public string size { get; set; }
+        public float regularPrice { get; set; }
+        public float promoPrice { get; set; }
+        public string stockLevel { get; set; }
+        public bool onSale { get; set; }
+
+        public bool HasMissingData()
+        {
+            return size == "N/A" ||
+                   soldBy == "N/A" ||
+                   stockLevel == "N/A" ||
+                   string.IsNullOrWhiteSpace(description) ||
+                   promoPrice == 0;
+                    
+
+        }
     }
 
     public class KrogerProductSearchResponse
     {
-        public Datum[] data { get; set; }
+        public KrogerProduct[] data { get; set; }
+        public Meta meta { get; set; }
+    }
+
+    public class KrogerProductDetailsResponse
+    {
+        public KrogerProduct data { get; set; }
         public Meta meta { get; set; }
     }
 
@@ -30,7 +50,7 @@
         public int total { get; set; }
     }
 
-    public class Datum
+    public class KrogerProduct
     {
         public string productId { get; set; }
         public string upc { get; set; }

@@ -24,9 +24,10 @@
         @foreach (var product in Model)
         {
             <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                <img src="@($"https://www.kroger.com/product/images/xlarge/front/{product.Upc}")"
-                     alt="@($"Image of {product.Name}")"
-                     class="w-full h-48 object-cover">
+                <a href="@Url.Action("ViewProduct", "Product", new { productId = product.Id })">
+                    <img src="https://www.kroger.com/product/images/xlarge/front/@product.Upc"
+                         alt="@product.Name" class="rounded-lg shadow w-full h-48 object-cover" />
+                </a>
 
                 <div class="p-4">
                     <h5 class="text-lg font-semibold truncate">@product.Name</h5>

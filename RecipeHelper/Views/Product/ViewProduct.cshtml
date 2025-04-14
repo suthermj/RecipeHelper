@@ -1,0 +1,75 @@
+﻿@model RecipeHelper.Models.Kroger.Product
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    @if (TempData["WarningMessage"] != null)
+    {
+        <div id="warningMessage" class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6" role="alert">
+            ⚠️ @TempData["WarningMessage"]
+            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('warningMessage').style.display='none';">
+                <span class="text-2xl">&times;</span>
+            </button>
+        </div>
+    }
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">@Model.description</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white rounded-lg shadow-lg p-6">
+        <div class="flex justify-center items-center">
+            <img src="https://www.kroger.com/product/images/xlarge/front/@Model.upc"
+                 alt="@Model.description"
+                 class="rounded-lg shadow max-h-80 w-auto object-contain" />
+        </div>
+
+        <div class="space-y-4 text-gray-800">
+            <p><span class="font-semibold">Size:</span> <span class="ml-1">@Model.size</span></p>
+            <p><span class="font-semibold">Sold By:</span> <span class="ml-1">@Model.soldBy</span></p>
+            <p><span class="font-semibold">Stock Level:</span> <span class="ml-1">@Model.stockLevel</span></p>
+            <p>
+                <span class="font-semibold">Categories:</span>
+                <span class="ml-1">
+                    @(Model.categories != null && Model.categories.Any() ? string.Join(", ", Model.categories) : "N/A")
+                </span>
+            </p>
+
+            <div class="mt-6">
+                @if (Model.onSale)
+                {
+                    <p class="text-sm text-gray-500 line-through">$@Model.regularPrice.ToString("0.00")</p>
+                    <p class="text-2xl font-semibold text-green-600">Sale: $@Model.promoPrice.ToString("0.00")</p>
+                }
+                else
+                {
+                    <p class="text-2xl font-semibold text-gray-900">Price: $@Model.regularPrice.ToString("0.00")</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="mt-10 flex flex-col sm:flex-row gap-4">
+        <!-- Back Button -->
+        <a href="@Url.Action("Products", "Product")"
+           class="inline-block text-center bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition">
+            ← Back to Products
+        </a>
+
+        <!-- Delete Button -->
+        <form asp-action="DeleteProduct" asp-controller="Product" method="delete">
+            <input type="hidden" name="productId" value="@ViewBag.ProductId" />
+            <button type="submit"
+                    class="inline-block bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition w-full sm:w-auto">
+                Delete Product
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // Check if the success message exists
+        if ($("#warningMessage").length) {
+            setTimeout(function() {
+                $("#warningMessage").fadeOut("slow");
+            }, 5000); // Adjust the time to your preference, here it's 7000ms (7 seconds)
+        }
+    });
+</script>

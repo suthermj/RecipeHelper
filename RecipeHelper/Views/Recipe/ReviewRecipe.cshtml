@@ -1,3 +1,56 @@
 ﻿@model ViewRecipeVM
 
-<div>hello</div>
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <h1 class="text-3xl font-bold text-gray-900">@Model.RecipeName</h1>
+    <div class="mt-4">
+        <img src="@Model.ImageUri" alt="Recipe Image" class="w-full max-w-lg rounded-md shadow-md" />
+
+        <h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">Ingredients</h2>
+        <form asp-action="UpdateIngredients" method="post">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ingredient
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Quantity
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    @foreach (var ingredient in Model.Ingredients)
+                    {
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                @ingredient.Name
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                @Html.TextBoxFor(modelItem => ingredient.Quantity, new { @class = "form-input rounded-md shadow-sm", type = "number" })
+                                @Html.HiddenFor(modelItem => ingredient.Id)
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button type="button" class="text-indigo-600 hover:text-indigo-900" onclick="removeIngredient(@ingredient.Id)">Remove</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="mt-4">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Update Ingredients
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function removeIngredient(ingredientId) {
+        // Implement AJAX call or form submission to remove the ingredient by ID
+        console.log("Remove ingredient with ID: ", ingredientId);
+    }
+</script>

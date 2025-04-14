@@ -38,6 +38,36 @@ namespace RecipeHelper.Controllers
             return View(products);
         }
 
+        [HttpGet]
+        public async Task<ActionResult> ViewProduct(int productId)
+        {
+
+            var product = _context.Products.Where(p => p.Id == productId).Select(p => new ViewProductVM
+            {
+                Name = p.Name,
+                Upc = p.Upc,
+                Id = p.Id,
+            }).FirstOrDefault();
+
+            if (product != null)
+            {
+                var krogerProductDetails = await _krogerService.GetProductDetails(product.Upc);
+
+                if (krogerProductDetails.HasMissingData())
+                {
+                    TempData["WarningMessage"] = "Some product details could not be retrieved.";
+                }
+                ViewBag.ProductId = product.Id;
+                return View(krogerProductDetails);
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Error finding some product details";
+                return RedirectToAction();
+            }
+            
+        }
+
         public ActionResult AddProduct()
         {
             return View(new ProductSearchVM());
@@ -94,6 +124,37 @@ namespace RecipeHelper.Controllers
 
             // Redirect to a confirmation page or back to the product list
             return RedirectToAction("AddProduct", new ProductSearchVM());
+        }
+
+        public async Task<IActionResult> DeleteProduct(int productId)
+        {
+            var product = await _context.Products.FindAsync(productId);
+
+            if (product != null)
+            {
+                _logger.LogInformation("[DeleteProduct] Found product with id [{id}]", productId);
+                try
+                {
+                    _context.Products.Remove(product);
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex.Message, "Error deleting product with id [{id}]", productId);
+                    TempData["ErrorMessage"] = $"Failed to delete product.";
+                    return RedirectToAction("ViewProduct");
+                }
+                _logger.LogInformation("[DeleteProduct] Deleted product [{productName}] with id [{id}]", product.Name, productId);
+                TempData["SuccessMessage"] = "Product successfully deleted";
+
+                return RedirectToAction("Products");
+            }
+            else
+            {
+                _logger.LogInformation("[DeleteProduct] recipe with id [{id}] not found", productId);
+                return RedirectToAction("Products");
+            }
+
         }
 
     }

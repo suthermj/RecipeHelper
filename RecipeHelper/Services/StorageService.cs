@@ -22,6 +22,7 @@ namespace RecipeHelper.Services
             _accountUri = storageSettings["accountUri"];
             _blobServiceClient = new BlobServiceClient(storageSettings["connectionString"]);
             _blobContainerClient = new BlobContainerClient(storageSettings["connectionString"], "recipe-images");
+            _logger = logger;
         }
 
         public async Task<StoreImageBlobResponse> StoreRecipeImage(IFormFile image)
@@ -67,7 +68,7 @@ namespace RecipeHelper.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message, "Error deleting image blob");
+                _logger.LogError(ex.Message);
                 return false;
             }
         }

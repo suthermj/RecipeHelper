@@ -54,13 +54,21 @@ namespace RecipeHelper.Models
     }
     public class CreateRecipeVM
     {
-        public int Id { get; set; }
-        public string RecipeName { get; set; }
-        public IFormFile? ImageFile { get; set; }
-        public string? ImageUri { get; set; }
-        public List<IngredientVM> Ingredients { get; set; } = [];
+        public int recipeId { get; set; }
+        public string recipeName { get; set; }
+        public IFormFile? imageFile { get; set; }
+        public string? imageUri { get; set; }
+        public List<IngredientVM> ingredients { get; set; } = [];
 
-        public bool Modifying { get; set; } = false;
+        public bool modifying { get; set; } = false;
+    }
+
+    public class ModifyIngredientsVM
+    {
+        public int RecipeId { get; set; }
+        public int publishedRecipeId { get; set; }
+        public List<ProductVM> CurrentIngredients { get; set; } = new();
+        public List<ProductVM> AllProducts { get; set; } = new();
     }
 
     public class IngredientVM

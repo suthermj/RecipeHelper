@@ -7,9 +7,13 @@
     </div>
 
     <!-- Image Section -->
-    <div class="flex justify-center mb-6">
-        <img src=@Model.ImageUri alt="Image of @Model.RecipeName" class="rounded-lg shadow-lg max-w-lg w-full h-auto">
-    </div>
+    @if(Model?.ImageUri != null)
+    {
+        <div class="flex justify-center mb-6">
+            <img src=@Model.ImageUri alt="Image of @Model.RecipeName" class="rounded-lg shadow-lg max-w-lg w-full h-auto">
+        </div>
+    }
+    
 
     <!-- Ingredients List -->
     <div class="mt-6 bg-white shadow-md rounded-lg p-6">

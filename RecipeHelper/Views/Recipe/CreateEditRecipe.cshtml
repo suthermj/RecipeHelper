@@ -4,12 +4,13 @@
     <h1 class="text-3xl font-bold text-gray-900 mb-6">Create or Edit Recipe</h1>
 
     <form asp-controller="Recipe" asp-action="CreateEditRecipeForm" enctype="multipart/form-data" method="post">
-        <input type="hidden" name="Modifying" asp-for="Modifying" value="@Model != null && @Model.ImageUri != null" />
+        <input type="hidden" asp-for="modifying" />
+        <input type="hidden" asp-for="recipeId" />
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div class="space-y-4">
                 <div>
                     <label for="recipename" class="block text-lg font-medium text-gray-900">Recipe Name</label>
-                    <input type="text" name="recipename" asp-for="RecipeName" id="recipename"
+                    <input type="text" name="recipename" asp-for="recipeName" id="recipename"
                            class="form-input w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50"
                            placeholder="Enter recipe name">
                 </div>
@@ -21,7 +22,7 @@
                             <div class="flex text-sm text-gray-600">
                                 <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none">
                                     <span>Upload a new file</span>
-                                    <input id="file-upload" name="ImageFile" type="file" asp-for="ImageFile" class="sr-only">
+                                    <input id="file-upload" name="ImageFile" type="file" asp-for="imageFile" class="sr-only">
                                 </label>
                                 <p class="pl-1">or drag and drop</p>
                             </div>
@@ -33,11 +34,11 @@
 
             <!-- Current Image Display -->
             <div>
-                @if (Model.ImageUri != null)
+                @if (Model.imageUri != null)
                 {
                     <div class="relative">
                         <label class="block text-lg font-medium text-gray-900 mb-2">Current Image</label>
-                        <img src="@Model.ImageUri" alt="Current Recipe Image" class="max-w-full h-auto rounded-lg shadow-lg" style="max-height: 300px;" />
+                        <img src="@Model.imageUri" alt="Current Recipe Image" class="max-w-full h-auto rounded-lg shadow-lg" style="max-height: 300px;" />
                     </div>
                 }
             </div>

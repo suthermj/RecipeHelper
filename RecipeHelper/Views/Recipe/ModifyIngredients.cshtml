@@ -1,0 +1,129 @@
+﻿@model ModifyIngredientsVM
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <h1 class="text-3xl font-bold text-gray-900 mb-10 text-center">Modify Recipe Ingredients</h1>
+
+    <form asp-action="SaveModifiedIngredients" method="post" class="space-y-12">
+        <input type="hidden" name="RecipeId" value="@Model.RecipeId" />
+        <input type="hidden" name="publishedRecipeId" value="@Model.publishedRecipeId" />
+        <!-- ✅ CURRENT INGREDIENTS -->
+        <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">Current Ingredients</h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                @for (int i = 0; i < Model.CurrentIngredients.Count; i++)
+                {
+                    @Html.HiddenFor(m => m.CurrentIngredients[i].Id)
+                    @Html.HiddenFor(m => m.CurrentIngredients[i].Name)
+
+                    <div class="bg-white rounded-xl shadow-md p-5 flex flex-col items-center hover:shadow-lg transition">
+                        <img src="https://www.kroger.com/product/images/xlarge/front/@Model.CurrentIngredients[i].Upc"
+                             alt="@Model.CurrentIngredients[i].Name"
+                             class="rounded-lg w-full h-44 object-cover mb-4" />
+                        <p class="text-center font-medium text-gray-800">@Model.CurrentIngredients[i].Name</p>
+
+                        <div class="flex items-center gap-3 mt-3">
+                            <button type="button" onclick="adjustQuantity(@Model.CurrentIngredients[i].Id, -1)">
+                                <i class="fa-solid fa-circle-minus text-indigo-600 text-2xl hover:text-indigo-800"></i>
+                            </button>
+                            @Html.TextBoxFor(m => m.CurrentIngredients[i].Quantity, new
+                                {
+                                    id = $"qty-{Model.CurrentIngredients[i].Id}",
+                                    @class = "w-16 text-center border border-gray-300 rounded-md py-1"
+                                })
+                            <button type="button" onclick="adjustQuantity(@Model.CurrentIngredients[i].Id, 1)">
+                                <i class="fa-solid fa-circle-plus text-indigo-600 text-2xl hover:text-indigo-800"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <!-- 🔘 TOGGLE BUTTON -->
+        <div class="text-center">
+            <button type="button" onclick="toggleAdditionalIngredients()"
+                    class="bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 font-semibold py-2 px-5 rounded-md shadow-sm transition">
+                + Add More Ingredients
+            </button>
+        </div>
+
+        <!-- 🔽 ADDITIONAL INGREDIENTS PANEL -->
+        <section id="moreIngredients" class="mt-10 hidden transition-all duration-300 ease-in-out">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">All Available Products</h2>
+
+            <div class="mb-6">
+                <input type="text"
+                       id="ingredientSearch"
+                       placeholder="Search ingredients..."
+                       class="w-full sm:w-1/2 border border-gray-300 rounded-md px-4 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                       oninput="filterIngredients()" />
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                @for (int i = 0; i < Model.AllProducts.Count; i++)
+                {
+                    @Html.HiddenFor(m => m.AllProducts[i].Id)
+                    @Html.HiddenFor(m => m.AllProducts[i].Name)
+
+                    <div class="ingredient-card bg-white rounded-xl shadow-md p-5 flex flex-col items-center hover:shadow-lg transition"
+                         data-name="@Model.AllProducts[i].Name.ToLower()">
+                        <img src="https://www.kroger.com/product/images/xlarge/front/@Model.AllProducts[i].Upc"
+                             alt="@Model.AllProducts[i].Name"
+                             class="rounded-lg w-full h-44 object-cover mb-4" />
+                        <p class="text-center font-medium text-gray-800">@Model.AllProducts[i].Name</p>
+
+                        <div class="flex items-center gap-3 mt-3">
+                            <button type="button" onclick="adjustQuantity(@Model.AllProducts[i].Id, -1)">
+                                <i class="fa-solid fa-circle-minus text-indigo-600 text-2xl hover:text-indigo-800"></i>
+                            </button>
+                            @Html.TextBoxFor(m => m.AllProducts[i].Quantity, new
+                                {
+                                    id = $"qty-{Model.AllProducts[i].Id}",
+                                    @class = "w-16 text-center border border-gray-300 rounded-md py-1"
+                                })
+                            <button type="button" onclick="adjustQuantity(@Model.AllProducts[i].Id, 1)">
+                                <i class="fa-solid fa-circle-plus text-indigo-600 text-2xl hover:text-indigo-800"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <!-- ✅ SUBMIT -->
+        <div class="pt-10 flex justify-center">
+            <button type="submit"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-8 rounded-md shadow transition">
+                Review Recipe
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function toggleAdditionalIngredients() {
+        const section = document.getElementById('moreIngredients');
+        section.classList.toggle('hidden');
+    }
+
+    function adjustQuantity(id, delta) {
+        const input = document.getElementById('qty-' + id);
+        let value = parseInt(input.value || '0');
+        value = Math.max(0, value + delta);
+        input.value = value;
+    }
+
+    function filterIngredients() {
+        const searchInput = document.getElementById("ingredientSearch").value.toLowerCase();
+        const cards = document.querySelectorAll("#moreIngredients .ingredient-card");
+
+        cards.forEach(card => {
+            const name = card.getAttribute("data-name");
+            const match = name.includes(searchInput);
+            card.style.display = match ? "block" : "none";
+        });
+    }
+</script>
+
+<script src="https://kit.fontawesome.com/253b9e5551.js" crossorigin="anonymous"></script>

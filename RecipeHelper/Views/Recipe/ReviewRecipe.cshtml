@@ -3,10 +3,12 @@
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <h1 class="text-3xl font-bold text-gray-900">@Model.RecipeName</h1>
     <div class="mt-4">
-        <img src="@Model.ImageUri" alt="Recipe Image" class="w-full max-w-lg rounded-md shadow-md" />
+        @if (Model?.ImageUri != null) {
+            <img src="@Model.ImageUri" alt="Recipe Image" class="w-full max-w-lg rounded-md shadow-md" />
+        }
 
         <h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">Ingredients</h2>
-        <form asp-action="UpdateIngredients" method="post">
+        <form asp-action="SaveRecipe" method="post">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -41,7 +43,7 @@
             </table>
             <div class="mt-4">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    Update Ingredients
+                    Save Recipe
                 </button>
             </div>
         </form>

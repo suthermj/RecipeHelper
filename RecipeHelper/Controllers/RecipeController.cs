@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using System.Collections;
 using NuGet.Protocol;
 using RecipeHelper.Models.Kroger;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 
 namespace RecipeHelper.Controllers
@@ -39,6 +40,7 @@ namespace RecipeHelper.Controllers
                 {
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
+                    Measurement = rp.Measurement.Name,
                 }).ToList(),
             }).ToList();
 
@@ -56,6 +58,7 @@ namespace RecipeHelper.Controllers
                 {
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
+                    Measurement = rp.Measurement.Name,
                 }).ToList(),
             }).FirstOrDefault();
 
@@ -228,11 +231,13 @@ namespace RecipeHelper.Controllers
 
             foreach (var ingredient in chosenIngredients)
             {
+                if (ingredient.MeasurementId == 0) { ingredient.MeasurementId = null; }
                 var recipeProduct = new RecipeProduct
                 {
                     RecipeId = model.RecipeId,
                     ProductId = ingredient.Id,
                     Quantity = ingredient.Quantity,
+                    MeasurementId = ingredient.MeasurementId
                 };
                 _context.RecipeProducts.Add(recipeProduct);
             }
@@ -255,6 +260,7 @@ namespace RecipeHelper.Controllers
                     Id = rp.ProductId,
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
+                    Measurement = rp.Measurement.Name,
                 }).ToList(),
             }).FirstOrDefault();
             return View("ReviewRecipe", recipeToReview);
@@ -302,6 +308,12 @@ namespace RecipeHelper.Controllers
                 Name = p.Name,
                 Upc = p.Upc,
                 Id = p.Id
+            }).ToList();
+
+            var availableMeasurements = _context.Measurements.Select(m => new SelectListItem
+            {
+                Value = m.Id.ToString(),
+                Text = m.Name
             }).ToList();
 
             if (newRecipe.modifying)
@@ -392,7 +404,8 @@ namespace RecipeHelper.Controllers
                     RecipeId = recipe.Id,
                     RecipeName = recipe.Name,
                     ImageUri = recipe.ImageUri,
-                    Ingredients = allProducts
+                    Ingredients = allProducts,
+                    AvailableMeasurements = availableMeasurements
                 };
 
                 return View("ProductToChoose", vm);

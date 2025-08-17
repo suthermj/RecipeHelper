@@ -23,7 +23,7 @@
             {
                 foreach (var ingredient in Model.Ingredients)
                 {
-                    <li class="text-gray-700 font-medium">@ingredient.Name - Quantity: @ingredient.Quantity</li>
+                    <li class="text-gray-700 font-medium">@ingredient.Name - @ingredient.Quantity @ingredient.Measurement</li>
                 }
             }
         </ul>

@@ -19,6 +19,9 @@
                             Quantity
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Measurement
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
                         </th>
                     </tr>
@@ -32,6 +35,10 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 @Html.TextBoxFor(modelItem => ingredient.Quantity, new { @class = "form-input rounded-md shadow-sm", type = "number" })
+                                @Html.HiddenFor(modelItem => ingredient.Id)
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                @Html.TextBoxFor(modelItem => ingredient.Measurement, new { @class = "form-input rounded-md shadow-sm", type = "string" })
                                 @Html.HiddenFor(modelItem => ingredient.Id)
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

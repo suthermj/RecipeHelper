@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace RecipeHelper.Models
 {
@@ -22,7 +23,8 @@ namespace RecipeHelper.Models
         public string Name { get; set; }
         public string Upc { get; set; }
         public int Quantity { get; set; }
-        
+        public int? MeasurementId { get; set; }
+
     }
 
     public class ViewProductVM
@@ -39,6 +41,7 @@ namespace RecipeHelper.Models
         public string RecipeName { get; set; }
         public string ImageUri { get; set; }
         public List<ProductVM> Ingredients { get; set; }
+        public IEnumerable<SelectListItem> AvailableMeasurements { get; set; }
 
     }
 }

@@ -1,52 +1,91 @@
 ﻿@model CreateRecipeVM
+@{
+    var hasExistingImage = !string.IsNullOrWhiteSpace(Model?.imageUri);
+}
 
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <h1 class="text-3xl font-bold text-gray-900 mb-6">Create or Edit Recipe</h1>
 
-    <form asp-controller="Recipe" asp-action="CreateEditRecipeForm" enctype="multipart/form-data" method="post">
+    <form asp-controller="Recipe" asp-action="CreateEditRecipeForm" enctype="multipart/form-data" method="post" class="space-y-8">
+        @Html.AntiForgeryToken()
+
         <input type="hidden" asp-for="modifying" />
         <input type="hidden" asp-for="recipeId" />
-        <!-- <input type="hidden" asp-for="imageUri" /> -->
+        <!-- When user removes an existing image, we set this to true via JS -->
+        <input type="hidden" name="RemoveImage" id="RemoveImage" value="false" />
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-            <div class="space-y-4">
+            <!-- Left column: fields -->
+            <div class="space-y-6">
                 <div>
                     <label for="recipename" class="block text-lg font-medium text-gray-900">Recipe Name</label>
-                    <input type="text" name="recipename" asp-for="recipeName" id="recipename"
+                    <input type="text"
+                           name="recipename"
+                           asp-for="recipeName"
+                           id="recipename"
                            class="form-input w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50"
-                           placeholder="Enter recipe name">
+                           placeholder="Enter recipe name" />
+                    <span class="text-sm text-red-600" asp-validation-for="recipeName"></span>
                 </div>
 
-                <div>
+                <!-- Upload container (hidden if we have an existing image) -->
+                <div id="uploadContainer" class="@(hasExistingImage ? "hidden" : "")">
                     <label for="file-upload" class="block text-lg font-medium text-gray-900">Recipe Image</label>
                     <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                         <div class="space-y-1 text-center">
-                            <div class="flex text-sm text-gray-600">
-                                <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none">
+                            <div class="flex items-center justify-center gap-2 text-sm text-gray-600">
+                                <label for="file-upload"
+                                       class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none">
                                     <span>Upload a new file</span>
-                                    <input id="file-upload" name="ImageFile" type="file" asp-for="imageFile" class="sr-only">
+                                    <input id="file-upload"
+                                           name="ImageFile"
+                                           type="file"
+                                           asp-for="imageFile"
+                                           accept="image/*"
+                                           class="sr-only" />
                                 </label>
-                                <p class="pl-1">or drag and drop</p>
+                                <span>or drag and drop</span>
                             </div>
                             <p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
                         </div>
                     </div>
+                    <span class="text-sm text-red-600" asp-validation-for="imageFile"></span>
+                </div>
+
+                <!-- Preview container (shown if we have an existing image or after user picks one) -->
+                <div id="previewContainer" class="@(hasExistingImage ? "" : "hidden")">
+                    <label class="block text-lg font-medium text-gray-900 mb-2">Recipe Image Preview</label>
+                    <img id="imagePreview"
+                         src="@(hasExistingImage ? Model.imageUri : "")"
+                         alt="Recipe image preview"
+                         class="max-w-full h-auto rounded-lg shadow-lg"
+                         style="max-height: 300px;" />
+                    <div class="mt-3 flex gap-3">
+                        <button type="button"
+                                id="removeImageBtn"
+                                class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">
+                            Remove image
+                        </button>
+                        <!-- Optional: a 'Change image' that reopens the picker -->
+                        <button type="button"
+                                id="changeImageBtn"
+                                class="px-4 py-2 rounded-md border border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+                            Change image
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Current Image Display -->
-            <div>
-                @if (Model.imageUri != null)
-                {
-                    <div class="relative">
-                        <label class="block text-lg font-medium text-gray-900 mb-2">Current Image</label>
-                        <img src="@Model.imageUri" alt="Current Recipe Image" class="max-w-full h-auto rounded-lg shadow-lg" style="max-height: 300px;" />
-                    </div>
-                }
+            <!-- Right column: (optional) other fields / helper text -->
+            <div class="space-y-4">
+                @* Add any extra fields you need on the right side *@
+                @* Keeping this empty preserves your two-column layout *@
             </div>
         </div>
 
-        <div class="mt-8 flex justify-end space-x-4">
-            <button type="button" onclick="location.href='@Url.Action("Index", "Recipe")'"
+        <div class="flex justify-end gap-4">
+            <button type="button"
+                    onclick="location.href='@Url.Action("Index", "Recipe")'"
                     class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                 Cancel
             </button>
@@ -57,3 +96,97 @@
         </div>
     </form>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const input = document.getElementById('file-upload');
+            const uploadContainer = document.getElementById('uploadContainer');
+            const previewContainer = document.getElementById('previewContainer');
+            const img = document.getElementById('imagePreview');
+            const removeBtn = document.getElementById('removeImageBtn');
+            const changeBtn = document.getElementById('changeImageBtn');
+            const removeFlag = document.getElementById('RemoveImage');
+
+            // Track blob URL to revoke later
+            let lastBlobUrl = null;
+
+            // When a new file is chosen: validate + preview + swap containers
+            function showPreviewFromFile(file) {
+                if (!file) return;
+
+                // Basic validation
+                if (!file.type || !file.type.startsWith('image/')) {
+                    alert('Please select an image file.');
+        input.value = '';
+                            return;
+                        }
+                        if (file.size > 10 * 1024 * 1024) {
+                            alert('Image must be 10MB or less.');
+                            input.value = '';
+                            return;
+                        }
+
+                        // Revoke old blob if any
+                        if (lastBlobUrl) {
+                            URL.revokeObjectURL(lastBlobUrl);
+                            lastBlobUrl = null;
+                        }
+
+                        // Create preview
+                        lastBlobUrl = URL.createObjectURL(file);
+                        img.src = lastBlobUrl;
+
+                        // If user picks a file, they're implicitly not removing the image
+                        if (removeFlag) removeFlag.value = 'false';
+
+                        // Swap UI: hide upload, show preview
+                        uploadContainer.classList.add('hidden');
+                        previewContainer.classList.remove('hidden');
+                    }
+
+                    // Remove selected (or existing) image and re-show upload
+                    function clearPreview() {
+                        if (lastBlobUrl) {
+                            URL.revokeObjectURL(lastBlobUrl);
+                            lastBlobUrl = null;
+                        }
+                        img.src = '';
+
+                        // Let the server know that if there was an existing image it should be cleared
+                        if (removeFlag) removeFlag.value = 'true';
+
+                        // Clear current file selection too
+                        if (input) input.value = '';
+
+                        // Swap UI: show upload, hide preview
+                        previewContainer.classList.add('hidden');
+                        uploadContainer.classList.remove('hidden');
+                    }
+
+                    if (input) {
+                        input.addEventListener('change', () => {
+                            const file = input.files && input.files[0];
+                            if (file) showPreviewFromFile(file);
+                        });
+                    }
+
+                    if (removeBtn) {
+                        removeBtn.addEventListener('click', clearPreview);
+                    }
+
+                    if (changeBtn) {
+                        changeBtn.addEventListener('click', () => {
+                            // Open the file dialog to pick a different image
+                            if (input) input.click();
+                        });
+                    }
+
+                    // Cleanup on navigate away
+                    window.addEventListener('beforeunload', () => {
+                        if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+                    });
+                })();
+    </script>
+}

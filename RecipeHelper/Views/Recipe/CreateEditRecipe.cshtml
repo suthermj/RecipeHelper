@@ -6,6 +6,7 @@
     <form asp-controller="Recipe" asp-action="CreateEditRecipeForm" enctype="multipart/form-data" method="post">
         <input type="hidden" asp-for="modifying" />
         <input type="hidden" asp-for="recipeId" />
+        <!-- <input type="hidden" asp-for="imageUri" /> -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div class="space-y-4">
                 <div>

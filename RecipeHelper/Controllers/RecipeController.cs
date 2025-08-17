@@ -182,23 +182,23 @@ namespace RecipeHelper.Controllers
             {
                 var recipeProduct = new RecipeProduct
                 {
-                    RecipeId = model.RecipeId,
+                    RecipeId = model.publishedRecipeId,
                     ProductId = ingredient.Id,
                     Quantity = ingredient.Quantity,
                 };
-
-                try
-                {
-                    _context.RecipeProducts.Add(recipeProduct);
-                    _context.SaveChanges();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error saving recipe ingredient");
-                }
+                _context.RecipeProducts.Add(recipeProduct);
             }
 
-            var recipeReview = _context.Recipes.Where(r => r.Id == model.RecipeId).Select(r => new ViewRecipeVM
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving recipe ingredient");
+            }
+
+            var recipeReview = _context.Recipes.Where(r => r.Id == model.publishedRecipeId).Select(r => new ViewRecipeVM
             {
                 Id = r.Id,
                 RecipeName = r.Name,
@@ -234,17 +234,15 @@ namespace RecipeHelper.Controllers
                     ProductId = ingredient.Id,
                     Quantity = ingredient.Quantity,
                 };
-
-                try
-                {
-                    _context.RecipeProducts.Add(recipeProduct);
-                    _context.SaveChanges();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error saving recipe ingredient");
-                }
-                
+                _context.RecipeProducts.Add(recipeProduct);
+            }
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving recipe ingredients");
             }
 
             var recipeToReview = _context.Recipes.Where(r => r.Id == model.RecipeId).Select(r => new ViewRecipeVM
@@ -328,6 +326,7 @@ namespace RecipeHelper.Controllers
                 var draftRecipe = new DraftRecipe();
                 draftRecipe.Name = newRecipe.recipeName;
                 draftRecipe.PublishedRecipeId = publishedRecipe.Id;
+                draftRecipe.ImageUri = publishedRecipe.ImageUri;
 
                 // Detects new recipe image
                 if (newRecipe.imageFile != null)

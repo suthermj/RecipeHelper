@@ -7,7 +7,7 @@
     </div>
 
     <!-- Image Section -->
-    @if(Model?.ImageUri != null)
+    @if (!string.IsNullOrWhiteSpace(Model?.ImageUri))
     {
         <div class="flex justify-center mb-6">
             <img src=@Model.ImageUri alt="Image of @Model.RecipeName" class="rounded-lg shadow-lg max-w-lg w-full h-auto">
@@ -31,14 +31,17 @@
 
     <!-- Buttons Section -->
     <div class="mt-10 flex justify-center space-x-4">
-        <button onclick="location.href='@Url.Action("Recipe", "Recipe")'" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+        <a asp-controller="Recipe" asp-action="Recipe"
+           class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
             Back
-        </button>
-        <button onclick="location.href='@Url.Action("CreateEditRecipe", "Recipe", new { id = Model.Id })'" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+        </a>
+        <a asp-controller="Recipe" asp-action="CreateEditRecipe" asp-route-id="@Model.Id"
+           class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
             Modify
-        </button>
-        <button onclick="location.href='@Url.Action("DeleteRecipe", "Recipe", new { id = Model.Id })'" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+        </a>
+        <a asp-controller="Recipe" asp-action="DeleteRecipe" asp-route-id="@Model.Id"
+           class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
             Delete
-        </button>
+        </a>
     </div>
 </div>

@@ -10,7 +10,8 @@ namespace RecipeHelper.Models
         public int RecipeId { get; set; }
         public int ProductId { get; set; }
         public int Quantity { get; set; }
-
+        public int? MeasurementId { get; set; }
+        public Measurement Measurement { get; set; }
         public Recipe Recipe { get; set; }
         public Product Product { get; set; }
     }

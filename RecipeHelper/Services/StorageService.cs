@@ -39,7 +39,7 @@ namespace RecipeHelper.Services
                 var blobClient = containerClient.GetBlobClient(fileName);
                 using (Stream stream = image.OpenReadStream())
                 {
-                    var result = await blobClient.UploadAsync(stream);
+                    var result = await blobClient.UploadAsync(stream, new BlobHttpHeaders { ContentType = image.ContentType });
                 }
             }
             catch (Exception ex)

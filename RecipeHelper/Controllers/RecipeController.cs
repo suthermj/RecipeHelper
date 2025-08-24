@@ -130,6 +130,7 @@ namespace RecipeHelper.Controllers
 
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> SaveModifiedIngredients(ModifyIngredientsVM model)
         {
             var currentIngredientsChoices = model.CurrentIngredients.Where(i => i.Quantity != 0);
@@ -157,11 +158,10 @@ namespace RecipeHelper.Controllers
             try
             {
                 var finalRecipe = _context.Recipes.Update(publishedRecipe);
-                _context.SaveChanges();
 
                 // delete draft
                 _context.DraftRecipes.Remove(draftRecipe);
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -173,7 +173,7 @@ namespace RecipeHelper.Controllers
             {
                 var publishedRecipeProducts = _context.RecipeProducts.Where(r => r.RecipeId == model.publishedRecipeId);
                 _context.RecipeProducts.RemoveRange(publishedRecipeProducts);
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -194,7 +194,7 @@ namespace RecipeHelper.Controllers
 
             try
             {
-                _context.SaveChanges();
+               await  _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -223,6 +223,7 @@ namespace RecipeHelper.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult SaveIngredients(IngredientsVM model)
         {
             var ingredients = model.Ingredients;
@@ -412,7 +413,8 @@ namespace RecipeHelper.Controllers
             }   
         }
 
-        //[HttpDelete("{id}")]
+        [HttpPost("{id}")]
+        [ValidateAntiForgeryToken]
         public async Task<ActionResult> DeleteRecipe(int id)
         {
             _logger.LogInformation("[DeleteRecipe] Finding recipe with id [{id}]", id);

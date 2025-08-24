@@ -11,6 +11,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<KrogerService, KrogerService>();  // Registering your Kroger service
 builder.Services.AddScoped<StorageService, StorageService>();
+builder.Services.AddScoped<SpoonacularService, SpoonacularService>();
 builder.Services.AddDbContext<DatabaseContext>(options =>
     options.UseSqlServer(builder.Configuration["ConnectionString"] ?? throw new InvalidOperationException("Connection string 'ConnectionString' not found.")));
 // Add session services

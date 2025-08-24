@@ -1,0 +1,151 @@
+﻿@model RecipeHelper.ViewModels.ImportRecipePageVM
+@{
+    ViewData["Title"] = "Import Recipe";
+    var hasResult = Model.Preview != null;
+}
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+
+    <!-- Search box (same as Home, kept here for trying another URL) -->
+    <form asp-action="ImportRecipe" method="get" class="flex gap-3">
+        <input asp-for="Url" type="url" required
+               class="flex-1 rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md">Import</button>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(ViewBag.Error as string))
+    {
+        <div class="rounded-md bg-red-50 p-4 text-sm text-red-800 border border-red-200">
+            @ViewBag.Error
+        </div>
+    }
+
+    @if (hasResult)
+    {
+        var img = string.IsNullOrWhiteSpace(Model.Preview.Image)
+        ? Url.Content("~/images/default-recipe.png")
+        : Model.Preview.Image;
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left: image + meta -->
+            <div class="lg:col-span-1">
+                <img src="@img" alt="@Model.Preview.Title" class="w-full h-72 object-cover rounded-xl shadow" />
+                <div class="mt-4 space-y-2 text-gray-700">
+                    @if (Model.Preview.ReadyInMinutes is not null)
+                    {
+                        <div><span class="font-semibold">Ready in:</span> @Model.Preview.ReadyInMinutes min</div>
+                    }
+                    @if (Model.Preview.Servings is not null)
+                    {
+                        <div><span class="font-semibold">Servings:</span> @Model.Preview.Servings</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Preview.SourceUrl))
+                    {
+                        <div class="text-indigo-700">
+                            <a href="@Model.Preview.SourceUrl" target="_blank" class="underline">Source</a>
+                        </div>
+                    }
+                </div>
+
+                <!-- badges -->
+                <div class="mt-4 flex flex-wrap gap-2">
+                    @if (Model.Preview.Vegetarian)
+                    {
+                        <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Vegetarian</span>
+                    }
+                    @if (Model.Preview.Vegan)
+                    {
+                        <span class="px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-800">Vegan</span>
+                    }
+                    @if (Model.Preview.GlutenFree)
+                    {
+                        <span class="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-800">Gluten-free</span>
+                    }
+                    @if (Model.Preview.DairyFree)
+                    {
+                        <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Dairy-free</span>
+                    }
+                </div>
+            </div>
+
+            <!-- Right: title, summary, ingredients & steps -->
+            <div class="lg:col-span-2 space-y-6">
+                <h1 class="text-2xl font-bold text-gray-900">@Model.Preview.Title</h1>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Preview.SummaryText))
+                {
+                    <p class="text-gray-700 leading-relaxed">@Model.Preview.SummaryText</p>
+                }
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Ingredients -->
+                    <section>
+                        <h2 class="text-xl font-semibold text-gray-900 mb-3">Ingredients</h2>
+                        @if (Model.Preview.Ingredients?.Count > 0)
+                        {
+                            <ul class="list-disc list-inside space-y-1 text-gray-800">
+                                @foreach (var ing in Model.Preview.Ingredients)
+                                {
+                                    <li>
+                                        @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
+                                        {
+                                            <span class="font-medium">@ing.DisplayAmount</span> 
+                                            @ing.Name
+                                        }
+                                        else
+                                        {
+                                            @ing.Name
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="text-gray-500">No ingredients found.</p>
+                        }
+                    </section>
+
+                    <!-- Instructions -->
+                    <section>
+                        <h2 class="text-xl font-semibold text-gray-900 mb-3">Instructions</h2>
+                        @if (Model.Preview.Steps?.Count > 0)
+                        {
+                            <ol class="list-decimal list-inside space-y-2 text-gray-800">
+                                @for (int i = 0; i < Model.Preview.Steps.Count; i++)
+                                {
+                                    <li>@Model.Preview.Steps[i]</li>
+                                }
+                            </ol>
+                        }
+                        else
+                        {
+                            <p class="text-gray-500">No instructions provided.</p>
+                        }
+                    </section>
+                </div>
+
+                <!-- Actions -->
+                <div class="pt-2 flex gap-3">
+                    <form asp-action="SaveImportedRecipe" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="SourceUrl" value="@Model.Preview.SourceUrl" />
+                        <input type="hidden" name="Title" value="@Model.Preview.Title" />
+                        <input type="hidden" name="Image" value="@Model.Preview.Image" />
+                        <button type="submit"
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md">
+                            Save to My Recipes
+                        </button>
+                    </form>
+                    @if (!string.IsNullOrWhiteSpace(Model.Preview.SourceUrl))
+                    {
+                        <a href="@Model.Preview.SourceUrl" target="_blank"
+                           class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded-md">
+                            View Original
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>

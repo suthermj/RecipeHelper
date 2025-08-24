@@ -21,16 +21,16 @@ namespace RecipeHelper.Services
             _apiKey = _configuration["Spoonacular:apiKey"];
         }
 
-        public Recipe ImportRecipe(string recipeUrl)
+        public async Task<Recipe> ImportRecipe(string recipeUrl)
         {
             var client = _httpClientFactory.CreateClient();
             var requestUri = $"{_baseUri}/recipes/extract?url={Uri.EscapeDataString(recipeUrl)}&apiKey={_apiKey}";
             try
             {
-                var response = client.GetAsync(requestUri).Result;
+                var response = await client.GetAsync(requestUri);
                 if (response.IsSuccessStatusCode)
                 {
-                    var content = response.Content.ReadAsStringAsync().Result;
+                    var content = await response.Content.ReadAsStringAsync();
                     return JsonConvert.DeserializeObject<Recipe>(content);
                 }
                 else

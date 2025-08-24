@@ -1,15 +1,17 @@
+using System.Collections;
+using System.Diagnostics;
 using System.Linq;
+using Humanizer;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using RecipeHelper.Models;
-using System.Diagnostics;
-using RecipeHelper.Services;
-using Newtonsoft.Json;
-using System.Collections;
-using NuGet.Protocol;
-using RecipeHelper.Models.Kroger;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using NuGet.Protocol;
+using RecipeHelper.Models;
+using RecipeHelper.Models.Kroger;
+using RecipeHelper.Services;
+using RecipeHelper.ViewModels;
 
 
 namespace RecipeHelper.Controllers
@@ -20,12 +22,14 @@ namespace RecipeHelper.Controllers
 
         private readonly ILogger<RecipeController> _logger;
         private StorageService _storageService;
+        private SpoonacularService _spoonacularService;
 
-        public RecipeController(ILogger<RecipeController> logger, DatabaseContext context, StorageService storageService)
+        public RecipeController(ILogger<RecipeController> logger, DatabaseContext context, StorageService storageService, SpoonacularService spoonacularService)
         {
             _logger = logger;
             _context = context;
             _storageService = storageService;
+            _spoonacularService = spoonacularService;
         }
 
         public ActionResult Recipe()
@@ -449,6 +453,34 @@ namespace RecipeHelper.Controllers
                 _logger.LogInformation("[DeleteRecipe] recipe with id [{id}] not found", id);
                 return RedirectToAction("Recipe");
             }
+        }
+
+        [HttpGet]
+        public async Task<ActionResult> ImportRecipe(ImportRecipePageVM model)
+        {
+            if (model is null)
+            {
+                return View(new ImportRecipePageVM());
+            }
+
+            if (!string.IsNullOrWhiteSpace(model.Url))
+            {
+                var importedRecipe = await _spoonacularService.ImportRecipe(model.Url);
+                if (importedRecipe is null)
+                {
+                    ModelState.AddModelError("", "Could not extract recipe from the provided URL.");
+                    return View(model);
+                }
+
+                model.Preview = ImportRecipeVM.FromSpoonacular(importedRecipe);
+                
+                return View(model);
+            }
+
+            return View(model);
+
+            
+
         }
 
     }

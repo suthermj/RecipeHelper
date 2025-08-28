@@ -1,28 +1,57 @@
 ﻿@model RecipeHelper.ViewModels.ImportRecipePageVM
 @{
     ViewData["Title"] = "Import Recipe";
-    var hasResult = Model.Preview != null;
+    var hasResult = Model?.Preview != null;
 }
 
-
-
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-    @if (TempData["ErrorMessage"] != null)
+
+    <!-- Header -->
+    <header class="text-center space-y-2">
+        <h1 class="text-3xl font-bold text-gray-900">Import a Recipe</h1>
+        <p class="text-gray-600">Paste a recipe URL and we’ll fetch the title, image, ingredients, and steps so you can review before saving.</p>
+    </header>
+
+    <!-- Error banner -->
+    @if (TempData["ErrorMessage"] is string err && !string.IsNullOrWhiteSpace(err))
     {
-        <div id="successMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-            <strong class="font-bold">Error! </strong>
-            <span class="block sm:inline">@TempData["ErrorMessage"].ToString()</span>
-            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('successMessage').style.display='none';">
+        <div id="errorMessage" class="relative bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded" role="alert" aria-live="polite">
+            <strong class="font-bold">Error: </strong>
+            <span class="block sm:inline">@err</span>
+            <button type="button" class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('errorMessage')?.remove();">
                 <span class="text-2xl">&times;</span>
             </button>
         </div>
     }
-    <!-- Search box (same as Home, kept here for trying another URL) -->
-    <form asp-action="ImportRecipe" method="get" class="flex gap-3">
-        <input asp-for="Url" type="url" required
+
+    <!-- Search form -->
+    <form id="importForm" asp-action="ImportRecipe" method="get" class="flex gap-3" novalidate>
+        <input asp-for="Url"
+               type="url"
+               required
+               placeholder="Paste a recipe URL (e.g., https://example.com/lasagna)"
                class="flex-1 rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
-        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md">Import</button>
+
+        <button id="importBtn" type="submit"
+                class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md disabled:opacity-60 disabled:cursor-not-allowed">
+            <svg id="importBtnSpinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
+            </svg>
+            <span id="importBtnText">Import</span>
+        </button>
     </form>
+
+    <!-- Optional page-level loading overlay (shown until navigation completes) -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-white/60 backdrop-blur-sm flex items-center justify-center" aria-live="polite" aria-busy="true">
+        <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white shadow">
+            <svg class="animate-spin h-5 w-5 text-indigo-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
+            </svg>
+            <span class="text-sm text-gray-700">Importing recipe…</span>
+        </div>
+    </div>
 
     @if (!string.IsNullOrWhiteSpace(ViewBag.Error as string))
     {
@@ -33,7 +62,7 @@
 
     @if (hasResult)
     {
-        var img = string.IsNullOrWhiteSpace(Model.Preview.Image)
+        var img = string.IsNullOrWhiteSpace(Model.Preview!.Image)
         ? Url.Content("~/images/default-recipe.png")
         : Model.Preview.Image;
 
@@ -81,7 +110,7 @@
 
             <!-- Right: title, summary, ingredients & steps -->
             <div class="lg:col-span-2 space-y-6">
-                <h1 class="text-2xl font-bold text-gray-900">@Model.Preview.Title</h1>
+                <h2 class="text-2xl font-bold text-gray-900">@Model.Preview.Title</h2>
 
                 @if (!string.IsNullOrWhiteSpace(Model.Preview.SummaryText))
                 {
@@ -91,7 +120,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <!-- Ingredients -->
                     <section>
-                        <h2 class="text-xl font-semibold text-gray-900 mb-3">Ingredients</h2>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-3">Ingredients</h3>
                         @if (Model.Preview.Ingredients?.Count > 0)
                         {
                             <ul class="list-disc list-inside space-y-1 text-gray-800">
@@ -119,7 +148,7 @@
 
                     <!-- Instructions -->
                     <section>
-                        <h2 class="text-xl font-semibold text-gray-900 mb-3">Instructions</h2>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-3">Instructions</h3>
                         @if (Model.Preview.Steps?.Count > 0)
                         {
                             <ol class="list-decimal list-inside space-y-2 text-gray-800">
@@ -161,14 +190,35 @@
     }
 </div>
 
+<noscript>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="mt-4 text-sm text-gray-600">JavaScript is disabled; loading indicator is unavailable, but the import will still work.</p>
+    </div>
+</noscript>
 
 <script>
-    $(document).ready(function() {
-        // Check if the success message exists
-        if ($("#successMessage").length) {
-            setTimeout(function() {
-                $("#successMessage").fadeOut("slow");
-            }, 7000); // Adjust the time to your preference, here it's 7000ms (7 seconds)
-        }
-    });
+    (function () {
+        const form    = document.getElementById('importForm');
+        const btn     = document.getElementById('importBtn');
+        const spinner = document.getElementById('importBtnSpinner');
+        const btnText = document.getElementById('importBtnText');
+        const overlay = document.getElementById('loadingOverlay');
+        const urlInput = form.querySelector('input[name="Url"]');
+
+        // Auto-hide error banner
+        const err = document.getElementById('errorMessage');
+        if (err) setTimeout(() => err.remove(), 7000);
+
+        form.addEventListener('submit', function (e) {
+            // if invalid, let the browser show built-in validation
+            if (!form.checkValidity()) return;
+
+            // show loading state until navigation
+            btn.disabled = true;
+            urlInput.readOnly = true;
+            spinner.classList.remove('hidden');
+            btnText.textContent = 'Importing…';
+            overlay.classList.remove('hidden');
+        });
+    })();
 </script>

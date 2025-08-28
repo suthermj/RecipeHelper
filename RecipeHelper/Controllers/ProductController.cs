@@ -42,30 +42,59 @@ namespace RecipeHelper.Controllers
         public async Task<ActionResult> ViewProduct(int productId)
         {
 
-            var product = _context.Products.Where(p => p.Id == productId).Select(p => new ViewProductVM
-            {
-                Name = p.Name,
-                Upc = p.Upc,
-                Id = p.Id,
-            }).FirstOrDefault();
+            var product = await _context.Products
+                .AsNoTracking()
+                .Where(p => p.Id == productId)
+                .Select(p => new ViewProductVM { Id = p.Id, Upc = p.Upc, Name = p.Name })
+                .FirstOrDefaultAsync();
 
-            if (product != null)
-            {
-                var krogerProductDetails = await _krogerService.GetProductDetails(product.Upc);
-
-                if (krogerProductDetails.HasMissingData())
-                {
-                    TempData["WarningMessage"] = "Some product details could not be retrieved.";
-                }
-                ViewBag.ProductId = product.Id;
-                return View(krogerProductDetails);
-            }
-            else
+            if (product is null)
             {
                 TempData["ErrorMessage"] = "Error finding some product details";
-                return RedirectToAction();
+                return RedirectToAction("Products", "Product");
             }
-            
+
+            var kroger = await _krogerService.GetProductDetails(product.Upc);
+            if (kroger.HasMissingData())
+                TempData["WarningMessage"] = "Some product details could not be retrieved.";
+
+            if (!string.IsNullOrWhiteSpace(product.Name))
+                kroger.description = product.Name;
+
+            ViewBag.ProductId = product.Id;
+            return View(kroger);
+        }
+
+        public async Task<ActionResult> UpdateProduct(int productId, string updatedProductName)
+        {
+            if (string.IsNullOrWhiteSpace(updatedProductName))
+            {
+                //TempData["ErrorMessage"] = "Name cannot be empty.";
+                return BadRequest(new { error = "Name cannot be empty." });
+            }
+
+            var product = await _context.Products.FindAsync(productId);
+            if (product is null)
+            {
+                //TempData["ErrorMessage"] = "Error finding product.";
+                return NotFound(new { error = "Product not found." });
+            }
+
+            product.Name = updatedProductName.Trim();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                //TempData["WarningMessage"] = "Product name updated.";
+                return Ok(new { success = true, productId, name = product.Name });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating product");
+                //TempData["ErrorMessage"] = "Error updating product.";
+                return StatusCode(500, new { error = "Error updating product." });
+            }
+
         }
 
         public ActionResult AddProduct()
@@ -126,6 +155,8 @@ namespace RecipeHelper.Controllers
             return RedirectToAction("AddProduct", new ProductSearchVM());
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteProduct(int productId)
         {
             var product = await _context.Products.FindAsync(productId);

@@ -15,8 +15,6 @@ namespace RecipeHelper.Models
         public List<RecipeProduct>? RecipeProducts { get; set; }
     }
 
-
-
     public class ProductVM
     {
         public int Id { get; set; }

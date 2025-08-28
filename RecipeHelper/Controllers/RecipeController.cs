@@ -468,7 +468,7 @@ namespace RecipeHelper.Controllers
                 var importedRecipe = await _spoonacularService.ImportRecipe(model.Url);
                 if (importedRecipe is null)
                 {
-                    ModelState.AddModelError("", "Could not extract recipe from the provided URL.");
+                    TempData["ErrorMessage"] = "Could not extract recipe from the provided URL.";
                     return View(model);
                 }
 

@@ -4,8 +4,19 @@
     var hasResult = Model.Preview != null;
 }
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
 
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div id="successMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong class="font-bold">Error! </strong>
+            <span class="block sm:inline">@TempData["ErrorMessage"].ToString()</span>
+            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('successMessage').style.display='none';">
+                <span class="text-2xl">&times;</span>
+            </button>
+        </div>
+    }
     <!-- Search box (same as Home, kept here for trying another URL) -->
     <form asp-action="ImportRecipe" method="get" class="flex gap-3">
         <input asp-for="Url" type="url" required
@@ -149,3 +160,15 @@
         </div>
     }
 </div>
+
+
+<script>
+    $(document).ready(function() {
+        // Check if the success message exists
+        if ($("#successMessage").length) {
+            setTimeout(function() {
+                $("#successMessage").fadeOut("slow");
+            }, 7000); // Adjust the time to your preference, here it's 7000ms (7 seconds)
+        }
+    });
+</script>

@@ -1,16 +1,77 @@
 ﻿@model RecipeHelper.Models.Kroger.Product
+@{
+    ViewData["Title"] = "Product";
+    var productId = (int)ViewBag.ProductId;
+}
 
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    @if (TempData["WarningMessage"] != null)
+
+    @if (TempData["WarningMessage"] is string warn && !string.IsNullOrWhiteSpace(warn))
     {
-        <div id="warningMessage" class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6" role="alert">
-            ⚠️ @TempData["WarningMessage"]
-            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('warningMessage').style.display='none';">
+        <div id="warningMessage" class="relative bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6" role="alert">
+            <span class="font-semibold">⚠️ </span>@warn
+            <button type="button" class="absolute top-0 bottom-0 right-0 px-4 py-3"
+                    onclick="document.getElementById('warningMessage').style.display='none';">
                 <span class="text-2xl">&times;</span>
             </button>
         </div>
     }
-    <h1 class="text-3xl font-bold text-gray-900 mb-6">@Model.description</h1>
+
+    @if (TempData["ErrorMessage"] is string err && !string.IsNullOrWhiteSpace(err))
+    {
+        <div id="errorMessage" class="relative bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6" role="alert">
+            <span class="font-semibold">⛔ </span>@err
+            <button type="button" class="absolute top-0 bottom-0 right-0 px-4 py-3"
+                    onclick="document.getElementById('errorMessage').style.display='none';">
+                <span class="text-2xl">&times;</span>
+            </button>
+        </div>
+    }
+
+    <!-- Title with inline edit -->
+    <div class="flex items-center gap-3 mb-6">
+        <h1 id="productNameText" class="text-3xl font-bold text-gray-900 truncate">
+            @Model.description
+        </h1>
+
+        <!-- Edit button (pencil) -->
+        <button id="editNameBtn" type="button"
+                class="p-2 rounded hover:bg-gray-100"
+                title="Edit name">
+            <!-- pencil icon (inline svg, no external deps) -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M17.414 2.586a2 2 0 00-2.828 0L6 11.172V14h2.828l8.586-8.586a2 2 0 000-2.828z" />
+                <path fill-rule="evenodd" d="M4 16h12a1 1 0 110 2H4a1 1 0 110-2z" clip-rule="evenodd" />
+            </svg>
+        </button>
+
+        <!-- Input + Save/Cancel (hidden until editing) -->
+        <input id="productNameInput"
+               type="text"
+               value="@Model.description"
+               class="hidden flex-1 rounded-md border border-gray-300 px-3 py-1 text-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+
+        <button id="saveNameBtn" type="button"
+                class="hidden p-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white"
+                title="Save">
+            <!-- save (disk) icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M17 3a2 2 0 00-2-2H5a2 2 0 00-2 2v14l6-3 6 3V3z" />
+            </svg>
+        </button>
+
+        <button id="cancelNameBtn" type="button"
+                class="hidden p-2 rounded hover:bg-gray-100"
+                title="Cancel">
+            <!-- X icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Status message for inline save -->
+    <div id="statusMsg" class="hidden mb-4 text-sm"></div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white rounded-lg shadow-lg p-6">
         <div class="flex justify-center items-center">
@@ -26,7 +87,9 @@
             <p>
                 <span class="font-semibold">Categories:</span>
                 <span class="ml-1">
-                    @(Model.categories != null && Model.categories.Any() ? string.Join(", ", Model.categories) : "N/A")
+                    @(Model.categories != null && Model.categories.Any()
+                                        ? string.Join(", ", Model.categories)
+                                        : "N/A")
                 </span>
             </p>
 
@@ -44,17 +107,16 @@
         </div>
     </div>
 
-    <!-- Action Buttons -->
+    <!-- Back & Delete -->
     <div class="mt-10 flex flex-col sm:flex-row gap-4">
-        <!-- Back Button -->
         <a href="@Url.Action("Products", "Product")"
            class="inline-block text-center bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition">
             ← Back to Products
         </a>
 
-        <!-- Delete Button -->
-        <form asp-action="DeleteProduct" asp-controller="Product" method="delete">
-            <input type="hidden" name="productId" value="@ViewBag.ProductId" />
+        <form asp-action="DeleteProduct" asp-controller="Product" method="post" class="inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="productId" value="@productId" />
             <button type="submit"
                     class="inline-block bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition w-full sm:w-auto">
                 Delete Product
@@ -63,13 +125,105 @@
     </div>
 </div>
 
+<!-- hidden form just to get the anti-forgery token -->
+<form id="afForm" method="post" class="hidden">
+    @Html.AntiForgeryToken()
+</form>
+
 <script>
-    $(document).ready(function() {
-        // Check if the success message exists
-        if ($("#warningMessage").length) {
-            setTimeout(function() {
-                $("#warningMessage").fadeOut("slow");
-            }, 5000); // Adjust the time to your preference, here it's 7000ms (7 seconds)
+    (function () {
+        const nameText   = document.getElementById('productNameText');
+        const nameInput  = document.getElementById('productNameInput');
+        const btnEdit    = document.getElementById('editNameBtn');
+        const btnSave    = document.getElementById('saveNameBtn');
+        const btnCancel  = document.getElementById('cancelNameBtn');
+        const statusMsg  = document.getElementById('statusMsg');
+
+        const productId = @productId;
+        const updateUrl = '@Url.Action("UpdateProduct", "Product")';
+        const token = document.querySelector('#afForm input[name="__RequestVerificationToken"]').value;
+
+        function setEditing(editing) {
+            nameText.classList.toggle('hidden', editing);
+            nameInput.classList.toggle('hidden', !editing);
+            btnSave.classList.toggle('hidden', !editing);
+            btnCancel.classList.toggle('hidden', !editing);
+            btnEdit.classList.toggle('hidden', editing);
+            if (editing) {
+                nameInput.value = nameText.textContent.trim();
+                nameInput.focus();
+                nameInput.select();
+            }
         }
+
+        function showStatus(text, ok) {
+            statusMsg.textContent = text;
+            statusMsg.classList.remove('hidden');
+            statusMsg.classList.toggle('text-green-700', ok);
+            statusMsg.classList.toggle('bg-green-50', ok);
+            statusMsg.classList.toggle('border', true);
+            statusMsg.classList.toggle('border-green-200', ok);
+            statusMsg.classList.toggle('text-red-700', !ok);
+            statusMsg.classList.toggle('bg-red-50', !ok);
+            statusMsg.classList.toggle('border-red-200', !ok);
+            setTimeout(() => { statusMsg.classList.add('hidden'); }, 3000);
+        }
+
+        btnEdit.addEventListener('click', () => setEditing(true));
+        btnCancel.addEventListener('click', () => setEditing(false));
+
+        nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); btnSave.click(); }
+            if (e.key === 'Escape') { e.preventDefault(); btnCancel.click(); }
+        });
+
+            btnSave.addEventListener('click', async () => {
+      const newName = nameInput.value.trim();
+      if (!newName) { showStatus('Name cannot be empty.', false); return; }
+      if (newName === nameText.textContent.trim()) { setEditing(false); return; }
+
+      try {
+        const body = new URLSearchParams({
+          productId: String(productId),
+          updatedProductName: newName,
+          __RequestVerificationToken: token
+        });
+
+        const resp = await fetch(updateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+
+        if (!resp.ok) {
+          // Try to read JSON error; fall back to generic
+          let msg = 'Update failed.';
+          try { const j = await resp.json(); if (j?.error) msg = j.error; } catch {}
+          showStatus(msg, false);
+          if (resp.status === 400 || resp.status === 401) location.reload(); // token/validation fallback
+          return;
+        }
+
+        // 200 with JSON
+        if (resp.status === 200) {
+          const j = await resp.json();
+          nameText.textContent = j.name ?? newName;
+        }
+        // 204 No Content (if you chose that)
+        setEditing(false);
+        showStatus('Product name updated.', true);
+      } catch (err) {
+        console.error(err);
+        showStatus('Network error updating product.', false);
+      }
     });
+
+        // Auto-hide server banners
+        (function () {
+            var w = document.getElementById('warningMessage');
+            var e = document.getElementById('errorMessage');
+            if (w) setTimeout(function () { w.style.display = 'none'; }, 5000);
+            if (e) setTimeout(function () { e.style.display = 'none'; }, 5000);
+        })();
+    })();
 </script>

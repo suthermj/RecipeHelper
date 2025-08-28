@@ -21,8 +21,6 @@
                    stockLevel == "N/A" ||
                    string.IsNullOrWhiteSpace(description) ||
                    promoPrice == 0;
-                    
-
         }
     }
 

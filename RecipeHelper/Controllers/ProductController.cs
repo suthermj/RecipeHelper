@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using NuGet.Protocol;
 using RecipeHelper;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Products;
@@ -16,13 +17,15 @@ namespace RecipeHelper.Controllers
     {
         private readonly DatabaseContext _context;
         private readonly KrogerService _krogerService;
+        private readonly ProductService _productService;
         private readonly ILogger _logger;
 
-        public ProductController(DatabaseContext context, KrogerService krogerService, ILogger<ProductController> logger)
+        public ProductController(DatabaseContext context, KrogerService krogerService, ILogger<ProductController> logger, ProductService productService)
         {
             _context = context;
             _krogerService = krogerService;
             _logger = logger;
+            _productService = productService;
         }
 
         public ActionResult Products()
@@ -188,5 +191,14 @@ namespace RecipeHelper.Controllers
 
         }
 
+        [HttpGet]
+        public async Task<IActionResult> SearchDb(string term)
+        {
+            term ??= "";
+
+            var products = await _productService.SearchForDbProduct(term);
+
+            return Json(products);
+        }
     }
 }

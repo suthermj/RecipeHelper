@@ -9,7 +9,7 @@
     <!-- Header -->
     <header class="text-center space-y-2">
         <h1 class="text-3xl font-bold text-gray-900">Import a Recipe</h1>
-        <p class="text-gray-600">Paste a recipe URL and we’ll fetch the title, image, ingredients, and steps so you can review before saving.</p>
+        <p class="text-gray-600">Paste a recipe URL and we’ll fetch the title, image, ingredients, and steps so you can review and save.</p>
     </header>
 
     <!-- Error banner -->
@@ -24,7 +24,7 @@
         </div>
     }
 
-    <!-- Search form -->
+    <!-- Import form (GET) -->
     <form id="importForm" asp-action="ImportRecipe" method="get" class="flex gap-3" novalidate>
         <input asp-for="Url"
                type="url"
@@ -42,7 +42,7 @@
         </button>
     </form>
 
-    <!-- Optional page-level loading overlay (shown until navigation completes) -->
+    <!-- Page-level loading overlay during GET navigation -->
     <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-white/60 backdrop-blur-sm flex items-center justify-center" aria-live="polite" aria-busy="true">
         <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white shadow">
             <svg class="animate-spin h-5 w-5 text-indigo-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -70,6 +70,7 @@
             <!-- Left: image + meta -->
             <div class="lg:col-span-1">
                 <img src="@img" alt="@Model.Preview.Title" class="w-full h-72 object-cover rounded-xl shadow" />
+
                 <div class="mt-4 space-y-2 text-gray-700">
                     @if (Model.Preview.ReadyInMinutes is not null)
                     {
@@ -109,82 +110,89 @@
             </div>
 
             <!-- Right: title, summary, ingredients & steps -->
-            <div class="lg:col-span-2 space-y-6">
-                <h2 class="text-2xl font-bold text-gray-900">@Model.Preview.Title</h2>
+            <div class="lg:col-span-2 space-y-8">
+                <section>
+                    <h2 class="text-2xl font-bold text-gray-900">@Model.Preview.Title</h2>
 
-                @if (!string.IsNullOrWhiteSpace(Model.Preview.SummaryText))
-                {
-                    <p class="text-gray-700 leading-relaxed">@Model.Preview.SummaryText</p>
-                }
+                    @if (!string.IsNullOrWhiteSpace(Model.Preview.SummaryText))
+                    {
+                        <p class="mt-2 text-gray-700 leading-relaxed">@Model.Preview.SummaryText</p>
+                    }
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <!-- Ingredients -->
-                    <section>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-3">Ingredients</h3>
-                        @if (Model.Preview.Ingredients?.Count > 0)
-                        {
-                            <ul class="list-disc list-inside space-y-1 text-gray-800">
-                                @foreach (var ing in Model.Preview.Ingredients)
-                                {
-                                    <li>
-                                        @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
-                                        {
-                                            <span class="font-medium">@ing.DisplayAmount</span> 
-                                            @ing.Name
-                                        }
-                                        else
-                                        {
-                                            @ing.Name
-                                        }
-                                    </li>
-                                }
-                            </ul>
-                        }
-                        else
-                        {
-                            <p class="text-gray-500">No ingredients found.</p>
-                        }
-                    </section>
+                    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Read-only preview (left) -->
+                        <section>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">Ingredients</h3>
+                            @if (Model.Preview.Ingredients?.Count > 0)
+                            {
+                                <ul class="list-disc list-inside space-y-1 text-gray-800">
+                                    @foreach (var ing in Model.Preview.Ingredients)
+                                    {
+                                        <li>
+                                            @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
+                                            {
+                                                <span class="font-medium">@ing.DisplayAmount</span> 
+                                                @ing.Name
+                                            }
+                                            else
+                                            {
+                                                @ing.Name
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="text-gray-500">No ingredients found.</p>
+                            }
+                        </section>
 
-                    <!-- Instructions -->
-                    <section>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-3">Instructions</h3>
-                        @if (Model.Preview.Steps?.Count > 0)
-                        {
-                            <ol class="list-decimal list-inside space-y-2 text-gray-800">
-                                @for (int i = 0; i < Model.Preview.Steps.Count; i++)
-                                {
-                                    <li>@Model.Preview.Steps[i]</li>
-                                }
-                            </ol>
-                        }
-                        else
-                        {
-                            <p class="text-gray-500">No instructions provided.</p>
-                        }
-                    </section>
-                </div>
+                        <!-- Read-only preview (right) -->
+                        <section>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-3">Instructions</h3>
+                            @if (Model.Preview.Steps?.Count > 0)
+                            {
+                                <ol class="list-decimal list-inside space-y-2 text-gray-800">
+                                    @for (int i = 0; i < Model.Preview.Steps.Count; i++)
+                                    {
+                                        <li>@Model.Preview.Steps[i]</li>
+                                    }
+                                </ol>
+                            }
+                            else
+                            {
+                                <p class="text-gray-500">No instructions provided.</p>
+                            }
+                        </section>
+                    </div>
+                </section>
 
-                <!-- Actions -->
-                <div class="pt-2 flex gap-3">
-                    <form asp-action="SaveImportedRecipe" method="post">
+                <!-- Review & Save (editable) -->
+                <section class="pt-2">
+                    <form asp-action="PreviewImportedRecipe" method="post" class="space-y-4">
                         @Html.AntiForgeryToken()
-                        <input type="hidden" name="SourceUrl" value="@Model.Preview.SourceUrl" />
+
+                        <!-- core fields -->
                         <input type="hidden" name="Title" value="@Model.Preview.Title" />
                         <input type="hidden" name="Image" value="@Model.Preview.Image" />
+                        <input type="hidden" name="SourceUrl" value="@Model.Preview.SourceUrl" />
+
+                        <!-- ingredients (all hidden) -->
+                        @for (var i = 0; i < Model.Preview.Ingredients.Count; i++)
+                        {
+                            var ing = Model.Preview.Ingredients[i];
+                            <input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
+                            <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
+                            <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
+                        }
+
                         <button type="submit"
                                 class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md">
-                            Save to My Recipes
+                            Review &amp; Save
                         </button>
                     </form>
-                    @if (!string.IsNullOrWhiteSpace(Model.Preview.SourceUrl))
-                    {
-                        <a href="@Model.Preview.SourceUrl" target="_blank"
-                           class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded-md">
-                            View Original
-                        </a>
-                    }
-                </div>
+                </section>
             </div>
         </div>
     }
@@ -209,11 +217,8 @@
         const err = document.getElementById('errorMessage');
         if (err) setTimeout(() => err.remove(), 7000);
 
-        form.addEventListener('submit', function (e) {
-            // if invalid, let the browser show built-in validation
+        form.addEventListener('submit', function () {
             if (!form.checkValidity()) return;
-
-            // show loading state until navigation
             btn.disabled = true;
             urlInput.readOnly = true;
             spinner.classList.remove('hidden');

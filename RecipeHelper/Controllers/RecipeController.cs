@@ -23,13 +23,15 @@ namespace RecipeHelper.Controllers
         private readonly ILogger<RecipeController> _logger;
         private StorageService _storageService;
         private SpoonacularService _spoonacularService;
+        private RecipeService _recipeService;
 
-        public RecipeController(ILogger<RecipeController> logger, DatabaseContext context, StorageService storageService, SpoonacularService spoonacularService)
+        public RecipeController(ILogger<RecipeController> logger, DatabaseContext context, StorageService storageService, SpoonacularService spoonacularService, RecipeService recipeService)
         {
             _logger = logger;
             _context = context;
             _storageService = storageService;
             _spoonacularService = spoonacularService;
+            _recipeService = recipeService;
         }
 
         public ActionResult Recipe()
@@ -478,10 +480,29 @@ namespace RecipeHelper.Controllers
             }
 
             return View(model);
-
-            
-
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PreviewImportedRecipe(PreviewImportedRecipeVM vm)
+        {
+            if (string.IsNullOrWhiteSpace(vm.Title) || vm.Ingredients.Count == 0)
+            {
+                TempData["ErrorMessage"] = "Missing title or ingredients.";
+                return RedirectToAction(nameof(ImportRecipe));
+            }
+
+            var recipePreview = await _recipeService.AddImportedRecipePreview(vm);
+            return View("MappedImportedRecipe", recipePreview);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ConfirmImportedMapping(ConfirmMappingVM vm)
+        {
+            _logger.LogInformation("log info");
+            var result = await _recipeService.SaveImportedRecipe(vm);
+            return RedirectToAction("Recipe");
+        }
     }
 }

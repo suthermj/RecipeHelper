@@ -177,26 +177,21 @@ namespace RecipeHelper.Services
             {
                 _logger.LogError(ex, "Error creating recipe");
                 return;
-            }*/
+            }
 
             var measurements = _context.Measurements.Select(m => new
             {
                 Id = m.Id,
                 Name = m.Name,
             }).ToList();
+            */
 
             // Build a case-insensitive lookup for measurements once
             var measurementDict = await _context.Measurements
                 .AsNoTracking()
                 .ToDictionaryAsync(m => m.Name, m => m.Id, StringComparer.OrdinalIgnoreCase);
 
-            int? MapMeasurementId(string? unit)
-            {
-                if (string.IsNullOrWhiteSpace(unit)) return null;
-                // normalize common abbreviations here if you want:
-                // e.g. if (unit.Equals("tsp", StringComparison.OrdinalIgnoreCase)) unit = "Teaspoon";
-                return measurementDict.TryGetValue(unit.Trim(), out var id) ? id : (int?)null;
-            }
+            
 
             if (!recipe.Ingredients.IsNullOrEmpty())
             {
@@ -220,7 +215,7 @@ namespace RecipeHelper.Services
                         {
                             Product = newProduct,                 // <- key point: set navigation, not ProductId
                             Quantity = (int?)ingredient.Amount ?? 0,
-                            MeasurementId = MapMeasurementId(ingredient.Unit)
+                            MeasurementId = MapMeasurementId(ingredient.Unit, measurementDict)
                         });
                     }
                     else
@@ -229,7 +224,7 @@ namespace RecipeHelper.Services
                         {
                             ProductId = (int)ingredient.ProductId,                 // <- key point: set navigation, not ProductId
                             Quantity = (int?)ingredient.Amount ?? 0,
-                            MeasurementId = MapMeasurementId(ingredient.Unit)
+                            MeasurementId = MapMeasurementId(ingredient.Unit, measurementDict)
                         });
                     }
                 }
@@ -251,6 +246,61 @@ namespace RecipeHelper.Services
             }
         }
 
+        private int? MapMeasurementId(string? unit, Dictionary<string,int> measurementDict)
+        {
+            if (string.IsNullOrWhiteSpace(unit)) return null;
+            // normalize common abbreviations here if you want:
+            // e.g. if (unit.Equals("tsp", StringComparison.OrdinalIgnoreCase)) unit = "Teaspoon";
+
+            unit = unit.Trim();
+
+            // 🔥 Normalize abbreviations → match DB naming
+            switch (unit.ToLower())
+            {
+                case "tsp":
+                case "tsps":
+                case "teaspoon":
+                case "teaspoons":
+                    unit = "Teaspoons";
+                    break;
+
+                case "tbsp":
+                case "tbsps":
+                case "tablespoon":
+                case "tablespoons":
+                    unit = "Tablespoons";
+                    break;
+
+                case "cup":
+                case "cups":
+                    unit = "Cups";
+                    break;
+
+                case "oz":
+                case "ounce":
+                case "ounces":
+                    unit = "Ounces";
+                    break;
+
+                case "lb":
+                case "lbs":
+                case "pound":
+                case "pounds":
+                    unit = "Pounds";
+                    break;
+
+                case "unit":
+                case "units":
+                case "piece":
+                case "pieces":
+                    unit = "Unit";
+                    break;
+
+                    // Add more as needed
+            }
+
+            return measurementDict.TryGetValue(unit.Trim(), out var id) ? id : (int?)null;
+        }
         // Lightweight Levenshtein ratio (0..1)
         private static double LevenshteinRatio(string s, string t)
         {

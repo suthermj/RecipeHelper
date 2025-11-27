@@ -1,0 +1,151 @@
+﻿@model List<ViewRecipeVM>
+
+@{
+    const int maxSelections = 7;
+}
+
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-semibold tracking-tight">Select Your Weekly Dinners</h1>
+            <p class="text-sm text-gray-600 mt-1">
+                Choose between <span class="font-medium">1 and @maxSelections</span> recipes for this week.
+                Tap a card to select or deselect.
+            </p>
+        </div>
+
+        <div class="flex flex-col items-start md:items-end gap-1">
+            <p id="selectionCount" class="text-sm font-medium">
+                Selected recipes: 0 / @maxSelections
+            </p>
+            <p id="selectionHelper" class="text-xs text-gray-500">
+                Select at least 1 recipe to enable submission.
+            </p>
+        </div>
+    </div>
+
+    <form asp-action="SubmitDinnerSelections" asp-controller="Dinner" method="post" class="space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            @foreach (var recipe in Model)
+            {
+                <button type="button"
+                        class="relative p-4 text-left bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-300 transition js-selectable w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        data-id="@recipe.Id">
+                    <div class="flex flex-col gap-1">
+                        <h2 class="text-base font-semibold text-gray-900 line-clamp-2">
+                            @recipe.RecipeName
+                        </h2>
+                        @* Optionally show more info later (time, tags, etc.) *@
+                        @* <p class="text-xs text-gray-500">30 min · Serves 4</p> *@
+                    </div>
+
+                    <div class="absolute top-3 right-3 hidden js-check-indicator">
+                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs">
+                            ✓
+                        </span>
+                    </div>
+                </button>
+            }
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-gray-200">
+            <span id="selectionError" class="text-sm text-red-500 hidden">
+                Please select between 1 and @maxSelections recipes.
+            </span>
+
+            <button id="submitButton"
+                    type="submit"
+                    class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition">
+                Save Weekly Dinners
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const maxSelections = @maxSelections;
+        const selectableCards = document.querySelectorAll('.js-selectable');
+        const selectionCount = document.getElementById('selectionCount');
+        const selectionHelper = document.getElementById('selectionHelper');
+        const selectionError = document.getElementById('selectionError');
+        const submitButton = document.getElementById('submitButton');
+
+        // disable submit until at least 1 selected
+        submitButton.disabled = true;
+
+        selectableCards.forEach(card => {
+            card.addEventListener('click', function () {
+                const recipeId = this.getAttribute('data-id');
+                let hiddenInput = document.getElementById('selected-' + recipeId);
+                const isSelected = this.classList.contains('border-blue-500');
+
+                if (isSelected) {
+                    // Unselect
+                    this.classList.remove('border-blue-500', 'bg-blue-50');
+                    toggleCheckIndicator(this, false);
+
+                    if (hiddenInput) {
+                        hiddenInput.remove();
+                    }
+                } else {
+                    const currentSelected = document.querySelectorAll('.border-blue-500.js-selectable').length;
+                    if (currentSelected >= maxSelections) {
+                        showTempError(`You can select up to ${maxSelections} recipes.`);
+                        return;
+                    }
+
+                    // Select
+                    this.classList.add('border-blue-500', 'bg-blue-50');
+                    toggleCheckIndicator(this, true);
+
+                    if (!hiddenInput) {
+                        hiddenInput = document.createElement('input');
+                        hiddenInput.type = 'hidden';
+                        hiddenInput.id = 'selected-' + recipeId;
+                        hiddenInput.name = 'selectedRecipes';
+                        hiddenInput.value = recipeId;
+
+                        // append hidden input to the form instead of card
+                        document.querySelector('form').appendChild(hiddenInput);
+                    }
+                }
+
+                updateSelectionState();
+            });
+        });
+
+        function toggleCheckIndicator(card, isVisible) {
+            const indicator = card.querySelector('.js-check-indicator');
+            if (!indicator) return;
+            indicator.classList.toggle('hidden', !isVisible);
+        }
+
+        function updateSelectionState() {
+            const selectedCount = document.querySelectorAll('.border-blue-500.js-selectable').length;
+            selectionCount.textContent = `Selected recipes: ${selectedCount} / ${maxSelections}`;
+
+            const isValid = selectedCount >= 1 && selectedCount <= maxSelections;
+            submitButton.disabled = !isValid;
+
+            if (!isValid && selectedCount > 0) {
+                selectionHelper.textContent = `You can select up to ${maxSelections} recipes.`;
+            } else if (selectedCount === 0) {
+                selectionHelper.textContent = 'Select at least 1 recipe to enable submission.';
+            } else {
+                selectionHelper.textContent = 'Ready to save your weekly dinners.';
+            }
+
+            selectionError.classList.toggle('hidden', isValid);
+        }
+
+        function showTempError(message) {
+            selectionError.textContent = message;
+            selectionError.classList.remove('hidden');
+            setTimeout(() => {
+                selectionError.classList.add('hidden');
+                selectionError.textContent = `Please select between 1 and ${maxSelections} recipes.`;
+            }, 2500);
+        }
+    });
+</script>

@@ -6,6 +6,7 @@
     <form asp-action="SaveModifiedIngredients" method="post" class="space-y-12">
         <input type="hidden" name="RecipeId" value="@Model.RecipeId" />
         <input type="hidden" name="publishedRecipeId" value="@Model.publishedRecipeId" />
+
         <!-- ✅ CURRENT INGREDIENTS -->
         <section>
             <h2 class="text-2xl font-semibold text-gray-800 mb-6">Current Ingredients</h2>
@@ -16,32 +17,54 @@
                     @Html.HiddenFor(m => m.CurrentIngredients[i].Id)
                     @Html.HiddenFor(m => m.CurrentIngredients[i].Name)
 
-                    <div class="bg-white rounded-xl shadow-md p-5 flex flex-col items-center hover:shadow-lg transition">
+                    <!-- note: current-ingredient-card class added -->
+                    <div class="current-ingredient-card bg-white rounded-xl shadow-md p-5 flex flex-col items-center hover:shadow-lg transition">
                         <img src="https://www.kroger.com/product/images/xlarge/front/@Model.CurrentIngredients[i].Upc"
                              alt="@Model.CurrentIngredients[i].Name"
                              class="rounded-lg w-full h-44 object-cover mb-4" />
+
                         <p class="text-center font-medium text-gray-800">@Model.CurrentIngredients[i].Name</p>
 
-                        <div class="flex items-center gap-3 mt-3">
-                            <button type="button" onclick="adjustQuantity(@Model.CurrentIngredients[i].Id, -1)">
-                                <i class="fa-solid fa-circle-minus text-indigo-600 text-2xl hover:text-indigo-800"></i>
-                            </button>
-                            @Html.TextBoxFor(m => m.CurrentIngredients[i].Quantity, new
+                        <div class="mt-4 w-full space-y-3">
+                            <!-- Quantity controls -->
+                            <div class="flex items-center justify-center gap-3">
+                                <button type="button" onclick="adjustQuantity(@Model.CurrentIngredients[i].Id, -1)">
+                                    <i class="fa-solid fa-circle-minus text-indigo-600 text-2xl hover:text-indigo-800"></i>
+                                </button>
+
+                                @Html.TextBoxFor(m => m.CurrentIngredients[i].Quantity, new
                                 {
                                     id = $"qty-{Model.CurrentIngredients[i].Id}",
-                                    @class = "w-16 text-center border border-gray-300 rounded-md py-1"
-                                })
+                                                        @class = "w-16 text-center border border-gray-300 rounded-md py-1"
+                                                        })
+
                             <button type="button" onclick="adjustQuantity(@Model.CurrentIngredients[i].Id, 1)">
                                 <i class="fa-solid fa-circle-plus text-indigo-600 text-2xl hover:text-indigo-800"></i>
                             </button>
                         </div>
+
+                        <!-- Measurement dropdown -->
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1 text-center">
+                                Measurement
+                            </label>
+                            @Html.DropDownListFor(
+                                                        m => m.CurrentIngredients[i].MeasurementId,
+                                                        Model.AvailableMeasurements,
+                                                        "-- Select unit --",
+                                                        new
+                                                        {
+                                                            @class = "mt-1 block w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                                        })
+                        </div>
                     </div>
-                }
+                </div>
+                                }
             </div>
         </section>
 
         <!-- 🔘 TOGGLE BUTTON -->
-        <div class="text-center">
+        <div class="text-center mt-8">
             <button type="button" onclick="toggleAdditionalIngredients()"
                     class="bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 font-semibold py-2 px-5 rounded-md shadow-sm transition">
                 + Add More Ingredients
@@ -71,23 +94,44 @@
                         <img src="https://www.kroger.com/product/images/xlarge/front/@Model.AllProducts[i].Upc"
                              alt="@Model.AllProducts[i].Name"
                              class="rounded-lg w-full h-44 object-cover mb-4" />
+
                         <p class="text-center font-medium text-gray-800">@Model.AllProducts[i].Name</p>
 
-                        <div class="flex items-center gap-3 mt-3">
-                            <button type="button" onclick="adjustQuantity(@Model.AllProducts[i].Id, -1)">
-                                <i class="fa-solid fa-circle-minus text-indigo-600 text-2xl hover:text-indigo-800"></i>
-                            </button>
-                            @Html.TextBoxFor(m => m.AllProducts[i].Quantity, new
+                        <div class="mt-4 w-full space-y-3">
+                            <!-- Quantity controls -->
+                            <div class="flex items-center justify-center gap-3">
+                                <button type="button" onclick="adjustQuantity(@Model.AllProducts[i].Id, -1)">
+                                    <i class="fa-solid fa-circle-minus text-indigo-600 text-2xl hover:text-indigo-800"></i>
+                                </button>
+
+                                @Html.TextBoxFor(m => m.AllProducts[i].Quantity, new
                                 {
                                     id = $"qty-{Model.AllProducts[i].Id}",
-                                    @class = "w-16 text-center border border-gray-300 rounded-md py-1"
-                                })
+                                                        @class = "w-16 text-center border border-gray-300 rounded-md py-1"
+                                                        })
+
                             <button type="button" onclick="adjustQuantity(@Model.AllProducts[i].Id, 1)">
                                 <i class="fa-solid fa-circle-plus text-indigo-600 text-2xl hover:text-indigo-800"></i>
                             </button>
                         </div>
+
+                        <!-- Measurement dropdown -->
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1 text-center">
+                                Measurement
+                            </label>
+                            @Html.DropDownListFor(
+                                                        m => m.AllProducts[i].MeasurementId,
+                                                        Model.AvailableMeasurements,
+                                                        "-- Select unit --",
+                                                        new
+                                                        {
+                                                            @class = "mt-1 block w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                                        })
+                        </div>
                     </div>
-                }
+                </div>
+                                }
             </div>
         </section>
 
@@ -109,9 +153,17 @@
 
     function adjustQuantity(id, delta) {
         const input = document.getElementById('qty-' + id);
-        let value = parseInt(input.value || '0');
+        if (!input) return;
+
+        let value = parseInt(input.value || '0', 10);
         value = Math.max(0, value + delta);
         input.value = value;
+
+        // Only remove cards from Current Ingredients when they hit 0
+        const currentCard = input.closest('.current-ingredient-card');
+        if (currentCard && value === 0) {
+            currentCard.remove();
+        }
     }
 
     function filterIngredients() {

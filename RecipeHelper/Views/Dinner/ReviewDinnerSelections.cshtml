@@ -1,0 +1,137 @@
+﻿@using RecipeHelper.Models.Dinner
+@model ReviewDinnerSelectionsVM
+
+<div class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- Header / Stepper -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                Step 2 of 2
+            </p>
+            <h1 class="mt-1 text-3xl font-semibold tracking-tight">
+                Review Your Dinner Selections
+            </h1>
+            <p class="mt-1 text-sm text-gray-600">
+                Here’s an overview of this week’s recipes and the combined ingredients you’ll need.
+            </p>
+        </div>
+
+        <div class="flex flex-col items-start md:items-end gap-1 text-sm">
+            <p class="font-medium">
+                Selected recipes:
+                <span class="text-blue-600">@Model.SelectedRecipes.Count</span>
+            </p>
+            <a asp-action="SelectWeeklyRecipes"
+               asp-controller="Dinner"
+               class="text-xs text-gray-500 hover:text-gray-700 underline">
+                ← Go back to change selections
+            </a>
+        </div>
+    </div>
+
+    <!-- Selected Recipes -->
+    <section class="space-y-3">
+        <h2 class="text-lg font-semibold text-gray-900">This week’s dinners</h2>
+
+        @if (Model.SelectedRecipes == null || !Model.SelectedRecipes.Any())
+        {
+            <p class="text-sm text-gray-500">
+                No recipes selected. Go back and pick your dinners for the week.
+            </p>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach (var recipe in Model.SelectedRecipes)
+                {
+                    <div class="flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                        <div class="h-40 w-full bg-gray-100 overflow-hidden">
+                            <img src="@recipe.ImageUri"
+                                 alt="Image of @recipe.RecipeName"
+                                 class="w-full h-full object-cover" />
+                        </div>
+                        <div class="p-4 flex-1 flex flex-col justify-between">
+                            <h3 class="text-base font-semibold text-gray-900 line-clamp-2">
+                                @recipe.RecipeName
+                            </h3>
+                            @* Optional meta/footer could go here *@
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+    <!-- Ingredients -->
+    <section class="space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">Combined ingredients</h2>
+            <p class="text-xs text-gray-500">
+                Quantities are summed across all selected recipes and shown with their units.
+            </p>
+        </div>
+
+        @if (Model.Ingredients == null || !Model.Ingredients.Any())
+        {
+            <p class="text-sm text-gray-500">
+                No ingredients to display. Make sure you’ve selected at least one recipe.
+            </p>
+        }
+        else
+        {
+            <div class="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col"
+                                class="px-4 py-3 text-left font-medium text-gray-600">
+                                Ingredient
+                            </th>
+                            <th scope="col"
+                                class="px-4 py-3 text-left font-medium text-gray-600">
+                                Quantity needed
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach (var item in Model.Ingredients)
+                        {
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 align-top">
+                                    <span class="font-medium text-gray-900">
+                                        @item.Name
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 align-top">
+                                    <span class="text-gray-800 font-medium">
+                                        @item.Quantity @item.Measurement
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <!-- Footer actions (if/when you add a confirm step) -->
+    @* 
+    <section class="pt-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <p class="text-xs text-gray-500">
+            Review your list before heading to the store or placing your grocery order.
+        </p>
+        <div class="flex gap-2">
+            <a asp-action="SelectWeeklyRecipes" asp-controller="Dinner"
+               class="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50">
+                Back
+            </a>
+            <button type="button"
+                    class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 transition">
+                Continue
+            </button>
+        </div>
+    </section>
+    *@
+</div>

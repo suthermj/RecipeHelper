@@ -131,6 +131,11 @@ namespace RecipeHelper.Controllers
             foreach (var upc in selectedProducts)
             {
                 string name = productNames[upc];
+
+                if (name.StartsWith("Kroger®"))
+                {
+                    name = name.Replace("Kroger®", "").Trim();
+                }
                 decimal price = productPrices[upc];
 
                 // Logic to add each selected product to the database using UPC, name, and price

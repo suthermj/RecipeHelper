@@ -150,5 +150,13 @@ namespace RecipeHelper.Services
             return null;
         }
 
+        public async Task<bool> AddToCart()
+        {
+
+
+
+            return true;
+        }
+
     }
 }

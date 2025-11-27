@@ -71,68 +71,7 @@ namespace RecipeHelper.Controllers
             return View(recipe);
         }
 
-        public ActionResult SelectWeeklyRecipes()
-        {
-            var recipes = _context.Recipes.Select(r => new ViewRecipeVM
-            {
-                Id = r.Id,
-                RecipeName = r.Name,
-                ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
-                {
-                    Name = rp.Product.Name,
-                    Quantity = rp.Quantity,
-                }).ToList(),
-            }).ToList();
-
-            return View(recipes);
-        }
-
-        public ActionResult SubmitDinnerSelections(List<int> selectedRecipes)
-        {
-            SubmitDinnerSelectionsVM model = new SubmitDinnerSelectionsVM
-            {
-                SelectedRecipes = new List<SelectedRecipeVM>(),
-                Ingredients = new Dictionary<string, int>()
-            };
-
-            var recipes = _context.Recipes.Where(r => selectedRecipes.Contains(r.Id)).Select(r => new ViewRecipeVM
-            {
-                RecipeName = r.Name,
-                ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
-                {
-                    Name = rp.Product.Name,
-                    Quantity = rp.Quantity,
-                }).ToList(),
-            }).ToList();
-
-            if (recipes != null)
-            {
-                foreach (var recipe in recipes)
-                {
-                    model.SelectedRecipes.Add(new SelectedRecipeVM
-                    {
-                        RecipeName = recipe.RecipeName,
-                        ImageUri = recipe.ImageUri
-                    });
-
-                    foreach (var ingredient in recipe.Ingredients)
-                    {
-                        if (model.Ingredients.ContainsKey(ingredient.Name))
-                        {
-                            model.Ingredients[ingredient.Name] += ingredient.Quantity;
-                        }
-                        else
-                        {
-                            model.Ingredients.Add(ingredient.Name, ingredient.Quantity);
-                        }
-                    }
-                }
-            }
-
-            return View("ReviewDinnerSelections", model);
-        }
+        
 
 
         [HttpPost]
@@ -194,6 +133,7 @@ namespace RecipeHelper.Controllers
                     RecipeId = model.publishedRecipeId,
                     ProductId = ingredient.Id,
                     Quantity = ingredient.Quantity,
+                    MeasurementId = ingredient.MeasurementId
                 };
                 _context.RecipeProducts.Add(recipeProduct);
             }
@@ -216,7 +156,8 @@ namespace RecipeHelper.Controllers
                 {
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
-                    Id = rp.Product.Id
+                    Id = rp.Product.Id,
+                    Measurement = rp.Measurement.Name
                 }).ToList(),
             }).FirstOrDefault();
 
@@ -335,7 +276,8 @@ namespace RecipeHelper.Controllers
                     Id = rp.ProductId,
                     Name = rp.Product.Name,
                     Upc = rp.Product.Upc,
-                    Quantity = rp.Quantity
+                    Quantity = rp.Quantity,
+                    MeasurementId = rp.MeasurementId
                 }).ToList();
 
                 var currentIngredientIds = publishedRecipe.RecipeProducts.Select(rp => rp.ProductId).ToHashSet();
@@ -375,7 +317,7 @@ namespace RecipeHelper.Controllers
                     RecipeId = draftRecipe.Id,
                     CurrentIngredients = currentIngredients,
                     AllProducts = filteredAllProducts,
-
+                    AvailableMeasurements = availableMeasurements
                 };
 
                 return View("ModifyIngredients", vm);

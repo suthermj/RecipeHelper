@@ -8,12 +8,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<KrogerService, KrogerService>();  // Registering your Kroger service
 builder.Services.AddScoped<StorageService, StorageService>();
 builder.Services.AddScoped<SpoonacularService, SpoonacularService>();
 builder.Services.AddScoped<RecipeService, RecipeService>();
 builder.Services.AddScoped<ProductService, ProductService>();
+builder.Services.AddScoped<KrogerAuthService, KrogerAuthService>();
+
 builder.Services.AddDbContext<DatabaseContext>(options =>
     options.UseSqlServer(builder.Configuration["ConnectionString"] ?? throw new InvalidOperationException("Connection string 'ConnectionString' not found.")));
 // Add session services

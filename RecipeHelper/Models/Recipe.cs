@@ -71,6 +71,7 @@ namespace RecipeHelper.Models
         public string Name { get; set; }
         public decimal Quantity { get; set; }
         public string Measurement { get; set; }
+        public string Upc { get; set; }
         public string DisplayQuantity       // The property name you use in Razor
         {
             get                             // Computed getter

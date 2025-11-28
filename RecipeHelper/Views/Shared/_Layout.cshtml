@@ -28,6 +28,21 @@
     </header>
     <div class="container">
         <main role="main" class="pb-3">
+            @if (TempData["SuccessMessage"] is string success)
+            {
+                <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                    <span class="font-semibold">Success:</span>
+                    <span class="ml-1">@success</span>
+                </div>
+            }
+
+            @if (TempData["ErrorMessage"] is string error)
+            {
+                <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <span class="font-semibold">Oops:</span>
+                    <span class="ml-1">@error</span>
+                </div>
+            }
             @RenderBody()
         </main>
     </div>

@@ -12,11 +12,12 @@ namespace RecipeHelper.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration; // Assuming you store your API keys and other settings in appsettings.json
         private readonly ILogger<KrogerService> _logger;
+        private KrogerAuthService _krogerAuthService;
         private readonly string _baseUri;
         private readonly string _clientId;
         private readonly string _clientSecret;
         private readonly string _locationId;
-        public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger)
+        public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
@@ -25,6 +26,7 @@ namespace RecipeHelper.Services
             _locationId = _configuration["Kroger:mariemontLocationId"];
             _clientId = _configuration["Kroger:clientId"];
             _clientSecret = _configuration["Kroger:clientSecret"];
+            _krogerAuthService = krogerAuthService;
         }
 
         public async Task<string?> GetProductToken()
@@ -150,8 +152,50 @@ namespace RecipeHelper.Services
             return null;
         }
 
-        public async Task<bool> AddToCart()
+        public async Task<bool> AddToCart(AddToCartRequest vm, string accessToken)
         {
+            var auth = await _krogerAuthService.EnsureAccessTokenAsync();
+
+            if (!auth.IsAuthorized || string.IsNullOrEmpty(auth.AccessToken))
+            {
+                _logger.LogError("User not authorized for Kroger APIs. Prompting re-login.");
+
+
+                return false;
+            }
+
+            if (vm == null || vm.Items.Count == 0)
+            {
+                _logger.LogError("AddToCartVM is null or has no items.");
+                return false;
+            }
+            var client = _httpClientFactory.CreateClient();
+            var url = $"{_baseUri}/cart/add";
+
+
+            foreach (var item in vm.Items)
+            {
+                item.Quantity = (int)item.Quantity; // quantity is already int on VM, so update before use
+            }
+
+
+            try
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken); // Replace with actual customer access token
+                var jsonContent = JsonConvert.SerializeObject(vm);
+                var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+                var response = await client.PutAsync(url, httpContent);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError($"Error adding item to cart.");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Exception occurred while adding items to cart: {ex.Message}");
+                return false;
+            }
 
 
 

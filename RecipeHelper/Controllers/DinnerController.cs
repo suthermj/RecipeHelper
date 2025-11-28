@@ -64,6 +64,7 @@ namespace RecipeHelper.Controllers
                     Id = rp.Product.Id,
                     Name = rp.Product.Name,
                     Quantity = rp.Quantity,
+                    Upc = rp.Product.Upc,
                     Measurement = rp.Measurement.Name == null ? "Count" : rp.Measurement.Name
                 }).ToList(),
             }).ToList();
@@ -91,6 +92,7 @@ namespace RecipeHelper.Controllers
                                 Id = ingredient.Id,
                                 Name = ingredient.Name,
                                 Quantity = ingredient.Quantity,
+                                Upc = ingredient.Upc,
                                 Measurement = ingredient.Measurement
                             });
                         }
@@ -103,6 +105,7 @@ namespace RecipeHelper.Controllers
                                     Id = ingredient.Id,
                                     Name = ingredient.Name,
                                     Quantity = ingredient.Quantity,
+                                    Upc = ingredient.Upc,
                                     Measurement = ingredient.Measurement
                                 },
                             ];
@@ -126,6 +129,7 @@ namespace RecipeHelper.Controllers
                         Id = ingredient.Key,
                         Name = ingredient.Value[0].Name,
                         Quantity = totalQuantity,
+                        Upc = ingredient.Value[0].Upc,
                         Measurement = ingredient.Value[0].Measurement
                     });
                 }
@@ -188,6 +192,7 @@ namespace RecipeHelper.Controllers
                             Id = ingredient.Key,
                             Name = ingredient.Value[0].Name,
                             Quantity = newAmount,
+                            Upc = ingredient.Value[0].Upc,
                             Measurement = measurement
                         });
                     }

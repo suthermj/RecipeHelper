@@ -1,9 +1,5 @@
-﻿using System.Net.Http;
-using System.Text.Json;
-using Microsoft.AspNetCore.Http;
+﻿using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Identity.Client;
 using RecipeHelper.Models.Kroger;
 using RecipeHelper.Services;
 

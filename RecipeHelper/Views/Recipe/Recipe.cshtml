@@ -4,40 +4,145 @@
 
 @model List<ViewRecipeVM>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <h1 class="text-2xl font-bold text-gray-800 mb-6">Recipes</h1>
-    <div class="flex space-x-4 mb-8">
-        <button onclick="location.href='@Url.Action("CreateEditRecipe", "Recipe")'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-            Add Recipe
-        </button>
-        <button onclick="location.href='@Url.Action("ImportRecipe", "Recipe")'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-            Import Recipe
-        </button>
-        <button onclick="location.href='@Url.Action("SelectWeeklyRecipes", "Dinner")'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-            Create Dinner List
-        </button>
-        <button onclick="location.href='@Url.Action("Products", "Product")'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-            View Products
-        </button>
-        <button onclick="location.href='@Url.Action("Cart", "Cart")'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-            Cart
-        </button>
-    </div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-6">
 
-    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        @foreach (var recipe in Model)
-        {
-            <a href="@Url.Action("ViewRecipe", "Recipe", new { id = recipe.Id })" class="block rounded-lg shadow-lg overflow-hidden group">
-                <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri)
-                                   ? Url.Content("https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp")
-                                   : recipe.ImageUri)"
-                     alt="Image of @recipe.RecipeName" 
-                     class="w-full h-48 object-cover group-hover:opacity-75">
-                <div class="p-4 bg-white">
-                    <h3 class="text-lg font-semibold text-gray-900">@recipe.RecipeName</h3>
-                    <p class="text-sm text-gray-700">Ingredients: @recipe.Ingredients.Count</p>
-                </div>
+    <!-- Header + actions -->
+    <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div class="space-y-1">
+            <h1 class="text-xl font-bold text-gray-900 sm:text-2xl">
+                Recipe Library
+            </h1>
+            <p class="text-sm text-gray-600 leading-snug hidden sm:block">
+                Create, import, and organize the recipes used to plan weekly dinners.
+            </p>
+        </div>
+
+        <!-- Cleaner, compact nav bar -->
+        <div class="flex flex-nowrap overflow-x-auto gap-2 py-1">
+            <a asp-controller="Recipe" asp-action="CreateEditRecipe"
+               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
+                  bg-indigo-600 text-white hover:bg-indigo-700 transition">
+                <span class="sm:hidden">Add</span>
+                <span class="hidden sm:inline">Add recipe</span>
             </a>
-        }
-    </div>
+
+            <a asp-controller="Recipe" asp-action="ImportRecipe"
+               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
+                  bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
+                <span class="sm:hidden">Import</span>
+                <span class="hidden sm:inline">Import recipe</span>
+            </a>
+
+            <a asp-controller="Dinner" asp-action="SelectWeeklyRecipes"
+               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
+                  bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
+                Dinners
+            </a>
+
+            <a asp-controller="Product" asp-action="Products"
+               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
+                  bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
+                Products
+            </a>
+
+            <a asp-controller="Cart" asp-action="ViewCart"
+               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
+                  bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
+                Cart
+            </a>
+        </div>
+    </header>
+
+    @if (Model == null || !Model.Any())
+    {
+        <!-- Empty state -->
+        <section class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+            <h2 class="text-lg font-semibold text-gray-800 mb-2">No recipes yet</h2>
+            <p class="text-sm text-gray-600 mb-4">
+                Start by adding or importing a recipe. Once you have a few saved, you can build weekly dinner lists
+                and send ingredients to your Kroger cart.
+            </p>
+            <div class="flex flex-wrap justify-center gap-2">
+                <a asp-controller="Recipe" asp-action="CreateEditRecipe"
+                   class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full
+                              bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition">
+                    Add your first recipe
+                </a>
+                <a asp-controller="Recipe" asp-action="ImportRecipe"
+                   class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full
+                              bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition">
+                    Import from a link
+                </a>
+            </div>
+        </section>
+    }
+    else
+    {
+        <!-- Top bar: count + search -->
+        @* when Model has recipes *@
+        <section class="space-y-3">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 class="text-sm font-semibold text-gray-800">
+                    @Model.Count recipe@(Model.Count == 1 ? "" : "s")
+                </h2>
+
+                <!-- Search -->
+                <form method="get" class="w-full sm:w-auto">
+                    <div class="flex w-full sm:min-w-[260px] items-center rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+                        <input type="text"
+                               name="search"
+                               value="@Context.Request.Query["search"]"
+                               placeholder="Search recipes..."
+                               class="w-full bg-transparent outline-none border-none text-sm text-gray-900 placeholder-gray-400" />
+                        <button type="submit" class="ml-2 text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+                            Go
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 2-column grid on phones, scales up on larger screens -->
+            <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                @foreach (var recipe in Model)
+                {
+                    <a asp-controller="Recipe"
+                       asp-action="ViewRecipe"
+                       asp-route-id="@recipe.Id"
+                       class="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
+                              hover:shadow-md transition hover:-translate-y-0.5">
+
+                        <!-- Slightly shorter image to keep cards compact -->
+                        <div class="relative w-full h-28 sm:h-32 bg-gray-100 overflow-hidden">
+                            <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri)
+                                                                    ? Url.Content("https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp")
+                                                                    : recipe.ImageUri)"
+                         alt="Image of @recipe.RecipeName"
+                         class="w-full h-full object-cover group-hover:opacity-80 transition" />
+                </div>
+
+                        <div class="flex-1 p-3 flex flex-col gap-1.5">
+                            <h3 class="text-xs font-semibold text-gray-900 line-clamp-2">
+                                @recipe.RecipeName
+                            </h3>
+
+                            <p class="text-[0.7rem] text-gray-500">
+                                @recipe.Ingredients.Count ingredient@(recipe.Ingredients.Count == 1 ? "" : "s")
+                            </p>
+
+                            <div class="mt-1 flex items-center justify-between text-[0.7rem] text-gray-500">
+                                <span class="truncate max-w-[60%]">
+                                    @* future metadata placeholder *@
+                                </span>
+                                @*<span class="inline-flex items-center gap-0.5 text-indigo-600 font-medium">
+                                    <span class="hidden sm:inline">View</span>
+                                    <span class="sm:hidden">Open</span>
+                                    <span aria-hidden="true">→</span>
+                                </span>*@
+                            </div>
+                        </div>
+                    </a>
+                        }
+            </div>
+        </section>
+    }
 </div>

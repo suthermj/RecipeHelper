@@ -24,6 +24,36 @@ public class KrogerAuthService
         _httpContextAccessor = httpContextAccessor;
     }
 
+    public async Task<string> GetKrogerAccessTokenAsync()
+    {
+        var httpContext = _httpContextAccessor.HttpContext
+                         ?? throw new InvalidOperationException("No HttpContext");
+
+        var krogerProfileId = httpContext.Request.Cookies["KrogerProfileId"];
+
+        // If we've never connected Kroger for this browser
+        if (string.IsNullOrEmpty(krogerProfileId))
+        {
+            return null;
+        }
+
+        var token = await _db.KrogerCustomerTokens
+            .SingleOrDefaultAsync(t => t.KrogerProfileId == krogerProfileId);
+
+        if (token == null)
+        {
+            return null;
+        }
+
+        // If token is still valid, just return it
+        if (token.AccessTokenExpiresAtUtc > DateTimeOffset.UtcNow.AddMinutes(1))
+        {
+            return token.AccessToken;
+        }
+
+        return null;
+    }
+
     public async Task<KrogerAuthResult> EnsureAccessTokenAsync(string? returnUrl = null)
     {
         var httpContext = _httpContextAccessor.HttpContext
@@ -120,6 +150,11 @@ public class KrogerAuthService
         }
 
         var refreshed = JsonSerializer.Deserialize<TokenResponse>(json)!;
+
+        if (string.IsNullOrEmpty(refreshed.Token) || string.IsNullOrEmpty(refreshed.RefreshToken))
+        {
+            return null;
+        }
 
         token.AccessToken = refreshed.Token;
         token.AccessTokenExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(refreshed.ExpiresIn);

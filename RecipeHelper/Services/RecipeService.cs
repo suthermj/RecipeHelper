@@ -246,7 +246,8 @@ namespace RecipeHelper.Services
             }
         }
 
-        private int? MapMeasurementId(string? unit, Dictionary<string,int> measurementDict)
+        
+        public int? MapMeasurementId(string? unit, Dictionary<string,int> measurementDict)
         {
             if (string.IsNullOrWhiteSpace(unit)) return null;
             // normalize common abbreviations here if you want:
@@ -301,6 +302,8 @@ namespace RecipeHelper.Services
 
             return measurementDict.TryGetValue(unit.Trim(), out var id) ? id : (int?)null;
         }
+
+        
         // Lightweight Levenshtein ratio (0..1)
         private static double LevenshteinRatio(string s, string t)
         {

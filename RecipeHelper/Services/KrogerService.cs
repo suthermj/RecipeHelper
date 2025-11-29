@@ -1,9 +1,15 @@
-﻿using Newtonsoft.Json;
+﻿using System.Globalization;
 using System.Net.Http.Headers;
-using RecipeHelper.Models.Kroger;
+using System.Security.Policy;
 using System.Text;
 using Azure.Core;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using RecipeHelper.Models.Kroger;
+using RecipeHelper.Models.Kroger.Carts;
+using RecipeHelper.Utility;
 
 namespace RecipeHelper.Services
 {
@@ -13,11 +19,12 @@ namespace RecipeHelper.Services
         private readonly IConfiguration _configuration; // Assuming you store your API keys and other settings in appsettings.json
         private readonly ILogger<KrogerService> _logger;
         private KrogerAuthService _krogerAuthService;
+        private DatabaseContext _context;
         private readonly string _baseUri;
         private readonly string _clientId;
         private readonly string _clientSecret;
         private readonly string _locationId;
-        public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService)
+        public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService, DatabaseContext context)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
@@ -27,6 +34,7 @@ namespace RecipeHelper.Services
             _clientId = _configuration["Kroger:clientId"];
             _clientSecret = _configuration["Kroger:clientSecret"];
             _krogerAuthService = krogerAuthService;
+            _context = context;
         }
 
         public async Task<string?> GetProductToken()
@@ -108,7 +116,9 @@ namespace RecipeHelper.Services
                         size = krogerProduct.items?.FirstOrDefault()?.size ?? "N/A",
                         regularPrice = krogerProduct.items.FirstOrDefault()?.price?.regular ?? 0, // Handling potential nulls
                         promoPrice = krogerProduct.items.FirstOrDefault()?.price?.regular ?? 0, // Handling potential nulls
-                        stockLevel = krogerProduct.items.FirstOrDefault()?.inventory?.stockLevel ?? "N/A"
+                        stockLevel = krogerProduct.items.FirstOrDefault()?.inventory?.stockLevel ?? "N/A",
+                        brand = krogerProduct.brand,
+                        aisleLocation = krogerProduct.aisleLocations.FirstOrDefault()?.bayNumber ?? "N/A",
                     };
 
                     product.onSale = product.promoPrice != product.regularPrice ? true : false;
@@ -201,6 +211,106 @@ namespace RecipeHelper.Services
 
             return true;
         }
+
+        public async Task<AddToCartRequest> ConvertIngredientsToCartItems(AddToCartVM vm)
+        {
+            AddToCartRequest response = new AddToCartRequest();
+            List<CartItem> cartItems = new();
+
+            foreach (var item in vm.Items)
+            {
+                var krogerProduct = await GetProductDetails(item.Upc);
+                
+                if (krogerProduct.soldBy.Equals("UNIT", StringComparison.OrdinalIgnoreCase))
+                {
+                    // ingredient measured in units (lasagna noodles / onions / ect)
+                    if (item.Measurement.Equals("UNIT", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cartItems.Add(new CartItem
+                        {
+                            Quantity = (int)Math.Ceiling(item.Quantity),
+                            Upc = item.Upc
+                        });
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var krogerProductNormalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(krogerProduct.sizeUnit);
+                            var ingredientNormalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(item.Measurement);
+                            var krogerProductAmountSmallestUnit = MeasurementHelper.ConvertToLowestMeasurementUnit(krogerProductNormalizedMeasurementUnit, krogerProduct.sizeQuantity);
+                            var ingredientAmountSmallestUnit = MeasurementHelper.ConvertToLowestMeasurementUnit(ingredientNormalizedMeasurementUnit, item.Quantity);
+
+                            var finalQuantity = 1;
+
+                            while (ingredientAmountSmallestUnit > krogerProductAmountSmallestUnit)
+                            {
+                                finalQuantity++;
+                                krogerProductAmountSmallestUnit = krogerProductAmountSmallestUnit * finalQuantity;
+                            }
+
+                            cartItems.Add(new CartItem
+                            {
+                                Quantity = finalQuantity,
+                                Upc = item.Upc
+                            });
+                        }
+                        catch
+                        {
+                            _logger.LogInformation("Could not parse measurement " + item.Measurement + " for product " + item.Upc + ", skipping.");
+                            continue;
+
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("Product " + krogerProduct.upc + " is not sold by unit, skipping for now.");
+                }
+
+            }
+
+            response.Items = cartItems;
+            return response;
+        }
+
+        public async Task<List<DetailedCartItem>> GetCurrentCartItems (string accessToken)
+        {
+            List<DetailedCartItem> products = new List<DetailedCartItem>();
+            try
+            {
+                string url = $"{_baseUri}/carts";
+                var client = _httpClientFactory.CreateClient();
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken); // Replace with actual customer access token
+                
+                var response = await client.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError($"Error getting cart items");
+                    return null;
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                var cartItems = JsonConvert.DeserializeObject<KrogerGetCartsResponse>(content);
+                
+
+                foreach (var item in cartItems.data[0].items)
+                {
+                    var productDetails = await GetProductDetails(item.upc);
+                    products.Add(productDetails.ToDetailedCartItem(item.quantity));
+                }
+
+                return products;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error getting cart itesm");
+                return null;
+            }
+        }
+
 
     }
 }

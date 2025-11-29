@@ -1,55 +1,53 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
-
+<html lang="en" class="h-full bg-gray-50">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>@ViewData["Title"] - RecipeHelper</title>
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/RecipeHelper.styles.css" asp-append-version="true" />
-    <link rel="stylesheet" href="/css/output.css">
-    
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@latest/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 
+    <!-- App styles -->
+    <link rel="stylesheet" href="/css/output.css" asp-append-version="true" />
 
+    <!-- PWA support (optional - recommended for iPhone app-like behavior) -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#4F46E5" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Recipe" asp-action="Recipe">RecipeHelper</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-            </div>
-        </nav>
+
+<body class="min-h-screen flex flex-col">
+
+    <!-- Top App Bar (Tailwind version) -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a asp-controller="Recipe" asp-action="Recipe" class="text-lg font-semibold text-gray-900">
+                Cooking Helper
+            </a>
+        </div>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @if (TempData["SuccessMessage"] is string success)
-            {
-                <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-                    <span class="font-semibold">Success:</span>
-                    <span class="ml-1">@success</span>
-                </div>
-            }
 
-            @if (TempData["ErrorMessage"] is string error)
-            {
-                <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                    <span class="font-semibold">Oops:</span>
-                    <span class="ml-1">@error</span>
-                </div>
-            }
-            @RenderBody()
-        </main>
-    </div>
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-3">
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        @if (TempData["SuccessMessage"] is string success)
+        {
+            <div class="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                <span class="font-semibold">Success:</span> @success
+            </div>
+        }
+
+        @if (TempData["ErrorMessage"] is string error)
+        {
+            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <span class="font-semibold">Oops:</span> @error
+            </div>
+        }
+
+        @RenderBody()
+    </main>
+
+    <!-- Scripts -->
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+
 </body>
 </html>

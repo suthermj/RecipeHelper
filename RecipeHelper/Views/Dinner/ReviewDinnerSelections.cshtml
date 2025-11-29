@@ -9,7 +9,7 @@
         <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-900">Combined ingredients</h2>
             <p class="text-xs text-gray-500">
-                Quantities are summed across all selected recipes and shown with their units.
+                Uncheck items you already have at home. Only checked ingredients will be added to your Kroger cart.
             </p>
         </div>
 
@@ -23,7 +23,7 @@
         {
             <!-- Start form -->
             <form asp-controller="Cart"
-                  asp-action="AddToCart"
+                  asp-action="BeginAddToCart"
                   method="post"
                   id="add-to-kroger-form"
                   class="space-y-4">
@@ -38,6 +38,9 @@
                                 </th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-600">
                                     Quantity needed
+                                </th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600 text-center">
+                                    Include in cart
                                 </th>
                             </tr>
                         </thead>
@@ -57,12 +60,22 @@
                                             @item.Quantity @item.Measurement
                                         </span>
                                     </td>
+                                    <td class="px-4 py-3 align-top text-center">
+                                        <input type="checkbox"
+                                               name="Items[@i].Include"
+                                               value="true"
+                                               checked
+                                               class="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                                    </td>
                                 </tr>
 
                                 @* Hidden inputs that will populate AddToCartVM.Items[i] *@
                                 <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
                                 <input type="hidden" name="Items[@i].Quantity" value="@item.Quantity" />
                                 <input type="hidden" name="Items[@i].Modality" value="DELIVERY" />
+                                <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
+                                @* optional: send name/measurement if you ever want them in the VM *@
+                                @* <input type="hidden" name="Items[@i].Name" value="@item.Name" /> *@
                             }
                         </tbody>
                     </table>
@@ -72,7 +85,7 @@
                     <button type="submit"
                             id="add-to-kroger-button"
                             class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
-                        Add all ingredients to Kroger cart
+                        Add selected ingredients to Kroger cart
                     </button>
                 </div>
             </form>
@@ -80,24 +93,24 @@
     </section>
 </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            var form = document.getElementById('add-to-kroger-form');
-            if (!form) return;
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('add-to-kroger-form');
+        if (!form) return;
 
-            var button = document.getElementById('add-to-kroger-button');
-            if (!button) return;
+        var button = document.getElementById('add-to-kroger-button');
+        if (!button) return;
 
-            form.addEventListener('submit', function () {
-                // Prevent double clicks
-                button.disabled = true;
+        form.addEventListener('submit', function () {
+            // Prevent double clicks
+            button.disabled = true;
 
-                // Optional: light visual change
-                button.classList.add('opacity-70', 'cursor-not-allowed');
+            // Optional: light visual change
+            button.classList.add('opacity-70', 'cursor-not-allowed');
 
-                // Change text to show progress
-                button.dataset.originalText = button.textContent;
-                button.textContent = 'Adding to Kroger...';
-            });
+            // Change text to show progress
+            button.dataset.originalText = button.textContent;
+            button.textContent = 'Adding to Kroger...';
         });
-    </script>
+    });
+</script>

@@ -13,7 +13,9 @@ namespace RecipeHelper.Models.Kroger
     {
         public string Upc { get; set; } = null!;
         public decimal Quantity { get; set; }
-        public string Modality { get; set; } = "DELIVERY";
+        public string Measurement { get; set; }
+        public string Modality { get; set; } = "PICKUP";
+        public bool Include { get; set; }
 
     }
 
@@ -21,7 +23,7 @@ namespace RecipeHelper.Models.Kroger
     {
         public string Upc { get; set; } = null!;
         public int Quantity { get; set; }
-        public string Modality { get; set; } = "DELIVERY";
+        public string Modality { get; set; } = "PICKUP";
 
     }
 
@@ -39,5 +41,28 @@ namespace RecipeHelper.Models.Kroger
                 });
             }
         }
+
+        public AddToCartRequest()
+        {
+        }
+    }
+
+    public class CartOverview
+    {
+
+    }
+
+    public class DetailedCartItem
+    {
+        public string Name { get; set; }
+        public string Upc { get; set; }
+        public string Aisle { get; set; }
+        public float RegularPrice { get; set; }
+        public float PromoPrice { get; set; }
+        public string StockLevel { get; set; }
+        public bool OnSale { get; set; }
+        public int Quantity { get; set; }
+        public string Brand { get; set; }
+        public List<string> Categories { get; set; }
     }
 }

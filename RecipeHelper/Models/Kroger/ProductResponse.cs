@@ -6,9 +6,25 @@
         public string upc { get; set; }
         public List<string> categories { get; set; }
         public string description { get; set; }
+        public string aisleLocation { get; set; }
+        public string brand { get; set; }
 
         public string soldBy { get; set; }
         public string size { get; set; }
+        public decimal sizeQuantity    
+        {
+            get                             // Computed getter
+            {
+                return Convert.ToDecimal(size.Split(" ")[0]);
+            }
+        }
+        public string sizeUnit
+        {
+            get                             // Computed getter
+            {
+                return size.Split(" ")[1];
+            }
+        }
         public float regularPrice { get; set; }
         public float promoPrice { get; set; }
         public string stockLevel { get; set; }

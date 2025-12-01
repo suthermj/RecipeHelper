@@ -23,7 +23,7 @@
         {
             <!-- Start form -->
             <form asp-controller="Cart"
-                  asp-action="BeginAddToCart"
+                  asp-action="PreviewAddToCart"
                   method="post"
                   id="add-to-kroger-form"
                   class="space-y-4">
@@ -72,7 +72,7 @@
                                 @* Hidden inputs that will populate AddToCartVM.Items[i] *@
                                 <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
                                 <input type="hidden" name="Items[@i].Quantity" value="@item.Quantity" />
-                                <input type="hidden" name="Items[@i].Modality" value="DELIVERY" />
+                                <input type="hidden" name="Items[@i].Modality" value="PICKUP" />
                                 <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
                                 @* optional: send name/measurement if you ever want them in the VM *@
                                 @* <input type="hidden" name="Items[@i].Name" value="@item.Name" /> *@

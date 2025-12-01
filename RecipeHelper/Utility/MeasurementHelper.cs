@@ -30,6 +30,8 @@
                     break;
 
                 case "oz":
+                case "gram":
+                case "grams":
                 case "ounce":
                 case "ounces":
                 case "lb":
@@ -92,40 +94,88 @@
             switch (fromUnit.ToLower())
             {
                 case "teaspoons":
-                    result = quantity;
-                    break;
+                    return quantity;
                 case "tablespoons":
-                    result = quantity * 3; // 1 tablespoon = 3 teaspoons
-                    break;
+                    return quantity * 3; // 1 tablespoon = 3 teaspoons
                 case "cups":
-                    result = quantity * 48; // 1 cup = 48 teaspoons
-                    break;
+                    return quantity * 48; // 1 cup = 48 teaspoons
                 case "pints":
-                    result = quantity * 96; // 1 cup = 48 teaspoons
-                    break;
+                    return quantity * 96; // 1 cup = 48 teaspoons
                 case "ounces":
-                    result = quantity;
-                    break;
+                    return quantity;
                 case "pounds":
-                    result = quantity * 16; // 1 pound = 16 ounces
-                    break;
+                    return quantity * 16; // 1 pound = 16 ounces
                 case "unit":
-                    result = quantity;
-                    break;
+                    return quantity;
                 default:
                     throw new ArgumentException($"Unsupported measurement unit [{fromUnit}]");
             }
             return result;
         }
 
-        public static string NormalizeMeasurementUnit(string measurementName)
+        public static decimal ConvertVolumeToBaseUnit(string fromUnit, decimal quantity)
+        {
+            if (quantity < 0)
+                throw new ArgumentException("Quantity cannot be negative.");
+
+            if (string.IsNullOrWhiteSpace(fromUnit))
+                throw new ArgumentException("Unit cannot be empty.");
+
+            switch (fromUnit.ToLower())
+            {
+                case "teaspoons":
+                    return quantity;
+                case "tablespoons":
+                    return quantity * 3; // 1 tablespoon = 3 teaspoons
+                case "cups":
+                    return quantity * 48; // 1 cup = 48 teaspoons
+                case "pints":
+                    return quantity * 96; // 1 cup = 48 teaspoons
+                case "ounces":
+                    return quantity * 6;
+                default:
+                    throw new ArgumentException($"Unsupported measurement unit [{fromUnit}]");
+                    // Add more as needed
+            }
+        }
+
+        public static decimal ConvertWeightToBaseUnit(string fromUnit, decimal quantity)
+        {
+            if (quantity < 0)
+                throw new ArgumentException("Quantity cannot be negative.");
+
+            if (string.IsNullOrWhiteSpace(fromUnit))
+                throw new ArgumentException("Unit cannot be empty.");
+
+            switch (fromUnit.ToLowerInvariant())
+            {
+                case "grams":
+                    return quantity;
+
+                case "milligrams":
+                    return quantity / 1000m; // 1000 mg = 1 g
+
+                case "ounces":
+                    return quantity * 28.3495m; // 1 oz = 28.3495 g
+
+                case "pounds":
+                    return quantity * 453.592m; // 1 lb = 453.592 g
+
+                case "kilograms":
+                    return quantity * 1000m;
+
+                default:
+                    throw new ArgumentException($"Unsupported weight unit '{fromUnit}'.");
+            }
+        }
+
+        public static string? NormalizeMeasurementUnit(string measurementName)
         {
             if (string.IsNullOrWhiteSpace(measurementName)) return null;
             // normalize common abbreviations here if you want:
             // e.g. if (unit.Equals("tsp", StringComparison.OrdinalIgnoreCase)) unit = "Teaspoon";
 
             measurementName = measurementName.Trim();
-            string normalizedMeasurementName = "";
             // 🔥 Normalize abbreviations → match DB naming
             switch (measurementName.ToLower())
             {
@@ -133,51 +183,49 @@
                 case "tsps":
                 case "teaspoon":
                 case "teaspoons":
-                    normalizedMeasurementName = "Teaspoons";
-                    break;
+                    return "Teaspoons";
 
                 case "tbsp":
                 case "tbsps":
                 case "tablespoon":
                 case "tablespoons":
-                    normalizedMeasurementName = "Tablespoons";
-                    break;
+                    return "Tablespoons";
 
                 case "cup":
                 case "cups":
-                    normalizedMeasurementName = "Cups";
-                    break;
+                    return  "Cups";
 
                 case "pint":
                 case "pt":
                 case "pints":
-                    normalizedMeasurementName = "Pints";
-                    break;
+                    return "Pints";
 
                 case "oz":
                 case "ounce":
                 case "ounces":
-                    normalizedMeasurementName = "Ounces";
-                    break;
+                    return "Ounces";
 
                 case "lb":
                 case "lbs":
                 case "pound":
                 case "pounds":
-                    normalizedMeasurementName = "Pounds";
-                    break;
+                    return "Pounds";
+
+                case "gram":
+                case "grams":
+                    return "Grams";
 
                 case "unit":
                 case "units":
                 case "piece":
                 case "pieces":
-                    normalizedMeasurementName = "Unit";
-                    break;
+                    return "Unit";
+
+                default:
+                    return null;
 
                     // Add more as needed
             }
-
-            return normalizedMeasurementName;
         }
     }
 }

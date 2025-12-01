@@ -1,334 +1,605 @@
 ﻿@* Views/Recipe/MapImportedRecipe.cshtml *@
 @model RecipeHelper.ViewModels.MappedImportPreviewVM
+
 @{
-    ViewData["Title"] = "Map Imported Recipe";
-    // Assumed model shape:
-    // Model.Title, Model.Image
-    // Model.Ingredients: List<IngredientPreviewVM> with:
-    //  - Name, Amount (float?), Unit (string?)
-    //  - SuggestedProductId (int?), SuggestedProductName (string), SuggestionKind (string? "Exact"/"Fuzzy")
-    //  - Kroger: { Upc, Name, ImageUrl, RegularPrice, PromoPrice, OnSale }
+	ViewData["Title"] = "Map Imported Recipe";
 }
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-    <header class="space-y-1 text-center">
-        <h1 class="text-3xl font-bold text-gray-900">Map Imported Recipe</h1>
-        <p class="text-gray-600">Review each ingredient below. You can keep our suggestion, pick a different product, or accept a Kroger item if we didn’t find a match.</p>
-    </header>
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-6">
 
-    <section class="bg-white rounded-xl shadow p-6">
-        <div class="flex items-start gap-6">
-            <img src="@(string.IsNullOrWhiteSpace(Model.Image) ? Url.Content("~/images/default-recipe.png") : Model.Image)"
-                 alt="@Model.Title" class="w-40 h-40 object-cover rounded-lg shadow" />
-            <div class="flex-1">
-                <h2 class="text-2xl font-semibold text-gray-900">@Model.Title</h2>
-            </div>
-        </div>
-    </section>
+	<!-- Header -->
+	<header class="space-y-1">
+		<h1 class="text-xl font-bold text-gray-900 sm:text-2xl">
+			Map imported recipe
+		</h1>
+		<p class="text-sm text-gray-600">
+			Review each ingredient and confirm which product you want to use. You can exclude ingredients or choose alternatives as needed.
+		</p>
+	</header>
 
-    <form asp-action="ConfirmImportedMapping" method="post" class="space-y-6">
-        @Html.AntiForgeryToken()
+	<!-- Recipe summary -->
+	<section class="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 flex gap-4">
+		<div class="h-20 w-20 sm:h-24 sm:w-24 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100">
+			<img src="@(string.IsNullOrWhiteSpace(Model.Image) ? Url.Content("~/images/default-recipe.png") : Model.Image)"
+				 alt="@Model.Title"
+				 class="h-full w-full object-cover" />
+		</div>
+		<div class="flex-1 flex flex-col justify-center">
+			<h2 class="text-lg sm:text-xl font-semibold text-gray-900">@Model.Title</h2>
+		</div>
+	</section>
 
-        <input type="hidden" name="Title" value="@Model.Title" />
-        <input type="hidden" name="Image" value="@Model.Image" />
+	<form asp-action="ConfirmImportedMapping" method="post" class="space-y-5">
+		@Html.AntiForgeryToken()
 
-        <section class="bg-white rounded-xl shadow divide-y">
-            @for (var i = 0; i < Model.Ingredients.Count; i++)
-            {
-                var ing = Model.Ingredients[i];
-                var rowId = $"row-{i}";
-                var searchInputId = $"search-{i}";
-                var listId = $"list-{i}";
-                <div class="p-4 js-row" data-idx="@i">
-                    <!-- Source ingredient + Include/Exclude -->
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <div class="text-sm text-gray-500">Source ingredient</div>
-                            <div class="text-lg font-medium text-gray-900">
-                                @(
-                                                            (ing.Amount is not null ? ing.Amount?.ToString() + " " : "") +
-                                                            (string.IsNullOrWhiteSpace(ing.Unit) ? "" : ing.Unit + " ") +
-                                                            ing.Name
-                                                            )
-                        </div>
-                    </div>
+		<input type="hidden" name="Title" value="@Model.Title" />
+		<input type="hidden" name="Image" value="@Model.Image" />
 
-                        <div class="flex items-center gap-2">
-                            <!-- Include flag (posted) -->
-                            <input type="hidden"
-                                   name="Ingredients[@i].Include"
-                                   value="true"
-                                   class="js-include"
-                                   data-idx="@i" />
-                            <button type="button"
-                                    class="js-exclude-btn text-sm px-3 py-1 rounded-md border border-gray-300 hover:bg-gray-50"
-                                    data-idx="@i"
-                                    aria-pressed="false">
-                                Exclude
-                            </button>
-                        </div>
-                    </div>
+		<!-- Ingredient cards -->
+		<section class="space-y-4">
+			@for (var i = 0; i < Model.Ingredients.Count; i++)
+			{
+				var ing = Model.Ingredients[i];
+				var searchInputId = $"search-{i}";
+				var listId = $"list-{i}";
+				var needsMapping = string.IsNullOrWhiteSpace(ing.SuggestedProductName);
+				var hasSuggested = !needsMapping;
 
-                    <!-- Excluded badge -->
-                    <div class="mt-2 hidden js-excluded-badge text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 inline-flex items-center gap-1" data-idx="@i">
-                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-                        Excluded from recipe
-                    </div>
+				<div class="js-row rounded-2xl p-4 sm:p-5 shadow-sm transition
+	                         @(needsMapping
+												  		? "border border-amber-300 bg-amber-50/40 ring-1 ring-amber-200"
+												  		: "border border-gray-200 bg-white")"
+				 data-idx="@i"
+				 data-needs-mapping="@(needsMapping.ToString().ToLower())">
 
-                    <!-- Hidden fields to post raw source -->
-                    <input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
-                    <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
-                    <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
+					<!-- Hidden fields to post raw source -->
+					<input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
+					<input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
+					<input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
 
-                    <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Left: DB suggestion + picker -->
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <div class="text-sm font-semibold text-gray-800">Database product</div>
-                            @if (!string.IsNullOrWhiteSpace(ing.SuggestionKind))
-                                {
-                                    var kindClass = ing.SuggestionKind == "Exact" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800";
-                                    <span class="px-2 py-0.5 text-xs rounded-full @kindClass">
-                                        @ing.SuggestionKind
-                                    </span>
-                                }
-                            </div>
+					<!-- Header row: ingredient name + exclude toggle -->
+					<div class="flex items-start justify-between gap-3">
+						<div>
+							<div class="text-sm font-semibold text-gray-900">
+								@ing.Name
+							</div>
+						@if (ing.Amount.HasValue && !string.IsNullOrWhiteSpace(ing.Unit))
+							{
+								<div class="mt-0.5 text-xs text-gray-500">
+									Imported: @ing.Amount @ing.Unit
+								</div>
+							}
+							@if (needsMapping)
+							{
+								<div class="mt-1 inline-flex items-center gap-1 text-[0.7rem] px-2 py-0.5 rounded-full
+		                                                    bg-amber-100 text-amber-800 border border-amber-200">
+									<span class="font-semibold">Needs mapping</span>
+								</div>
+							}
 
-                            <div class="mt-2">
-                                <div class="text-gray-900 font-medium">
-                                    @(string.IsNullOrWhiteSpace(ing.SuggestedProductName) ? "—" : ing.SuggestedProductName)
-                                </div>
+							<!-- Excluded badge (small and under name) -->
+							<div class="mt-1 hidden js-excluded-badge text-[0.7rem] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 inline-flex items-center gap-1"
+								 data-idx="@i">
+								<span class="inline-block w-1.5 h-1.5 rounded-full bg-gray-500"></span>
+								Excluded from recipe
+							</div>
+						</div>
 
-                                <!-- What gets POSTed as the chosen DB product -->
-                                <input type="hidden"
-                                       name="Ingredients[@i].ProductId"
-                                       value="@(ing.SuggestedProductId ?? 0)"
-                                       class="js-product-id"
-                                       data-idx="@i" />
+						<div class="flex items-center gap-2">
+							<!-- Include flag (posted) -->
+							<input type="hidden"
+								   name="Ingredients[@i].Include"
+								   value="true"
+								   class="js-include"
+								   data-idx="@i" />
 
-                                <div class="mt-2">
-                                    <label for="@searchInputId" class="text-sm text-gray-600">Change product</label>
-                                    <div class="relative mt-1">
-                                        <input id="@searchInputId"
-                                               type="text"
-                                               placeholder="Search products…"
-                                               class="js-product-search w-full rounded-md border-gray-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                               data-idx="@i"
-                                               autocomplete="off" />
-                                        <ul id="@listId"
-                                            class="js-suggest absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg hidden max-h-64 overflow-auto"></ul>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-1">Tip: start typing (e.g., “garlic”, “powder”). Click a suggestion to select.</p>
-                                </div>
-                            </div>
-                        </div>
+							<button type="button"
+									class="js-exclude-btn inline-flex items-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+									data-idx="@i"
+									aria-pressed="false">
+								Exclude
+							</button>
+						</div>
+					</div>
 
-                        <!-- Right: Kroger fallback -->
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <div class="text-sm font-semibold text-gray-800">Kroger fallback</div>
-                                @if (ing.Kroger is null)
-                                {
-                                    <span class="text-xs text-gray-500">(none)</span>
-                                }
-                            </div>
+					<!-- Collapsible card body: suggested product + alternatives -->
+					<div class="js-card-body mt-3 space-y-3" data-idx="@i">
+						<!-- Body: suggested product summary -->
+						<div class="flex gap-3">
+							@if (hasSuggested)
+							{
+								<!-- Suggested product image (only if mapped) -->
+								<div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-100">
+									@* Hardcoded URI – adjust as needed *@
+									<img src="https://www.kroger.com/product/images/xlarge/front/@ing.Kroger.Upc"
+										 alt="Suggested product image"
+										 class="h-full w-full object-cover" />
+								</div>
+							}
 
-                            @if (ing.Kroger is not null)
-                            {
-                                <div class="mt-2 flex items-start gap-3">
-                                    <img src="@ing.Kroger.ImageUrl" alt="@ing.Kroger.ImageUrl"
-                                         class="w-20 h-20 object-cover rounded-md border" />
-                                    <div class="flex-1">
-                                        <div class="font-medium text-gray-900">@ing.Kroger.Name</div>
-                                        <div class="text-sm text-gray-600">@ing.Kroger.Upc</div>
-                                        <div class="mt-1 text-sm">
-                                            @if (ing.Kroger.OnSale)
-                                            {
-                                                <span class="line-through text-gray-500">$@ing.Kroger.RegularPrice.ToString()</span>
-                                                <span class="ml-2 text-green-700 font-semibold">Sale $@ing.Kroger.PromoPrice.ToString()</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-gray-800">$@ing.Kroger.RegularPrice.ToString()</span>
-                                            }
-                                        </div>
-                                        <div class="mt-2">
-                                            <label class="inline-flex items-center gap-2">
-                                                <input type="checkbox"
-                                                       class="js-use-kroger rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                       name="Ingredients[@i].UseKroger"
-                                                       value="true"
-                                                       data-idx="@i" />
-                                                <span class="text-sm text-gray-800">Use this Kroger item</span>
-                                            </label>
-                                            <!-- post fields needed to create/attach later -->
-                                            <input type="hidden" name="Ingredients[@i].KrogerUpc" value="@ing.Kroger.Upc" />
-                                            <input type="hidden" name="Ingredients[@i].KrogerName" value="@ing.Kroger.Name" />
-                                            <input type="hidden" name="Ingredients[@i].KrogerImage" value="@ing.Kroger.ImageUrl" />
-                                        </div>
-                                    </div>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">If selected, we’ll use/insert this item even if no database product is chosen.</p>
-                            }
-                        </div>
-                    </div>
-                </div>
-            }
-        </section>
+							<div class="flex-1 space-y-1">
+								<div class="flex items-center gap-2">
+									<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+										Suggested product
+									</span>
+									@if (!string.IsNullOrWhiteSpace(ing.SuggestionKind))
+									{
+										var kindClass = ing.SuggestionKind == "Exact"
+										? "bg-green-50 text-green-700 border-green-200"
+										: "bg-amber-50 text-amber-700 border-amber-200";
+										<span class="px-2 py-0.5 text-[0.65rem] rounded-full border @kindClass">
+											@ing.SuggestionKind
+										</span>
+									}
+							</div>
 
-        <div class="flex justify-end gap-3">
-            <a href="@Url.Action("ImportRecipe", "Recipe")"
-               class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded-md">
-                ← Back
-            </a>
-            <button type="submit"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md">
-                Confirm Mapping
-            </button>
-        </div>
-    </form>
+							<div class="text-sm font-medium @(needsMapping ? "text-amber-800" : "text-gray-900")">
+								@(hasSuggested
+																? ing.SuggestedProductName
+																: "No product mapped yet")
+							</div>
+
+								<!-- What gets POSTed as the chosen DB product -->
+								<input type="hidden"
+									   name="Ingredients[@i].ProductId"
+									   value="@(ing.SuggestedProductId ?? 0)"
+									   class="js-product-id"
+									   data-idx="@i" />
+							</div>
+						</div>
+
+						<!-- Alternative selector -->
+						<div class="border-t border-gray-100 pt-3">
+							<button type="button"
+									class="js-alt-toggle inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+									data-idx="@i"
+									aria-expanded="false">
+								<span class="inline-block transition-transform js-alt-icon" data-idx="@i">▾</span>
+								<span>Choose alternative</span>
+							</button>
+
+							<div class="js-alt-panel mt-3 space-y-3 hidden" data-idx="@i">
+								<!-- Search source toggle + search input -->
+								<div class="space-y-1">
+									<div class="flex items-center justify-between">
+										<span class="text-xs font-medium text-gray-700">Search source</span>
+										<div class="inline-flex rounded-full bg-gray-100 p-0.5 text-xs">
+											<button type="button"
+													class="js-search-mode px-2 py-0.5 rounded-full font-medium text-gray-800 bg-white shadow-sm"
+													data-mode="db"
+													data-idx="@i">
+												My products
+											</button>
+											<button type="button"
+													class="js-search-mode px-2 py-0.5 rounded-full font-medium text-gray-500"
+													data-mode="kroger"
+													data-idx="@i">
+												Kroger
+											</button>
+										</div>
+									</div>
+
+									<div class="relative">
+										<input id="@searchInputId"
+											   type="text"
+											   placeholder="Search products…"
+											   class="js-product-search w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+											   data-idx="@i"
+											   data-mode="db"
+											   autocomplete="off" />
+										<ul id="@listId"
+											class="js-suggest absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg hidden max-h-64 overflow-auto text-sm"></ul>
+									</div>
+
+									<div class="js-search-hint text-[0.7rem] text-gray-500" data-idx="@i">
+										Searching your imported products.
+									</div>
+									<p class="js-active-kroger-note mt-1 text-[0.7rem] text-green-700 font-medium hidden"
+									   data-idx="@i">
+										Using Kroger search result for this ingredient. This overrides the recommended Kroger item below.
+									</p>
+								</div>
+
+								<!-- Kroger fallback option -->
+								<div class="space-y-1">
+									<div class="flex items-center gap-2">
+										<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+											Kroger fallback
+										</span>
+									@if (ing.Kroger is null)
+										{
+											<span class="text-[0.7rem] text-gray-400">(none available)</span>
+										}
+									</div>
+
+									@if (ing.Kroger is not null)
+									{
+										<div class="mt-1 flex items-start gap-3 js-kroger-fallback"
+											 data-idx="@i"
+											 data-kroger-upc="@ing.Kroger.Upc">
+											<div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 border border-gray-200">
+												<img src="@ing.Kroger.ImageUrl"
+													 alt="@ing.Kroger.Name"
+													 class="h-full w-full object-cover" />
+											</div>
+											<div class="flex-1 text-xs">
+												<div class="font-medium text-gray-900">@ing.Kroger.Name</div>
+												<div class="text-gray-500">UPC: @ing.Kroger.Upc</div>
+												<div class="mt-1">
+													@if (ing.Kroger.OnSale)
+													{
+														<span class="line-through text-gray-400">$@ing.Kroger.RegularPrice.ToString()</span>
+														<span class="ml-1 text-green-700 font-semibold">
+															$@ing.Kroger.PromoPrice.ToString()
+														</span>
+													}
+													else
+													{
+														<span class="text-gray-800 font-semibold">
+															$@ing.Kroger.RegularPrice.ToString()
+														</span>
+													}
+												</div>
+
+												<div class="mt-2">
+													<label class="inline-flex items-center gap-2">
+														<input type="checkbox"
+															   class="js-use-kroger rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+															   name="Ingredients[@i].UseKroger"
+															   value="true"
+															   data-idx="@i" />
+														<span class="text-xs text-gray-800">
+															Use this Kroger item
+														</span>
+													</label>
+
+													<!-- post fields needed to create/attach later -->
+													<input type="hidden" name="Ingredients[@i].KrogerUpc" value="@ing.Kroger.Upc" />
+													<input type="hidden" name="Ingredients[@i].KrogerName" value="@ing.Kroger.Name" />
+													<input type="hidden" name="Ingredients[@i].KrogerImage" value="@ing.Kroger.ImageUrl" />
+												</div>
+											</div>
+										</div>
+									}
+								</div>
+							</div>
+						</div>
+					</div> <!-- /.js-card-body -->
+				</div>
+			}
+		</section>
+
+		<!-- Footer actions -->
+		<div class="flex justify-end gap-3 pt-2">
+			<a href="@Url.Action("ImportRecipe", "Recipe")"
+			   class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+				← Back
+			</a>
+			<button type="submit"
+					class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+				Confirm mapping
+			</button>
+		</div>
+	</form>
 </div>
 
 <script>
-    (function () {
-      const searchUrl = '@Url.Action("SearchDb", "Product")';
-      const debounceMs = 200;
+	(function () {
+		const dbSearchUrl = '@Url.Action("SearchDb", "Product")';
+		const krogerSearchUrl = '@Url.Action("SearchKroger", "Product")'; // you'll implement this
+		const debounceMs = 200;
 
-      function debounce(fn, ms) {
-        let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), ms); };
-      }
+			function updateKrogerState(idx) {
+		const cb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
+		const note = document.querySelector(`.js-active-kroger-note[data-idx="${idx}"]`);
+		const fallback = document.querySelector(`.js-kroger-fallback[data-idx="${idx}"]`);
+		const krogerUpcHidden = document.querySelector(`input[name="Ingredients[${idx}].KrogerUpc"]`);
 
-      // Product search
-      const onSearch = debounce(async (ev) => {
-        const input = ev.target;
-        if (!input.classList.contains('js-product-search')) return;
+		if (!note || !cb || !krogerUpcHidden) return;
 
-        const idx = input.dataset.idx;
-        const list = document.getElementById('list-' + idx);
-        const q = input.value.trim();
+		const recommendedUpc = fallback ? fallback.dataset.krogerUpc : null;
 
-        if (q.length < 2) { list.classList.add('hidden'); list.innerHTML = ''; return; }
+		// If we’re not using any Kroger item, hide note + undim fallback
+		if (!cb.checked) {
+			note.classList.add('hidden');
+			if (fallback) fallback.classList.remove('opacity-50');
+			return;
+		}
 
-        try {
-          const resp = await fetch(`${searchUrl}?term=${encodeURIComponent(q)}`, { headers: { 'Accept': 'application/json' }});
-          if (!resp.ok) throw new Error('search failed');
-          const items = await resp.json();
+		// We are using a Kroger item; check if it matches the recommended fallback
+		if (recommendedUpc && krogerUpcHidden.value && krogerUpcHidden.value !== recommendedUpc) {
+			// Using Kroger search result (override)
+			note.textContent = 'Using Kroger search result for this ingredient. This overrides the recommended Kroger item below.';
+			note.classList.remove('hidden');
+			if (fallback) fallback.classList.add('opacity-50');
+		} else {
+			// Using the recommended Kroger fallback
+			note.classList.add('hidden');
+			if (fallback) fallback.classList.remove('opacity-50');
+		}
+	}
 
-          list.innerHTML = '';
-          if (!Array.isArray(items) || items.length === 0) { list.classList.add('hidden'); return; }
+		function debounce(fn, ms) {
+			let t;
+			return function (...args) {
+				clearTimeout(t);
+				t = setTimeout(() => fn.apply(this, args), ms);
+			};
+		}
 
-          items.slice(0, 10).forEach(it => {
-            const li = document.createElement('li');
-            li.className = 'px-3 py-2 hover:bg-indigo-50 cursor-pointer';
-            li.textContent = `${it.name}${it.upc ? ' • ' + it.upc : ''}`;
-            li.dataset.id = it.id;
-            list.appendChild(li);
-          });
-          list.classList.remove('hidden');
+		// Product search (DB or Kroger, depending on data-mode)
+		const onSearch = debounce(async (ev) => {
+			const input = ev.target;
+			if (!input.classList.contains('js-product-search')) return;
 
-          list.onclick = (e) => {
-            const li = e.target.closest('li');
-            if (!li) return;
+			const idx = input.dataset.idx;
+			const list = document.getElementById('list-' + idx);
+			const q = input.value.trim();
+			const mode = input.dataset.mode || 'db';
+			const url = (mode === 'kroger') ? krogerSearchUrl : dbSearchUrl;
 
-            input.value = li.textContent; // show selection
-            const pid = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
-            if (pid) pid.value = li.dataset.id || '0';
-            list.classList.add('hidden');
+			if (q.length < 2) { list.classList.add('hidden'); list.innerHTML = ''; return; }
 
-            // uncheck Kroger if a DB product was selected
-            const krogerCb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
-            if (krogerCb) krogerCb.checked = false;
-            input.disabled = false;
-          };
-        } catch {
-          list.classList.add('hidden');
-        }
-      }, debounceMs);
+			try {
+				const resp = await fetch(`${url}?term=${encodeURIComponent(q)}`, {
+					headers: { 'Accept': 'application/json' }
+				});
+				if (!resp.ok) throw new Error('search failed');
 
-      document.addEventListener('input', onSearch);
+				const items = await resp.json();
+				list.innerHTML = '';
 
-      // Hide open suggestion lists on outside click
-      document.addEventListener('click', (e) => {
-        document.querySelectorAll('.js-suggest').forEach(ul => {
-          if (!ul.contains(e.target)) ul.classList.add('hidden');
-        });
-      });
+				if (!Array.isArray(items) || items.length === 0) {
+					list.classList.add('hidden');
+					return;
+				}
 
-      // Toggle behavior for "Use Kroger item"
-      document.addEventListener('change', (e) => {
-        const cb = e.target;
-        if (!cb.classList.contains('js-use-kroger')) return;
+				items.slice(0, 10).forEach(it => {
+					const li = document.createElement('li');
+					li.className = 'px-3 py-2 hover:bg-indigo-50 cursor-pointer flex items-center gap-2';
 
-        const idx         = cb.dataset.idx;
-        const pidInput    = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
-        const searchInput = document.getElementById(`search-${idx}`);
-        const suggestList = document.getElementById(`list-${idx}`);
+					if (mode === 'kroger' && it.imageUrl) {
+						const img = document.createElement('img');
+						img.src = it.imageUrl;
+						img.alt = it.name;
+						img.className = 'h-8 w-8 rounded object-cover flex-shrink-0';
+						li.appendChild(img);
+					}
 
-        if (cb.checked) {
-          if (pidInput)    pidInput.value = '0';
-          if (searchInput) { searchInput.value = ''; searchInput.disabled = true; }
-          if (suggestList) { suggestList.classList.add('hidden'); suggestList.innerHTML = ''; }
-        } else {
-          if (searchInput) searchInput.disabled = false;
-        }
-      });
+					const text = document.createElement('span');
+					text.textContent = `${it.name}${it.upc ? ' • ' + it.upc : ''}`;
+					li.appendChild(text);
 
-      // Include/Exclude toggle
-      document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.js-exclude-btn');
-        if (!btn) return;
+					li.dataset.id = it.id || '0';       // DB id (if applicable)
+					li.dataset.upc = it.upc || '';      // UPC for Kroger
+					li.dataset.imageUrl = it.imageUrl || '';
+					li.dataset.mode = mode;
 
-        const idx = btn.dataset.idx;
-        const includeInput = document.querySelector(`input.js-include[data-idx="${idx}"]`);
-        const row          = document.querySelector(`.js-row[data-idx="${idx}"]`);
-        const badge        = document.querySelector(`.js-excluded-badge[data-idx="${idx}"]`);
+					list.appendChild(li);
+				});
 
-        const pidInput     = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
-        const searchInput  = document.getElementById(`search-${idx}`);
-        const suggestList  = document.getElementById(`list-${idx}`);
-        const krogerCb     = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
+				list.classList.remove('hidden');
 
-        const isExcluded = (includeInput?.value === 'false');
-        const nextExcluded = !isExcluded;
+				list.onclick = (e) => {
+					const li = e.target.closest('li');
+					if (!li) return;
 
-        if (includeInput) includeInput.value = nextExcluded ? 'false' : 'true';
+					input.value = li.textContent;
 
-        if (nextExcluded) {
-          if (row)   row.classList.add('opacity-50');
-          if (badge) badge.classList.remove('hidden');
+					const liMode = li.dataset.mode;
+					const pid = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
+					const krogerCb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
 
-          if (pidInput)     pidInput.value = '0';
-          if (krogerCb)     krogerCb.checked = false;
-          if (searchInput) { searchInput.value = ''; searchInput.disabled = true; }
-          if (suggestList) { suggestList.classList.add('hidden'); suggestList.innerHTML = ''; }
+					const krogerUpcHidden = document.querySelector(`input[name="Ingredients[${idx}].KrogerUpc"]`);
+					const krogerNameHidden = document.querySelector(`input[name="Ingredients[${idx}].KrogerName"]`);
+					const krogerImageHidden = document.querySelector(`input[name="Ingredients[${idx}].KrogerImage"]`);
 
-          btn.textContent = 'Include';
-          btn.setAttribute('aria-pressed', 'true');
-          btn.classList.add('bg-gray-100');
-        } else {
-          if (row)   row.classList.remove('opacity-50');
-          if (badge) badge.classList.add('hidden');
+					if (liMode === 'db') {
+						// internal product selected
+						if (pid) pid.value = li.dataset.id || '0';
+						if (krogerCb) krogerCb.checked = false;
+					} else {
+						// kroger product selected (from search)
+						if (pid) pid.value = '0';
+						if (krogerCb) krogerCb.checked = true;
 
-          if (searchInput) searchInput.disabled = false;
+						if (krogerUpcHidden) krogerUpcHidden.value = li.dataset.upc || '';
+						if (krogerNameHidden) krogerNameHidden.value = li.textContent || '';
+						if (krogerImageHidden) krogerImageHidden.value = li.dataset.imageUrl || '';
 
-          btn.textContent = 'Exclude';
-          btn.setAttribute('aria-pressed', 'false');
-          btn.classList.remove('bg-gray-100');
-        }
-      });
+						// reflect in UI that this Kroger search result will be used
+						updateKrogerState(idx);
+					}
 
-      // On load: enforce initial states if needed
-      document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('input.js-use-kroger:checked').forEach(cb => {
-          const idx = cb.dataset.idx;
-          const searchInput = document.getElementById(`search-${idx}`);
-          if (searchInput) searchInput.disabled = true;
-        });
-        document.querySelectorAll('input.js-include[value="false"]').forEach(inc => {
-          const idx = inc.dataset.idx;
-          const btn = document.querySelector(`.js-exclude-btn[data-idx="${idx}"]`);
-          if (btn) btn.click();
-        });
-      });
-    })();
+					list.classList.add('hidden');
+					input.disabled = false;
+				};
+			} catch {
+				list.classList.add('hidden');
+			}
+		}, debounceMs);
+
+		document.addEventListener('input', onSearch);
+
+		// Hide open suggestion lists on outside click
+		document.addEventListener('click', (e) => {
+			document.querySelectorAll('.js-suggest').forEach(ul => {
+				if (!ul.contains(e.target) && ul.id !== e.target.id) {
+					ul.classList.add('hidden');
+				}
+			});
+		});
+
+		// Search mode toggle (My products / Kroger)
+		document.addEventListener('click', (e) => {
+			const btn = e.target.closest('.js-search-mode');
+			if (!btn) return;
+
+			const idx = btn.dataset.idx;
+			const mode = btn.dataset.mode; // 'db' or 'kroger'
+
+			// Toggle pill styles
+			document.querySelectorAll(`.js-search-mode[data-idx="${idx}"]`).forEach(b => {
+				const isActive = (b.dataset.mode === mode);
+				b.classList.toggle('bg-white', isActive);
+				b.classList.toggle('text-gray-800', isActive);
+				b.classList.toggle('shadow-sm', isActive);
+				b.classList.toggle('text-gray-500', !isActive);
+				b.classList.toggle('bg-transparent', !isActive);
+			});
+
+			const input = document.getElementById(`search-${idx}`);
+			const hint = document.querySelector(`.js-search-hint[data-idx="${idx}"]`);
+
+			if (input) {
+				input.dataset.mode = mode;
+				input.value = '';
+			}
+			if (hint) {
+				hint.textContent = (mode === 'db')
+					? 'Searching your imported products.'
+					: 'Searching Kroger catalog (may take a moment).';
+			}
+
+			// Clear suggestion list on mode change
+			const list = document.getElementById(`list-${idx}`);
+			if (list) {
+				list.classList.add('hidden');
+				list.innerHTML = '';
+			}
+		});
+
+		// Toggle behavior for "Use Kroger item"
+		document.addEventListener('change', (e) => {
+			const cb = e.target;
+			if (!cb.classList.contains('js-use-kroger')) return;
+
+			const idx = cb.dataset.idx;
+			const pidInput = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
+			const searchInput = document.getElementById(`search-${idx}`);
+			const suggestList = document.getElementById(`list-${idx}`);
+
+			if (cb.checked) {
+				if (pidInput) pidInput.value = '0';
+				if (searchInput) { searchInput.value = ''; searchInput.disabled = true; }
+				if (suggestList) { suggestList.classList.add('hidden'); suggestList.innerHTML = ''; }
+			} else {
+				if (searchInput) searchInput.disabled = false;
+			}
+
+			// Update UI showing whether we're using the recommended Kroger item
+			// or a Kroger search result override
+			updateKrogerState(idx);
+		});
+
+		// Include/Exclude toggle -> collapse card body when excluded
+		document.addEventListener('click', (e) => {
+			const btn = e.target.closest('.js-exclude-btn');
+			if (!btn) return;
+
+			const idx = btn.dataset.idx;
+			const includeInput = document.querySelector(`input.js-include[data-idx="${idx}"]`);
+			const badge = document.querySelector(`.js-excluded-badge[data-idx="${idx}"]`);
+			const body = document.querySelector(`.js-card-body[data-idx="${idx}"]`);
+
+			const pidInput = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
+			const searchInput = document.getElementById(`search-${idx}`);
+			const suggestList = document.getElementById(`list-${idx}`);
+			const krogerCb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
+
+			const isExcluded = (includeInput?.value === 'false');
+			const nextExcluded = !isExcluded;
+
+			if (includeInput) includeInput.value = nextExcluded ? 'false' : 'true';
+
+			if (nextExcluded) {
+				// Collapse body, show badge
+				if (body) body.classList.add('hidden');
+				if (badge) badge.classList.remove('hidden');
+
+				// Clear mapping choices when excluding
+				if (pidInput) pidInput.value = '0';
+				if (krogerCb) krogerCb.checked = false;
+				if (searchInput) {
+					searchInput.value = '';
+					searchInput.disabled = true;
+				}
+				if (suggestList) {
+					suggestList.classList.add('hidden');
+					suggestList.innerHTML = '';
+				}
+
+				btn.textContent = 'Include';
+				btn.setAttribute('aria-pressed', 'true');
+				btn.classList.add('bg-gray-100');
+			} else {
+				// Expand body again, hide badge
+				if (body) body.classList.remove('hidden');
+				if (badge) badge.classList.add('hidden');
+
+				if (searchInput) searchInput.disabled = false;
+
+				btn.textContent = 'Exclude';
+				btn.setAttribute('aria-pressed', 'false');
+				btn.classList.remove('bg-gray-100');
+			}
+		});
+
+		// Toggle "Choose alternative" accordion
+		document.addEventListener('click', (e) => {
+			const btn = e.target.closest('.js-alt-toggle');
+			if (!btn) return;
+
+			const idx = btn.dataset.idx;
+			const panel = document.querySelector(`.js-alt-panel[data-idx="${idx}"]`);
+			const icon = document.querySelector(`.js-alt-icon[data-idx="${idx}"]`);
+
+			if (!panel) return;
+
+			const isHidden = panel.classList.contains('hidden');
+			if (isHidden) {
+				panel.classList.remove('hidden');
+				btn.setAttribute('aria-expanded', 'true');
+				if (icon) icon.style.transform = 'rotate(180deg)';
+			} else {
+				panel.classList.add('hidden');
+				btn.setAttribute('aria-expanded', 'false');
+				if (icon) icon.style.transform = 'rotate(0deg)';
+			}
+		});
+
+		// On load: enforce initial states if needed
+		document.addEventListener('DOMContentLoaded', () => {
+			// Disable search when Kroger item is already checked
+			document.querySelectorAll('input.js-use-kroger:checked').forEach(cb => {
+				const idx = cb.dataset.idx;
+				const searchInput = document.getElementById(`search-${idx}`);
+				if (searchInput) searchInput.disabled = true;
+
+				updateKrogerState(idx);
+			});
+
+			// Apply initial exclude state if Include == false
+			document.querySelectorAll('input.js-include[value="false"]').forEach(inc => {
+				const idx = inc.dataset.idx;
+				const btn = document.querySelector(`.js-exclude-btn[data-idx="${idx}"]`);
+				if (btn) btn.click();
+			});
+
+			// Auto-expand "Choose alternative" for ingredients that need mapping
+			document.querySelectorAll('.js-row').forEach(row => {
+				const idx = row.dataset.idx;
+				const needs = row.dataset.needsMapping === 'true';
+				if (needs) {
+					const toggleBtn = document.querySelector(`.js-alt-toggle[data-idx="${idx}"]`);
+					if (toggleBtn) {
+						const panel = document.querySelector(`.js-alt-panel[data-idx="${idx}"]`);
+						if (panel && panel.classList.contains('hidden')) {
+							toggleBtn.click();
+						}
+					}
+				}
+			});
+		});
+	})();
 </script>

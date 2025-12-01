@@ -35,9 +35,46 @@ namespace RecipeHelper.Controllers
                 return Redirect(auth.RedirectUrl);
             }
 
-            var vm = await _krogerService.GetCurrentCartItems(auth.AccessToken!);
+            var vm = await _krogerService.GetKrogerCartItemsAsync(auth.AccessToken!);
 
             return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PreviewAddToCart(AddToCartVM vm)
+        {
+            // vm.Items currently holds ingredients (with measurement/quantity/etc)
+            var detailedCartItems = await _krogerService.ConvertIngredientsToCartItems(vm);
+
+            // Build preview items by fetching product details for each UPC
+            var previewItems = new List<AddToCartPreviewItemVM>();
+
+            foreach (var cartItem in detailedCartItems)
+            {
+                // Adjust property names to your Product type
+                previewItems.Add(new AddToCartPreviewItemVM
+                {
+                    Upc = cartItem.Upc,
+                    QuantityToAdd = cartItem.Quantity,
+                    Name = cartItem.Name,
+                    Brand = cartItem.Brand,
+                    StockLevel = cartItem.StockLevel,
+                    //Size = $"{cartItem.} {product.sizeUnit}",
+                    Aisle = cartItem.Aisle ?? "",
+                    RegularPrice = cartItem.RegularPrice,
+                    PromoPrice = cartItem.PromoPrice,
+                    //OnSale = product.onSale,
+                    Include = true
+                });
+            }
+
+            var previewVm = new AddToCartPreviewVM
+            {
+                Items = previewItems
+            };
+
+            return View("PreviewAddToCart", previewVm); // Views/Cart/PreviewAddToCart.cshtml
         }
 
         // Called when user clicks "Add all items to cart"
@@ -96,8 +133,18 @@ namespace RecipeHelper.Controllers
             try
             {
                 var itemCount = vm.Items.Count;
-                var cartRequest = await _krogerService.ConvertIngredientsToCartItems(vm);
-                var result = await _krogerService.AddToCart(cartRequest, token);
+                var cartItems = await _krogerService.ConvertIngredientsToCartItems(vm);
+                AddToCartRequest addToCartRequest = new AddToCartRequest
+                {
+                    Items = cartItems.Select(d => new CartItem
+                    {
+                        Upc = d.Upc,
+                        Quantity = d.Quantity,
+                    }).ToList()
+                };
+
+
+                var result = await _krogerService.AddToCartAsync(addToCartRequest, token);
 
                 // Optional: clear it after use
                 HttpContext.Session.Remove("PendingCart");
@@ -105,10 +152,11 @@ namespace RecipeHelper.Controllers
                 TempData["SuccessMessage"] = $"{itemCount} item{(itemCount == 1 ? "" : "s")} were added to your Kroger cart. " + "You can review or edit them in the Kroger app.";
                 return RedirectToAction("Recipe", "Recipe");
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex.Message);
                 TempData["ErrorMessage"] = "There was a problem adding items to your Kroger cart. Please try again.";
-                return RedirectToAction("ReviewDinnerSelections", "Dinner");
+                return RedirectToAction("SelectWeeklyRecipes", "Dinner");
 
             }
         }

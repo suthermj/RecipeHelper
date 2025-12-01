@@ -55,12 +55,12 @@
                         <li class="flex items-center border-b border-gray-200 py-2">
                             <img src="@Url.Content($"https://www.kroger.com/product/images/xlarge/front/{product.upc}")" alt="Product Image" class="w-20 h-20 mr-4">
                             <div class="flex-grow">
-                                <span class="font-bold">@product.description</span> - <span class="text-gray-600">$@product.regularPrice.ToString("0.00")</span>
+                                <span class="font-bold">@product.name</span> - <span class="text-gray-600">$@product.regularPrice.ToString("0.00")</span>
                             </div>
                             <div>
                                 <input type="checkbox" class="product-checkbox ml-4" data-upc="@product.upc">
                                 <input type="hidden" name="selectedProducts" value="@product.upc" disabled>
-                                <input type="hidden" name="productNames[@product.upc]" value="@product.description" disabled>
+                                <input type="hidden" name="productNames[@product.upc]" value="@product.name" disabled>
                                 <input type="hidden" name="productPrices[@product.upc]" value="@product.regularPrice" disabled>
                             </div>
                         </li>

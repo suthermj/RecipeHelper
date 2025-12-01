@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Products;
 using RecipeHelper.Services;
@@ -37,12 +36,7 @@ namespace RecipeHelper.Controllers
         [HttpGet]
         public async Task<ActionResult> ViewProduct(int productId)
         {
-
-            var product = await _context.Products
-                .AsNoTracking()
-                .Where(p => p.Id == productId)
-                .Select(p => new ViewProductVM { Id = p.Id, Upc = p.Upc, Name = p.Name })
-                .FirstOrDefaultAsync();
+            var product = await _productService.GetProductAsync(productId);
 
             if (product is null)
             {
@@ -50,15 +44,15 @@ namespace RecipeHelper.Controllers
                 return RedirectToAction("Products", "Product");
             }
 
-            var kroger = await _krogerService.GetProductDetails(product.Upc);
-            if (kroger.HasMissingData())
+            var krogerProduct = await _krogerService.GetProductDetails(product.Upc);
+            if (krogerProduct is null || krogerProduct.HasMissingData())
                 TempData["WarningMessage"] = "Some product details could not be retrieved.";
 
             if (!string.IsNullOrWhiteSpace(product.Name))
-                kroger.description = product.Name;
+                krogerProduct.name = product.Name;
 
             ViewBag.ProductId = product.Id;
-            return View(kroger);
+            return View(krogerProduct);
         }
 
         public async Task<ActionResult> UpdateProduct(int productId, string updatedProductName)
@@ -115,6 +109,29 @@ namespace RecipeHelper.Controllers
             {
                 SearchTerm = searchTerm
             });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> SearchKroger(string term)
+        {
+            if (string.IsNullOrWhiteSpace(term))
+                return Json(Array.Empty<object>());
+
+            var products = await _krogerService.SearchProductByFilter(term);
+
+            if (products == null || !products.Any())
+                return Json(Array.Empty<object>());
+
+            // Shape the response for your dropdown
+            var result = products.Select(p => new
+            {
+                name = p.name,                // or whatever property you're using
+                upc = p.upc,
+                imageUrl = $"https://www.kroger.com/product/images/xlarge/front/{p.upc}",               // or build from UPC
+                id = p.ProductId                            // if you ever store it locally
+            });
+
+            return Json(result);
         }
 
         [HttpPost]

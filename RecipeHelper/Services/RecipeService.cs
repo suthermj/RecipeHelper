@@ -93,6 +93,7 @@ namespace RecipeHelper.Services
                 {
                     ingredientPreview.SuggestedProductId = exactSearch.Id;
                     ingredientPreview.SuggestedProductName = exactSearch.Name;
+                    ingredientPreview.SuggestedProductUpc = exactSearch.Upc;
                     ingredientPreview.SuggestionKind = "Exact";
                 }
                 else
@@ -113,6 +114,7 @@ namespace RecipeHelper.Services
                     {
                         ingredientPreview.SuggestedProductId = dbFuzzyMatch.Id;
                         ingredientPreview.SuggestedProductName = dbFuzzyMatch.Name;
+                        ingredientPreview.SuggestedProductUpc = dbFuzzyMatch.Upc;
                         ingredientPreview.SuggestionKind = "Fuzzy";
                     }
                 }
@@ -125,12 +127,12 @@ namespace RecipeHelper.Services
                     .Select(c => new
                     {
                         c.ProductId,
-                        c.description,
+                        c.name,
                         c.upc,
                         c.regularPrice,
                         c.promoPrice,
                         c.onSale,
-                        Score = LevenshteinRatio(c.description, ingredient.Name) // 0..1 if you wrote it that way
+                        Score = LevenshteinRatio(c.name, ingredient.Name) // 0..1 if you wrote it that way
                     })
                     // .Where(c => c.Score > .3)
                     .OrderByDescending(x => x.Score)
@@ -140,7 +142,7 @@ namespace RecipeHelper.Services
                     {
                         ingredientPreview.Kroger = new KrogerPreviewVM
                         {
-                            Name = krogerFuzzySearch.description,
+                            Name = krogerFuzzySearch.name,
                             OnSale = krogerFuzzySearch.onSale,
                             Upc = krogerFuzzySearch.upc,
                             PromoPrice = (decimal?)krogerFuzzySearch.promoPrice,
@@ -204,7 +206,7 @@ namespace RecipeHelper.Services
                         var productDetails = await _krogerService.GetProductDetails(ingredient.KrogerUpc);
                         Models.Product newProduct = new Models.Product
                         {
-                            Name = productDetails?.description ?? ingredient.Name,
+                            Name = productDetails?.name ?? ingredient.Name,
                             Upc = productDetails?.upc ?? ingredient.KrogerUpc,
                             Price = (decimal)(productDetails?.regularPrice ?? 0)
                         };

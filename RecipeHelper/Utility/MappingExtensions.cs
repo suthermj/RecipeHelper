@@ -5,14 +5,14 @@ namespace RecipeHelper.Utility
     public static class MappingExtensions
     {
         // Example: Kroger cart item DTO -> DetailedCartItem
-        public static DetailedCartItem ToDetailedCartItem(this Product source, int quantity = 0)
+        public static DetailedCartItem ToDetailedCartItem(this KrogerProduct source, int quantity = 0)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
 
             // Adjust property names based on your actual KrogerCartItem model
             return new DetailedCartItem
             {
-                Name = source.description,
+                Name = source.name,
                 Upc = source.upc,
                 Aisle = source.aisleLocation ?? "Other",
                 RegularPrice = source.regularPrice,
@@ -26,10 +26,39 @@ namespace RecipeHelper.Utility
         }
 
         // Collection version (super convenient in controllers/services)
-        public static List<DetailedCartItem> ToDetailedCartItems(this IEnumerable<Product> source)
+        public static List<DetailedCartItem> ToDetailedCartItems(this IEnumerable<KrogerProduct> source)
         {
             if (source == null) return new List<DetailedCartItem>();
             return source.Select(ToDetailedCartItem).ToList();
+        }
+
+        public static KrogerProduct ToKrogerProduct(this KrogerProductModel source, int quantity = 0)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+
+            // Adjust property names based on your actual KrogerCartItem model
+            return new KrogerProduct
+            {
+                ProductId = source.productId,
+                name = source.description,
+                upc = source.upc,
+                regularPrice = source.items.FirstOrDefault()?.price?.regular ?? 0,
+                promoPrice = source.items.FirstOrDefault()?.price?.promo ?? 0,
+                stockLevel = source.items.FirstOrDefault()?.inventory?.stockLevel ?? "N/A",
+                brand = source.brand,
+                aisleLocation = source.aisleLocations.FirstOrDefault()?.number ?? "N/A",
+                categories = source.categories?.ToList() ?? new List<string>(),
+                soldBy = source.items.FirstOrDefault()?.soldBy ?? "N/A", // Assuming the first item is representative
+                size = source.items?.FirstOrDefault()?.size ?? "N/A",
+                unitOfMeasure = source.nutritionInformation?.FirstOrDefault()?.servingSize?.unitOfMeasure?.name ?? null,
+            };
+        }
+
+        // Collection version (super convenient in controllers/services)
+        public static List<KrogerProduct> ToKrogerProducts(this IEnumerable<KrogerProductModel> source)
+        {
+            if (source == null) return new List<KrogerProduct>();
+            return source.Select(ToKrogerProduct).ToList();
         }
 
         // Example: Aggregated ingredient -> CartItemVM for AddToCart

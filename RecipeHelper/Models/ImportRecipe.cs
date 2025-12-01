@@ -24,12 +24,12 @@ public class ImportRecipeVM
     public bool GlutenFree { get; set; }
     public bool DairyFree { get; set; }
 
-    public string? SummaryText { get; set; }                
+    public string? SummaryText { get; set; }
     public List<ImportIngredientVM> Ingredients { get; set; } = new();
     public List<string> Steps { get; set; } = new();
 
     // -------- mapping helper from your Spoonacular DTO --------
-    public static ImportRecipeVM FromSpoonacular(RecipeHelper.Models.Spoonacular.Recipe dto)
+    public static ImportRecipeVM FromSpoonacular(Models.Spoonacular.Recipe dto)
     {
         string? PickAmount(RecipeHelper.Models.Spoonacular.Extendedingredient ei)
         {
@@ -56,6 +56,11 @@ public class ImportRecipeVM
             return Regex.Replace(html, "<.*?>", string.Empty).Trim();
         }
 
+        static string FirstNonEmpty(params string[] values)
+        {
+            return values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "UNKNOWN";
+        }
+
         var vm = new ImportRecipeVM
         {
             Title = dto.title ?? "Untitled",
@@ -77,12 +82,12 @@ public class ImportRecipeVM
             {
                 vm.Ingredients.Add(new ImportIngredientVM
                 {
-                    Name = ei.name ?? ei.originalName ?? "ingredient",
+                    Name = FirstNonEmpty(ei.name, ei.originalName, ei.original, "UNKNOWN"),
                     DisplayAmount = PickAmount(ei),
                     Amount = ei.amount,
                     Unit = ei.unit
-                    
-                });
+
+                }); 
             }
         }
 
@@ -161,6 +166,7 @@ public class IngredientPreviewVM
 
     // Suggested DB mapping (your matcher fills these in; user can change)
     public int? SuggestedProductId { get; set; }
+    public string SuggestedProductUpc { get; set; }
     public string? SuggestedProductName { get; set; }
 
     /// <summary> "Exact" or "Fuzzy" (optional; for the badge) </summary>
@@ -182,38 +188,38 @@ public class KrogerPreviewVM
     public decimal? RegularPrice { get; set; }
     public decimal? PromoPrice { get; set; }
 }
-    public class ConfirmMappingVM
-    {
-        [Required]
-        public string Title { get; set; } = "";
+public class ConfirmMappingVM
+{
+    [Required]
+    public string Title { get; set; } = "";
 
-        public string? Image { get; set; }
+    public string? Image { get; set; }
 
-        [MinLength(1)]
-        public List<ConfirmMappingRow> Ingredients { get; set; } = new();
-    }
+    [MinLength(1)]
+    public List<ConfirmMappingRow> Ingredients { get; set; } = new();
+}
 
-    public class ConfirmMappingRow
-    {
-        // Source fields (from the imported ingredient)
-        [Required]
-        public string Name { get; set; } = "";
+public class ConfirmMappingRow
+{
+    // Source fields (from the imported ingredient)
+    [Required]
+    public string Name { get; set; } = "";
 
-        public float? Amount { get; set; }
-        public string? Unit { get; set; }
+    public float? Amount { get; set; }
+    public string? Unit { get; set; }
 
-        public bool Include { get; set; }
+    public bool Include { get; set; }
 
-        // Final selection
-        //  > 0  => existing DB product chosen
-        //  0 or null => none chosen (maybe UseKroger below)
-        public int? ProductId { get; set; }
+    // Final selection
+    //  > 0  => existing DB product chosen
+    //  0 or null => none chosen (maybe UseKroger below)
+    public int? ProductId { get; set; }
 
-        // If true, prefer Kroger item even if ProductId is null/0
-        public bool UseKroger { get; set; }
+    // If true, prefer Kroger item even if ProductId is null/0
+    public bool UseKroger { get; set; }
 
-        // Minimal Kroger payload (used if UseKroger == true)
-        public string? KrogerUpc { get; set; }
-        public string? KrogerName { get; set; }
-        public string? KrogerImage { get; set; }
-    }
+    // Minimal Kroger payload (used if UseKroger == true)
+    public string? KrogerUpc { get; set; }
+    public string? KrogerName { get; set; }
+    public string? KrogerImage { get; set; }
+}

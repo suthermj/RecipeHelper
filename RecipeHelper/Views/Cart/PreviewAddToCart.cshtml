@@ -1,0 +1,168 @@
+﻿@using RecipeHelper.Models.Kroger
+@model AddToCartPreviewVM
+
+@{
+    ViewData["Title"] = "Review Kroger Items";
+    var totalItems = Model.Items.Sum(i => i.QuantityToAdd);
+}
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-6">
+    <header class="space-y-1">
+        <h1 class="text-xl font-bold text-gray-900 sm:text-2xl">
+            Review Kroger items
+        </h1>
+        <p class="text-sm text-gray-600">
+            These are the specific Kroger products and quantities that will be added to your cart.
+            Uncheck any items you don’t want to include.
+        </p>
+    </header>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700">
+            No items to add. Please go back and select your recipes again.
+        </div>
+    }
+    else
+    {
+        <section class="space-y-4">
+            <form asp-action="ConfirmAddToCart" asp-controller="Cart" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left">
+                                    <input type="checkbox" id="select-all" class="h-4 w-4 rounded border-gray-300" />
+                                </th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">Item</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">Details</th>
+                                <th class="px-3 py-2 text-right font-medium text-gray-600">Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @for (var i = 0; i < Model.Items.Count; i++)
+                            {
+                                var item = Model.Items[i];
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-3 py-2 align-top">
+                                        <input type="checkbox"
+                                               class="row-include h-4 w-4 rounded border-gray-300"
+                                               name="Items[@i].Include"
+                                               value="true"
+                                               checked />
+                                        <input type="hidden" name="Items[@i].Include" value="false" />
+                                    </td>
+                                    <td class="px-3 py-2 align-top">
+                                        <div class="flex gap-3">
+                                                <div class="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md bg-gray-100">
+                                                <img src="https://www.kroger.com/product/images/medium/front/@item.Upc"
+                                                         alt="@item.Name"
+                                                         class="h-full w-full object-cover" />
+                                                </div>
+                                            <div class="space-y-1">
+                                                <div class="font-semibold text-gray-900 text-sm">@item.Name</div>
+                                                @if (!string.IsNullOrWhiteSpace(item.Brand))
+                                                {
+                                                    <div class="text-xs text-gray-500">@item.Brand</div>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(item.StockLevel))
+                                                {
+                                                    <div class="mt-1 inline-flex rounded-full
+                                                        px-2 py-0.5 text-[0.65rem] font-medium
+                                                        @GetStockLevelBadgeClasses(item.StockLevel)">
+                                                        @item.StockLevel
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 align-top text-xs text-gray-600">
+                                        @if (!string.IsNullOrWhiteSpace(item.Size))
+                                        {
+                                            <div>@item.Size</div>
+                                        }
+                                        @if (item.OnSale && item.PromoPrice > 0)
+                                        {
+                                            <div class="mt-1">
+                                                <span class="font-semibold text-gray-900">@item.PromoPrice.ToString("C")</span>
+                                                <span class="ml-1 line-through text-gray-400">@item.RegularPrice.ToString("C")</span>
+                                                <span class="ml-1 text-[0.65rem] inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">
+                                                    On sale
+                                                </span>
+                                            </div>
+                                        }
+                                        else if (item.RegularPrice > 0)
+                                        {
+                                            <div class="mt-1 font-semibold text-gray-900">
+                                                @item.RegularPrice.ToString("C")
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="px-3 py-2 align-top text-right text-sm">
+                                        <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
+                                        <input type="number"
+                                               name="Items[@i].QuantityToAdd"
+                                               value="@item.QuantityToAdd"
+                                               min="1"
+                                               class="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-right" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-sm text-gray-600">
+                        @totalItems item@(totalItems == 1 ? "" : "s") will be added to your Kroger cart.
+                    </p>
+
+                    <div class="flex gap-2 justify-end">
+                        <a asp-controller="Dinner" asp-action="ReviewDinnerSelections"
+                           class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
+                            Back
+                        </a>
+                        <button type="submit"
+                                class="inline-flex items-center justify-center px-5 py-2 text-sm font-semibold rounded-md bg-green-600 text-white hover:bg-green-700">
+                            Add selected items to Kroger cart
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        // Simple "select all" checkbox
+        document.addEventListener('DOMContentLoaded', function () {
+            var selectAll = document.getElementById('select-all');
+            if (!selectAll) return;
+
+            selectAll.addEventListener('change', function () {
+                document.querySelectorAll('.row-include').forEach(function (cb) {
+                    cb.checked = selectAll.checked;
+                });
+            });
+        });
+    </script>
+}
+
+@functions {
+    public string GetStockLevelBadgeClasses(string level)
+    {
+        level = level?.ToUpperInvariant() ?? "";
+
+        return level switch
+        {
+            "HIGH" => "bg-green-50 text-green-700 border border-green-200",
+            "MEDIUM" => "bg-yellow-50 text-yellow-700 border border-yellow-300",
+            "LOW" => "bg-orange-50 text-orange-700 border border-orange-300",
+            "OUT_OF_STOCK" or "NONE" or "TEMPORARILY_OUT_OF_STOCK" => "bg-red-50 text-red-700 border border-red-300",
+            _ => "bg-gray-100 text-gray-700 border border-gray-200"
+        };
+    }
+}

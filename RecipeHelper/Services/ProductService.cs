@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.CodeAnalysis;
+using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Kroger;
 
@@ -14,11 +15,11 @@ namespace RecipeHelper.Services
             _logger = logger;
         }
 
-        public async Task<Models.Product> AddProduct(string name, string upc, decimal price)
+        public async Task<Product> AddProduct(string name, string upc, decimal price)
         {
             try
             {
-                Models.Product product = new Models.Product
+                Product product = new Product
                 {
                     Name = name,
                     Price = price,
@@ -92,6 +93,49 @@ namespace RecipeHelper.Services
                             .ToListAsync();
 
             return products;
+        }
+
+        public async Task<Product> GetProductAsync(int id)
+        {
+            if (id == null)
+            {
+                _logger.LogWarning("Id required");
+                return null;
+            }
+
+            _logger.LogInformation("Finding product by id [{productId}]", id);
+            var product = await _context.Products
+                .AsNoTracking()
+                .Where(p => p.Id == id)
+                .FirstOrDefaultAsync();
+
+            return product;
+        }
+
+        public async Task<string?> GetProductUpcAsync(int id)
+        {
+            if (id == null)
+            {
+                _logger.LogWarning("Id required");
+                return null;
+            }
+
+            _logger.LogInformation("Finding product by id [{productId}]", id);
+            var product = await _context.Products
+                .AsNoTracking()
+                .Where(p => p.Id == id)
+                .Select(p => new { upc = p.Upc })
+                .FirstOrDefaultAsync();
+
+            if (product is null)
+            {
+                _logger.LogError("Product not found by id [{productId}]", id);
+                return null;
+            }
+
+            _logger.LogInformation("product id [{productId}] upc [{upc}]", id, product.upc);
+
+            return product.upc;
         }
     }
 }

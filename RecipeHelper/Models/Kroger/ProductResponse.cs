@@ -1,30 +1,31 @@
 ﻿namespace RecipeHelper.Models.Kroger
 {
-    public class Product
+    public class KrogerProduct
     {
         public string ProductId { get; set; }
         public string upc { get; set; }
         public List<string> categories { get; set; }
-        public string description { get; set; }
+        public string name { get; set; }
         public string aisleLocation { get; set; }
         public string brand { get; set; }
 
         public string soldBy { get; set; }
         public string size { get; set; }
-        public decimal sizeQuantity    
+        public decimal sizeQuantity
         {
-            get                             // Computed getter
+            get
             {
                 return Convert.ToDecimal(size.Split(" ")[0]);
             }
         }
         public string sizeUnit
         {
-            get                             // Computed getter
+            get
             {
                 return size.Split(" ")[1];
             }
         }
+        public string? unitOfMeasure { get; set; }
         public float regularPrice { get; set; }
         public float promoPrice { get; set; }
         public string stockLevel { get; set; }
@@ -35,20 +36,19 @@
             return size == "N/A" ||
                    soldBy == "N/A" ||
                    stockLevel == "N/A" ||
-                   string.IsNullOrWhiteSpace(description) ||
-                   promoPrice == 0;
+                   string.IsNullOrWhiteSpace(name);
         }
     }
 
     public class KrogerProductSearchResponse
     {
-        public KrogerProduct[] data { get; set; }
+        public KrogerProductModel[] data { get; set; }
         public Meta meta { get; set; }
     }
 
     public class KrogerProductDetailsResponse
     {
-        public KrogerProduct data { get; set; }
+        public KrogerProductModel data { get; set; }
         public Meta meta { get; set; }
     }
 
@@ -64,7 +64,7 @@
         public int total { get; set; }
     }
 
-    public class KrogerProduct
+    public class KrogerProductModel
     {
         public string productId { get; set; }
         public string upc { get; set; }
@@ -75,6 +75,7 @@
         public string description { get; set; }
         public Image[] images { get; set; }
         public Item[] items { get; set; }
+        public NutritionInformation[] nutritionInformation { get; set; }
     }
 
     public class Aislelocation
@@ -129,6 +130,23 @@
     {
         public float regular { get; set; }
         public float promo { get; set; }
+    }
+
+    public class NutritionInformation
+    {
+        public ServingSize servingSize { get; set; }
+    }
+
+    public class ServingSize
+    {
+        public decimal quantity { get; set; }
+        public UnitOfMeasure unitOfMeasure { get; set; }
+    }
+
+    public class UnitOfMeasure
+    {
+        public string code { get; set; }
+        public string name { get; set; }
     }
 
 }

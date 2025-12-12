@@ -38,6 +38,11 @@
                    stockLevel == "N/A" ||
                    string.IsNullOrWhiteSpace(name);
         }
+
+        public void RemoveKrogerBrandFromName()
+        {
+            this.name = this.name.Replace("Kroger® ", "");
+        }
     }
 
     public class KrogerProductSearchResponse

@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using NuGet.Protocol.Plugins;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Kroger;
+using RecipeHelper.Utility;
 using RecipeHelper.ViewModels;
 using static System.Net.WebRequestMethods;
 
@@ -52,21 +53,36 @@ namespace RecipeHelper.Services
             }).ToList();
 
             var ingredientList = new List<IngredientPreviewVM>();
-            var availableMeasurements = _context.Measurements.Select(m => new
+            var availableMeasurements = _context.Measurements.AsNoTracking().Select(m => new
             {
                 Id = m.Id.ToString(),
                 Name = m.Name
             }).ToList();
 
             var allProducts = _context.Products.AsNoTracking().Select(matches => new
-                   {
-                       Name = matches.Name,
-                       Upc = matches.Upc,
-                       Id = matches.Id,
-                       //Score = LevenshteinRatio(matches.Name.ToLower(), ingredient.Name.ToLower())
-                   }).ToList();
+            {
+                Name = matches.Name,
+                Upc = matches.Upc,
+                Id = matches.Id,
+                //Score = LevenshteinRatio(matches.Name.ToLower(), ingredient.Name.ToLower())
+            }).ToList();
 
-            foreach (var ingredient in ingredients)
+            // merge any duplicates
+            var mergedIngredients = ingredients
+                        .GroupBy(i => new
+                        {
+                            i.Name,
+                            Unit = MeasurementHelper.NormalizeMeasurementUnit(i.Unit) ?? i.Unit
+                        })
+                        .Select(g => new PreviewImportedIngredientVM
+                        {
+                            Name = g.Key.Name,
+                            Unit = g.Key.Unit,
+                            Amount = g.Sum(x => x.Amount)
+                        })
+                        .ToList();
+
+            foreach (var ingredient in mergedIngredients)
             {
                 var ingredientPreview = new IngredientPreviewVM
                 {
@@ -80,14 +96,14 @@ namespace RecipeHelper.Services
 
                 var exactSearch = _context.Products.Where(p =>
                     p.Name.ToLower() == ingredient.Name.ToLower() ||
-                    p.Name.ToLower().Contains(ingredient.Name.ToLower()) 
+                    p.Name.ToLower().Contains(ingredient.Name.ToLower())
                 ).Select(matches => new
-                   {
-                       Name = matches.Name,
-                       Upc = matches.Upc,
-                       Id = matches.Id,
-                       //Score = LevenshteinRatio(matches.Name.ToLower(), ingredient.Name.ToLower())
-                   }).FirstOrDefault();
+                {
+                    Name = matches.Name,
+                    Upc = matches.Upc,
+                    Id = matches.Id,
+                    //Score = LevenshteinRatio(matches.Name.ToLower(), ingredient.Name.ToLower())
+                }).FirstOrDefault();
 
                 if (exactSearch != null)
                 {
@@ -117,38 +133,38 @@ namespace RecipeHelper.Services
                         ingredientPreview.SuggestedProductUpc = dbFuzzyMatch.Upc;
                         ingredientPreview.SuggestionKind = "Fuzzy";
                     }
-                }
 
-                var krogerProducts = _krogerService.SearchProductByFilter(ingredient.Name).Result;
+                    var krogerProducts = _krogerService.SearchProductByFilter(ingredient.Name).Result;
 
-                if (krogerProducts != null)
-                {
-                    var krogerFuzzySearch = krogerProducts
-                    .Select(c => new
+                    if (krogerProducts != null)
                     {
-                        c.ProductId,
-                        c.name,
-                        c.upc,
-                        c.regularPrice,
-                        c.promoPrice,
-                        c.onSale,
-                        Score = LevenshteinRatio(c.name, ingredient.Name) // 0..1 if you wrote it that way
-                    })
-                    // .Where(c => c.Score > .3)
-                    .OrderByDescending(x => x.Score)
-                    .FirstOrDefault();
-
-                    if (krogerFuzzySearch != null)
-                    {
-                        ingredientPreview.Kroger = new KrogerPreviewVM
+                        var krogerFuzzySearch = krogerProducts
+                        .Select(c => new
                         {
-                            Name = krogerFuzzySearch.name,
-                            OnSale = krogerFuzzySearch.onSale,
-                            Upc = krogerFuzzySearch.upc,
-                            PromoPrice = (decimal?)krogerFuzzySearch.promoPrice,
-                            RegularPrice = (decimal?)krogerFuzzySearch.regularPrice,
-                            ImageUrl = $"https://www.kroger.com/product/images/xlarge/front/{krogerFuzzySearch.upc}"
-                        };
+                            c.ProductId,
+                            c.name,
+                            c.upc,
+                            c.regularPrice,
+                            c.promoPrice,
+                            c.onSale,
+                            Score = LevenshteinRatio(c.name, ingredient.Name) // 0..1 if you wrote it that way
+                        })
+                        // .Where(c => c.Score > .3)
+                        .OrderByDescending(x => x.Score)
+                        .FirstOrDefault();
+
+                        if (krogerFuzzySearch != null)
+                        {
+                            ingredientPreview.Kroger = new KrogerPreviewVM
+                            {
+                                Name = krogerFuzzySearch.name,
+                                OnSale = krogerFuzzySearch.onSale,
+                                Upc = krogerFuzzySearch.upc,
+                                PromoPrice = (decimal?)krogerFuzzySearch.promoPrice,
+                                RegularPrice = (decimal?)krogerFuzzySearch.regularPrice,
+                                ImageUrl = $"https://www.kroger.com/product/images/xlarge/front/{krogerFuzzySearch.upc}"
+                            };
+                        }
                     }
                 }
 
@@ -170,41 +186,28 @@ namespace RecipeHelper.Services
                 RecipeProducts = new List<RecipeProduct>()
             };
 
-            /*try
-            {
-                await _context.Recipes.AddAsync(newRecipe);
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating recipe");
-                return;
-            }
-
-            var measurements = _context.Measurements.Select(m => new
-            {
-                Id = m.Id,
-                Name = m.Name,
-            }).ToList();
-            */
-
             // Build a case-insensitive lookup for measurements once
             var measurementDict = await _context.Measurements
                 .AsNoTracking()
                 .ToDictionaryAsync(m => m.Name, m => m.Id, StringComparer.OrdinalIgnoreCase);
 
-            
 
             if (!recipe.Ingredients.IsNullOrEmpty())
             {
+                _logger.LogInformation($"Attempting to add [{recipe.Ingredients.Count}] ingredients to recipe [{recipe.Title}]");
+
                 foreach (var ingredient in recipe.Ingredients)
                 {
                     if (ingredient.Include == false) continue;
 
                     if (ingredient.UseKroger)
                     {
+                        _logger.LogInformation($"Looking up Kroger product [{ingredient.Name}] [{ingredient.KrogerUpc}] to add to database");
+
                         var productDetails = await _krogerService.GetProductDetails(ingredient.KrogerUpc);
-                        Models.Product newProduct = new Models.Product
+                        productDetails?.RemoveKrogerBrandFromName();
+
+                        Product newProduct = new Product
                         {
                             Name = productDetails?.name ?? ingredient.Name,
                             Upc = productDetails?.upc ?? ingredient.KrogerUpc,
@@ -212,6 +215,8 @@ namespace RecipeHelper.Services
                         };
 
                         await _context.Products.AddAsync(newProduct);
+
+                        _logger.LogInformation($"Added [{newProduct.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
 
                         newRecipe.RecipeProducts.Add(new RecipeProduct
                         {
@@ -222,6 +227,8 @@ namespace RecipeHelper.Services
                     }
                     else
                     {
+                        _logger.LogInformation($"Added [{ingredient.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
+
                         newRecipe.RecipeProducts.Add(new RecipeProduct
                         {
                             ProductId = (int)ingredient.ProductId,                 // <- key point: set navigation, not ProductId
@@ -238,6 +245,8 @@ namespace RecipeHelper.Services
             {
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();
+                _logger.LogInformation($"Created new recipe [{newRecipe.Name}]. Id [{newRecipe.Id}]");
+
                 return newRecipe.Id;
             }
             catch (Exception ex)
@@ -248,8 +257,8 @@ namespace RecipeHelper.Services
             }
         }
 
-        
-        public int? MapMeasurementId(string? unit, Dictionary<string,int> measurementDict)
+
+        public int? MapMeasurementId(string? unit, Dictionary<string, int> measurementDict)
         {
             if (string.IsNullOrWhiteSpace(unit)) return null;
             // normalize common abbreviations here if you want:
@@ -305,7 +314,7 @@ namespace RecipeHelper.Services
             return measurementDict.TryGetValue(unit.Trim(), out var id) ? id : (int?)null;
         }
 
-        
+
         // Lightweight Levenshtein ratio (0..1)
         private static double LevenshteinRatio(string s, string t)
         {

@@ -2250,11 +2250,6 @@ body {
     font-size: 1rem;
     line-height: 1.5rem;
   }
-
-  .sm\:text-xl {
-    font-size: 1.25rem;
-    line-height: 1.75rem;
-  }
 }
 
 @media (min-width: 768px) {

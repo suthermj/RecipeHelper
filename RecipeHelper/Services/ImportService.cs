@@ -17,7 +17,7 @@ namespace RecipeHelper.Services
             _logger = logger;
             _krogerService = krogerService;
         }
-        public async Task<MappedImportPreviewVM> AddImportedRecipePreview(PreviewImportedRecipeVM importedRecipe)
+        public async Task<MappedImportPreviewVM> GetImportedRecipePreview(PreviewImportedRecipeVM importedRecipe)
         {
             var title = importedRecipe.Title;
             var imageUri = importedRecipe.Image;
@@ -222,7 +222,7 @@ namespace RecipeHelper.Services
                         newRecipe.RecipeProducts.Add(new RecipeProduct
                         {
                             ProductId = (int)ingredient.ProductId,                 
-                            Quantity = (int?)ingredient.Amount ?? 0,
+                            Quantity = (decimal)(ingredient?.Amount ?? 0.0),
                             MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
                         });
 

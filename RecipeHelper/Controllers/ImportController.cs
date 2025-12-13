@@ -53,7 +53,7 @@ namespace RecipeHelper.Controllers
                 return RedirectToAction(nameof(ImportRecipe));
             }
 
-            var recipePreview = await _importService.AddImportedRecipePreview(vm);
+            var recipePreview = await _importService.GetImportedRecipePreview(vm);
             return View("MappedImportedRecipe", recipePreview);
         }
 

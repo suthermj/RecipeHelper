@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using RecipeHelper.Models;
+using RecipeHelper.Models.Import;
 using RecipeHelper.Utility;
 using RecipeHelper.ViewModels;
 
@@ -17,7 +18,7 @@ namespace RecipeHelper.Services
             _logger = logger;
             _krogerService = krogerService;
         }
-        public async Task<MappedImportPreviewVM> GetImportedRecipePreview(PreviewImportedRecipeVM importedRecipe)
+        public async Task<ImportPreview> GetImportedRecipePreview(PreviewImportedRecipeRequest importedRecipe)
         {
             var title = importedRecipe.Title;
             var imageUri = importedRecipe.Image;
@@ -28,7 +29,7 @@ namespace RecipeHelper.Services
                 return null;
             }
 
-            MappedImportPreviewVM importPreview = new MappedImportPreviewVM
+            ImportPreview importPreview = new ImportPreview
             {
                 Title = title,
                 Image = imageUri
@@ -41,7 +42,7 @@ namespace RecipeHelper.Services
                 Id = p.Id,
             }).ToList();
 
-            var ingredientList = new List<IngredientPreviewVM>();
+            var ingredientList = new List<ImportPreviewIngredient>();
             var availableMeasurements = _context.Measurements.AsNoTracking().Select(m => new
             {
                 Id = m.Id.ToString(),
@@ -63,7 +64,7 @@ namespace RecipeHelper.Services
                             i.Name,
                             Unit = MeasurementHelper.NormalizeMeasurementUnit(i.Unit) ?? i.Unit
                         })
-                        .Select(g => new PreviewImportedIngredientVM
+                        .Select(g => new PreviewImportedRecipeIngredient
                         {
                             Name = g.Key.Name,
                             Unit = g.Key.Unit,
@@ -73,7 +74,7 @@ namespace RecipeHelper.Services
 
             foreach (var ingredient in mergedIngredients)
             {
-                var ingredientPreview = new IngredientPreviewVM
+                var ingredientPreview = new ImportPreviewIngredient
                 {
                     Name = ingredient.Name,
                     Unit = ingredient.Unit,
@@ -144,7 +145,7 @@ namespace RecipeHelper.Services
 
                         if (krogerFuzzySearch != null)
                         {
-                            ingredientPreview.Kroger = new KrogerPreviewVM
+                            ingredientPreview.Kroger = new SuggestedKrogerProductPreview
                             {
                                 Name = krogerFuzzySearch.name,
                                 OnSale = krogerFuzzySearch.onSale,
@@ -164,8 +165,9 @@ namespace RecipeHelper.Services
             return importPreview;
         }
 
-        public async Task<int?> SaveImportedRecipe(ConfirmMappingVM recipe)
+        public async Task<ImportRecipeResponse> SaveImportedRecipe(ImportRecipeRequest recipe)
         {
+            ImportRecipeResponse response = new ImportRecipeResponse();
             await using var tx = await _context.Database.BeginTransactionAsync();
 
             var newRecipe = new Recipe
@@ -180,55 +182,57 @@ namespace RecipeHelper.Services
                 .AsNoTracking()
                 .ToDictionaryAsync(m => m.Name, m => m.Id, StringComparer.OrdinalIgnoreCase);
 
-
-            if (!recipe.Ingredients.IsNullOrEmpty())
+            if (recipe.Ingredients.IsNullOrEmpty())
             {
-                _logger.LogInformation($"Attempting to add [{recipe.Ingredients.Count}] ingredients to recipe [{recipe.Title}]");
+                _logger.LogWarning("No ingredients found in the imported recipe.");
+                response.ErrorMessage = "No ingredients found in the imported recipe.";
+                return  response;
+            }
+            _logger.LogInformation($"Attempting to add [{recipe.Ingredients.Count}] ingredients to recipe [{recipe.Title}]");
 
-                foreach (var ingredient in recipe.Ingredients)
+            foreach (var ingredient in recipe.Ingredients)
+            {
+                if (ingredient.Include == false) continue;
+
+                if (ingredient.UseKroger)
                 {
-                    if (ingredient.Include == false) continue;
+                    _logger.LogInformation($"Looking up Kroger product [{ingredient.Name}] [{ingredient.KrogerUpc}] to add to database");
 
-                    if (ingredient.UseKroger)
+                    var productDetails = await _krogerService.GetProductDetails(ingredient.KrogerUpc);
+                    productDetails?.RemoveKrogerBrandFromName();
+
+                    Product newProduct = new Product
                     {
-                        _logger.LogInformation($"Looking up Kroger product [{ingredient.Name}] [{ingredient.KrogerUpc}] to add to database");
+                        Name = productDetails?.name ?? ingredient.Name,
+                        Upc = productDetails?.upc ?? ingredient.KrogerUpc,
+                        Price = (decimal)(productDetails?.regularPrice ?? 0)
+                    };
 
-                        var productDetails = await _krogerService.GetProductDetails(ingredient.KrogerUpc);
-                        productDetails?.RemoveKrogerBrandFromName();
+                    await _context.Products.AddAsync(newProduct);
 
-                        Product newProduct = new Product
-                        {
-                            Name = productDetails?.name ?? ingredient.Name,
-                            Upc = productDetails?.upc ?? ingredient.KrogerUpc,
-                            Price = (decimal)(productDetails?.regularPrice ?? 0)
-                        };
+                    _logger.LogInformation($"Added [{newProduct.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
+                    var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
 
-                        await _context.Products.AddAsync(newProduct);
-
-                        _logger.LogInformation($"Added [{newProduct.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
-                        var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
-
-                        newRecipe.RecipeProducts.Add(new RecipeProduct
-                        {
-                            Product = newProduct,                 
-                            Quantity = (int?)ingredient.Amount ?? 0,
-                            MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
-                        });
-                    }
-                    else
+                    newRecipe.RecipeProducts.Add(new RecipeProduct
                     {
-                        var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
+                        Product = newProduct,                 
+                        Quantity = (int?)ingredient.Amount ?? 0,
+                        MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
+                    });
+                }
+                else
+                {
+                    var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
 
-                        newRecipe.RecipeProducts.Add(new RecipeProduct
-                        {
-                            ProductId = (int)ingredient.ProductId,                 
-                            Quantity = (decimal)(ingredient?.Amount ?? 0.0),
-                            MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
-                        });
+                    newRecipe.RecipeProducts.Add(new RecipeProduct
+                    {
+                        ProductId = (int)ingredient.ProductId,                 
+                        Quantity = ingredient.Amount,
+                        MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
+                    });
 
-                        _logger.LogInformation($"Added [{ingredient.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
+                    _logger.LogInformation($"Added [{ingredient.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
 
-                    }
                 }
             }
 
@@ -239,14 +243,16 @@ namespace RecipeHelper.Services
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();
                 _logger.LogInformation($"Created new recipe [{newRecipe.Name}]. Id [{newRecipe.Id}]");
-
-                return newRecipe.Id;
+                response.RecipeId = newRecipe.Id;
+                response.Success = true;
+                return response;
             }
             catch (Exception ex)
             {
                 await tx.RollbackAsync();
                 _logger.LogError(ex, "Error saving recipe");
-                return null;
+                response.ErrorMessage = "Error saving recipe: " + ex.Message;
+                return response;
             }
         }
 

@@ -1,4 +1,6 @@
-﻿using RecipeHelper.Models.Kroger;
+﻿using RecipeHelper.Models.Import;
+using RecipeHelper.Models.Kroger;
+using RecipeHelper.ViewModels;
 
 namespace RecipeHelper.Utility
 {
@@ -60,6 +62,70 @@ namespace RecipeHelper.Utility
             if (source == null) return new List<KrogerProduct>();
             return source.Select(ToKrogerProduct).ToList();
         }
+
+        public static PreviewImportedRecipeRequest ToRequest(this PreviewImportedRecipeVM vm)
+        {
+            return new PreviewImportedRecipeRequest
+            {
+                Title = (vm.Title ?? "").Trim(),
+                Image = vm.Image,
+                Ingredients = vm.Ingredients.Select(i => new PreviewImportedRecipeIngredient
+                {
+                    Name = i.Name ?? "",
+                    Amount = i.Amount ?? 0m,
+                    Unit = i.Unit
+                }).ToList()
+            };
+        }
+
+        public static MappedImportPreviewVM ToVm(this ImportPreview dto)
+        {
+            return new MappedImportPreviewVM
+            {
+                Title = dto.Title,
+                Image = dto.Image,
+                Ingredients = dto.Ingredients.Select(x => new IngredientPreviewVM
+                {
+                    Name = x.Name,
+                    Amount = x.Amount,
+                    Unit = x.Unit,
+                    SuggestedProductId = x.SuggestedProductId,
+                    SuggestedProductName = x.SuggestedProductName,
+                    SuggestedProductUpc = x.SuggestedProductUpc,
+                    SuggestionKind = x.SuggestionKind,
+                    Kroger = x.Kroger is null ? null : new KrogerPreviewVM
+                    {
+                        Upc = x.Kroger.Upc,
+                        Name = x.Kroger.Name,
+                        ImageUrl = x.Kroger.ImageUrl,
+                        OnSale = x.Kroger.OnSale,
+                        RegularPrice = x.Kroger.RegularPrice,
+                        PromoPrice = x.Kroger.PromoPrice
+                    }
+                }).ToList()
+            };
+        }
+
+        public static ImportRecipeRequest ToRequest(this ConfirmMappingVM vm)
+        {
+            return new ImportRecipeRequest
+            {
+                Title = (vm.Title ?? "").Trim(),
+                Image = vm.Image,
+                Ingredients = vm.Ingredients.Select(i => new ImportedIngredient
+                {
+                    Name = i.Name ?? "",
+                    Amount = i.Amount ?? 0m,
+                    Unit = i.Unit,
+                    Include = i.Include,
+                    ProductId = i.ProductId,
+                    UseKroger = i.UseKroger,
+                    KrogerUpc = i.KrogerUpc
+                }).ToList()
+            };
+        }
+
+
 
         // Example: Aggregated ingredient -> CartItemVM for AddToCart
         // (Assumes you have something like an AggregatedIngredient model)

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Services;
+using RecipeHelper.Utility;
 using RecipeHelper.ViewModels;
 
 namespace RecipeHelper.Controllers
@@ -49,21 +50,36 @@ namespace RecipeHelper.Controllers
         {
             if (string.IsNullOrWhiteSpace(vm.Title) || vm.Ingredients.Count == 0)
             {
+                _logger.LogWarning("Invalid imported recipe data: missing title or ingredients.");
                 TempData["ErrorMessage"] = "Missing title or ingredients.";
                 return RedirectToAction(nameof(ImportRecipe));
             }
 
-            var recipePreview = await _importService.GetImportedRecipePreview(vm);
-            return View("MappedImportedRecipe", recipePreview);
+
+            var recipePreview = await _importService.GetImportedRecipePreview(vm.ToRequest());
+            return View("MappedImportedRecipe", recipePreview.ToVm());
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SaveImportedRecipe(ConfirmMappingVM vm)
         {
-            _logger.LogInformation("log info");
-            var result = await _importService.SaveImportedRecipe(vm);
-            return RedirectToAction("Recipe", "Recipe");
+            if (string.IsNullOrWhiteSpace(vm.Title) || vm.Ingredients.Count == 0)
+            {
+                _logger.LogWarning("Invalid imported recipe data: missing title or ingredients.");
+                TempData["ErrorMessage"] = "Missing title or ingredients.";
+                return RedirectToAction(nameof(ImportRecipe));
+            }
+            
+            var result = await _importService.SaveImportedRecipe(vm.ToRequest());
+
+            if (!result.Success)
+            {
+                TempData["ErrorMessage"] = result.ErrorMessage ?? "Could not import recipe.";
+                return RedirectToAction(nameof(ImportRecipe));
+            }
+
+            return RedirectToAction("ViewRecipe", "Recipe", new { Id = result.RecipeId });
         }
     }
 }

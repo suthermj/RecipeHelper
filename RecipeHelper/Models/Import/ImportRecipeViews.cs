@@ -133,12 +133,13 @@ public class PreviewImportedRecipeVM
     public string? Image { get; set; }
 
     public List<PreviewImportedIngredientVM> Ingredients { get; set; } = new();
+
 }
 
 public class PreviewImportedIngredientVM
 {
     public string Name { get; set; } = "";   // editable
-    public float? Amount { get; set; }       // editable
+    public decimal? Amount { get; set; }       // editable
     public string? Unit { get; set; }        // editable
     public int? ProductId { get; set; }      // optional mapping to your Product
 }
@@ -161,7 +162,7 @@ public class IngredientPreviewVM
     [Required]
     public string Name { get; set; } = "";
 
-    public float? Amount { get; set; }   // e.g., 2
+    public decimal? Amount { get; set; }   // e.g., 2
     public string? Unit { get; set; }    // e.g., "cloves", "tsp", "g"
 
     // Suggested DB mapping (your matcher fills these in; user can change)
@@ -205,7 +206,7 @@ public class ConfirmMappingRow
     [Required]
     public string Name { get; set; } = "";
 
-    public float? Amount { get; set; }
+    public decimal? Amount { get; set; }
     public string? Unit { get; set; }
 
     public bool Include { get; set; }
@@ -222,13 +223,4 @@ public class ConfirmMappingRow
     public string? KrogerUpc { get; set; }
     public string? KrogerName { get; set; }
     public string? KrogerImage { get; set; }
-}
-
-public class ImportSuccessVM
-{
-    public int RecipeId { get; set; }
-    public string Title { get; set; } = "";
-    public string? Image { get; set; }
-    public int IngredientCount { get; set; }
-    public int ExcludedCount { get; set; }
 }

@@ -95,6 +95,10 @@ namespace RecipeHelper.Models
                 {
                     return Measurement.Substring(0, Measurement.Length - 1);
                 }
+                else if (Measurement?.Equals("Unit", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    return "";
+                }
                 return Measurement;
             }
         }

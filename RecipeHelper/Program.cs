@@ -16,6 +16,7 @@ builder.Services.AddScoped<SpoonacularService, SpoonacularService>();
 builder.Services.AddScoped<RecipeService, RecipeService>();
 builder.Services.AddScoped<ProductService, ProductService>();
 builder.Services.AddScoped<KrogerAuthService, KrogerAuthService>();
+builder.Services.AddScoped<ImportService, ImportService>();
 
 builder.Services.AddDbContext<DatabaseContext>(options =>
     options.UseSqlServer(builder.Configuration["ConnectionString"] ?? throw new InvalidOperationException("Connection string 'ConnectionString' not found.")));

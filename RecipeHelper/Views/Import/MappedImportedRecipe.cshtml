@@ -17,7 +17,7 @@
 		</p>
 	</header>
 
-	<form asp-action="ConfirmImportedMapping" method="post" class="space-y-5">
+	<form asp-action="SaveImportedRecipe" method="post" class="space-y-5">
 		@Html.AntiForgeryToken()
 
 		<!-- Recipe summary -->
@@ -81,7 +81,7 @@
 						@if (ing.Amount.HasValue && !string.IsNullOrWhiteSpace(ing.Unit))
 							{
 								<div class="mt-0.5 text-xs text-gray-500">
-									Imported: @ing.Amount @ing.Unit
+									@ing.Amount @ing.Unit
 								</div>
 							}
 							@if (needsMapping)
@@ -286,7 +286,7 @@
 
 		<!-- Footer actions -->
 		<div class="flex justify-end gap-3 pt-2">
-			<a href="@Url.Action("ImportRecipe", "Recipe")"
+			<a href="@Url.Action("ImportRecipe", "Import")"
 			   class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
 				← Back
 			</a>

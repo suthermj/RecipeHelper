@@ -223,3 +223,12 @@ public class ConfirmMappingRow
     public string? KrogerName { get; set; }
     public string? KrogerImage { get; set; }
 }
+
+public class ImportSuccessVM
+{
+    public int RecipeId { get; set; }
+    public string Title { get; set; } = "";
+    public string? Image { get; set; }
+    public int IngredientCount { get; set; }
+    public int ExcludedCount { get; set; }
+}

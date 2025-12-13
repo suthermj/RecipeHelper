@@ -391,52 +391,25 @@ namespace RecipeHelper.Controllers
             }
         }
 
-        [HttpGet]
-        public async Task<ActionResult> ImportRecipe(ImportRecipePageVM model)
-        {
-            if (model is null)
-            {
-                return View(new ImportRecipePageVM());
-            }
+        
 
-            if (!string.IsNullOrWhiteSpace(model.Url))
-            {
-                var importedRecipe = await _spoonacularService.ImportRecipe(model.Url);
-                if (importedRecipe is null)
-                {
-                    TempData["ErrorMessage"] = "Could not extract recipe from the provided URL.";
-                    return View(model);
-                }
-
-                model.Preview = ImportRecipeVM.FromSpoonacular(importedRecipe);
-                
-                return View(model);
-            }
-
-            return View(model);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> PreviewImportedRecipe(PreviewImportedRecipeVM vm)
-        {
-            if (string.IsNullOrWhiteSpace(vm.Title) || vm.Ingredients.Count == 0)
-            {
-                TempData["ErrorMessage"] = "Missing title or ingredients.";
-                return RedirectToAction(nameof(ImportRecipe));
-            }
-
-            var recipePreview = await _recipeService.AddImportedRecipePreview(vm);
-            return View("MappedImportedRecipe", recipePreview);
-        }
-
+        /*
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ConfirmImportedMapping(ConfirmMappingVM vm)
         {
-            _logger.LogInformation("log info");
-            var result = await _recipeService.SaveImportedRecipe(vm);
-            return RedirectToAction("Recipe");
+            var recipeId = await _recipeService.SaveImportedRecipe(vm);
+
+            TempData["SuccessMessage"] = "Recipe imported successfully.";
+            return RedirectToAction(nameof(ImportSuccess), new { recipeId });
         }
+
+        [HttpGet]
+        public async Task<IActionResult> ImportSuccess(int recipeId)
+        {
+            // fetch a lightweight summary for display
+            var summary = await _recipeService.GetImportSummary(recipeId);
+            return View(summary);
+        }*/
     }
 }

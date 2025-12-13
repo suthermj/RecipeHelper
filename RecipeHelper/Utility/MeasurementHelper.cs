@@ -171,7 +171,7 @@
 
         public static string? NormalizeMeasurementUnit(string measurementName)
         {
-            if (string.IsNullOrWhiteSpace(measurementName)) return null;
+            if (string.IsNullOrWhiteSpace(measurementName)) return "Unit";
             // normalize common abbreviations here if you want:
             // e.g. if (unit.Equals("tsp", StringComparison.OrdinalIgnoreCase)) unit = "Teaspoon";
 
@@ -219,10 +219,11 @@
                 case "units":
                 case "piece":
                 case "pieces":
+                case "count":
                     return "Unit";
 
                 default:
-                    return null;
+                    return "Unit";
 
                     // Add more as needed
             }

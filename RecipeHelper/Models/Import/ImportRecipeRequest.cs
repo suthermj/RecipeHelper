@@ -22,6 +22,6 @@ namespace RecipeHelper.Models.Import
         public bool Include { get; set; }
         public int? ProductId { get; set; }
         public bool UseKroger { get; set; }
-        public string? KrogerUpc { get; set; }
+        public string? Upc { get; set; }
     }
 }

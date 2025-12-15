@@ -141,10 +141,10 @@ public class PreviewImportedIngredientVM
     public string Name { get; set; } = "";   // editable
     public decimal? Amount { get; set; }       // editable
     public string? Unit { get; set; }        // editable
-    public int? ProductId { get; set; }      // optional mapping to your Product
+    //public int? ProductId { get; set; }      // optional mapping to your Product
 }
 
-public class MappedImportPreviewVM
+public class MappedImportedRecipeVM
 {
     [Required]
     public string Title { get; set; } = "";
@@ -164,63 +164,26 @@ public class IngredientPreviewVM
 
     public decimal? Amount { get; set; }   // e.g., 2
     public string? Unit { get; set; }    // e.g., "cloves", "tsp", "g"
-
-    // Suggested DB mapping (your matcher fills these in; user can change)
+    public bool Include { get; set; }
     public int? SuggestedProductId { get; set; }
-    public string SuggestedProductUpc { get; set; }
+    public string? SuggestedProductUpc { get; set; }
     public string? SuggestedProductName { get; set; }
-
-    /// <summary> "Exact" or "Fuzzy" (optional; for the badge) </summary>
     public string? SuggestionKind { get; set; }
+    public int? ProductId { get; set; }
+    public string? SelectedProductLabel { get; set; } // what to show in the search box on reload
+    //public string Upc { get; set; } = "";
+    public string? KrogerUpc { get; set; }            // chosen Kroger UPC (suggested or search)
+    public string? KrogerName { get; set; }           // optional (for display/rehydrate)
+    public string? KrogerImage { get; set; }          // optional
+    // If true, prefer Kroger item even if ProductId is null/0
+    public bool UseKroger { get; set; }
 
-    // Optional Kroger fallback (shown if we didn't find a DB match)
     public KrogerPreviewVM? Kroger { get; set; }
 }
 
 public class KrogerPreviewVM
 {
-    [Required]
-    public string Upc { get; set; } = "";
-
     public string? Name { get; set; }
     public string? ImageUrl { get; set; }
-
-    public bool OnSale { get; set; }
-    public decimal? RegularPrice { get; set; }
-    public decimal? PromoPrice { get; set; }
-}
-public class ConfirmMappingVM
-{
-    [Required]
-    public string Title { get; set; } = "";
-
-    public string? Image { get; set; }
-
-    [MinLength(1)]
-    public List<ConfirmMappingRow> Ingredients { get; set; } = new();
-}
-
-public class ConfirmMappingRow
-{
-    // Source fields (from the imported ingredient)
-    [Required]
-    public string Name { get; set; } = "";
-
-    public decimal? Amount { get; set; }
-    public string? Unit { get; set; }
-
-    public bool Include { get; set; }
-
-    // Final selection
-    //  > 0  => existing DB product chosen
-    //  0 or null => none chosen (maybe UseKroger below)
-    public int? ProductId { get; set; }
-
-    // If true, prefer Kroger item even if ProductId is null/0
-    public bool UseKroger { get; set; }
-
-    // Minimal Kroger payload (used if UseKroger == true)
-    public string? KrogerUpc { get; set; }
-    public string? KrogerName { get; set; }
-    public string? KrogerImage { get; set; }
+    public string? Upc { get; set; }
 }

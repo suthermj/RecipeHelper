@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using NuGet.Protocol;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Import;
 using RecipeHelper.Utility;
@@ -35,33 +36,17 @@ namespace RecipeHelper.Services
                 Image = imageUri
             };
 
-            var currentProducts = _context.Products.Select(p => new ViewProductVM
-            {
-                Name = p.Name,
-                Upc = p.Upc,
-                Id = p.Id,
-            }).ToList();
-
             var ingredientList = new List<ImportPreviewIngredient>();
-            var availableMeasurements = _context.Measurements.AsNoTracking().Select(m => new
-            {
-                Id = m.Id.ToString(),
-                Name = m.Name
-            }).ToList();
 
-            var allProducts = _context.Products.AsNoTracking().Select(matches => new
-            {
-                Name = matches.Name,
-                Upc = matches.Upc,
-                Id = matches.Id,
-                //Score = LevenshteinRatio(matches.Name.ToLower(), ingredient.Name.ToLower())
-            }).ToList();
+            var allProducts = await _context.Products.AsNoTracking()
+                .Select(p => new ProductLookup(p.Id, p.Name, p.Upc, p.Name.ToLower()))
+                .ToListAsync();
 
             // merge any duplicates
             var mergedIngredients = ingredients
                         .GroupBy(i => new
                         {
-                            i.Name,
+                            Name = i.Name.Trim().ToLowerInvariant(),
                             Unit = MeasurementHelper.NormalizeMeasurementUnit(i.Unit) ?? i.Unit
                         })
                         .Select(g => new PreviewImportedRecipeIngredient
@@ -72,6 +57,8 @@ namespace RecipeHelper.Services
                         })
                         .ToList();
 
+            var ingredientsNoExactMatch = new List<PreviewImportedRecipeIngredient>();
+
             foreach (var ingredient in mergedIngredients)
             {
                 var ingredientPreview = new ImportPreviewIngredient
@@ -79,21 +66,12 @@ namespace RecipeHelper.Services
                     Name = ingredient.Name,
                     Unit = ingredient.Unit,
                     Amount = ingredient.Amount,
-
                 };
 
-                ingredient.Name = ingredient.Name.ToLower();
-
-                var exactSearch = await _context.Products.Where(p =>
-                    p.Name.ToLower() == ingredient.Name.ToLower() ||
-                    p.Name.ToLower().Contains(ingredient.Name.ToLower())
-                ).Select(matches => new
-                {
-                    Name = matches.Name,
-                    Upc = matches.Upc,
-                    Id = matches.Id,
-                    //Score = LevenshteinRatio(matches.Name.ToLower(), ingredient.Name.ToLower())
-                }).FirstOrDefaultAsync();
+                var exactSearch = allProducts.FirstOrDefault(p =>
+                    p.NameLower == ingredient.Name ||
+                    p.NameLower.Contains(ingredient.Name)
+                );
 
                 if (exactSearch != null)
                 {
@@ -101,69 +79,20 @@ namespace RecipeHelper.Services
                     ingredientPreview.SuggestedProductName = exactSearch.Name;
                     ingredientPreview.SuggestedProductUpc = exactSearch.Upc;
                     ingredientPreview.SuggestionKind = "Exact";
+                    ingredientList.Add(ingredientPreview);
                 }
                 else
                 {
-                    var dbFuzzyMatch = allProducts
-                        .Select(c => new
-                        {
-                            c.Id,
-                            c.Name,
-                            c.Upc,
-                            Score = LevenshteinRatio(c.Name, ingredient.Name) // 0..1 if you wrote it that way
-                        })
-                        .Where(c => c.Score >= .5)
-                        .OrderByDescending(x => x.Score)
-                        .FirstOrDefault();
-
-                    if (dbFuzzyMatch != null)
-                    {
-                        ingredientPreview.SuggestedProductId = dbFuzzyMatch.Id;
-                        ingredientPreview.SuggestedProductName = dbFuzzyMatch.Name;
-                        ingredientPreview.SuggestedProductUpc = dbFuzzyMatch.Upc;
-                        ingredientPreview.SuggestionKind = "Fuzzy";
-                    }
-
-                    var krogerProducts = await _krogerService.SearchProductByFilter(ingredient.Name);
-
-                    if (krogerProducts != null)
-                    {
-                        var krogerFuzzySearch = krogerProducts
-                        .Select(c => new
-                        {
-                            c.ProductId,
-                            c.name,
-                            c.upc,
-                            c.regularPrice,
-                            c.promoPrice,
-                            c.onSale,
-                            Score = LevenshteinRatio(c.name, ingredient.Name) // 0..1 if you wrote it that way
-                        })
-                        // .Where(c => c.Score > .3)
-                        .OrderByDescending(x => x.Score)
-                        .FirstOrDefault();
-
-                        if (krogerFuzzySearch != null)
-                        {
-                            ingredientPreview.Kroger = new SuggestedKrogerProductPreview
-                            {
-                                Name = krogerFuzzySearch.name,
-                                OnSale = krogerFuzzySearch.onSale,
-                                Upc = krogerFuzzySearch.upc,
-                                PromoPrice = (decimal?)krogerFuzzySearch.promoPrice,
-                                RegularPrice = (decimal?)krogerFuzzySearch.regularPrice,
-                                ImageUrl = $"https://www.kroger.com/product/images/xlarge/front/{krogerFuzzySearch.upc}"
-                            };
-                        }
-                    }
+                    ingredientsNoExactMatch.Add(ingredient);
                 }
-
-                ingredientList.Add(ingredientPreview);
             }
 
+            var fuzzySearchIngredients = await IngredientFuzzySearch(ingredientsNoExactMatch, allProducts);
+            ingredientList.AddRange(fuzzySearchIngredients);
             importPreview.Ingredients = ingredientList;
             return importPreview;
         }
+
 
         public async Task<ImportRecipeResponse> SaveImportedRecipe(ImportRecipeRequest recipe)
         {
@@ -186,7 +115,7 @@ namespace RecipeHelper.Services
             {
                 _logger.LogWarning("No ingredients found in the imported recipe.");
                 response.ErrorMessage = "No ingredients found in the imported recipe.";
-                return  response;
+                return response;
             }
             _logger.LogInformation($"Attempting to add [{recipe.Ingredients.Count}] ingredients to recipe [{recipe.Title}]");
 
@@ -196,15 +125,15 @@ namespace RecipeHelper.Services
 
                 if (ingredient.UseKroger)
                 {
-                    _logger.LogInformation($"Looking up Kroger product [{ingredient.Name}] [{ingredient.KrogerUpc}] to add to database");
+                    _logger.LogInformation($"Looking up Kroger product [{ingredient.Name}] [{ingredient.Upc}] to add to database");
 
-                    var productDetails = await _krogerService.GetProductDetails(ingredient.KrogerUpc);
+                    var productDetails = await _krogerService.GetProductDetails(ingredient.Upc);
                     productDetails?.RemoveKrogerBrandFromName();
 
                     Product newProduct = new Product
                     {
                         Name = productDetails?.name ?? ingredient.Name,
-                        Upc = productDetails?.upc ?? ingredient.KrogerUpc,
+                        Upc = productDetails?.upc ?? ingredient.Upc,
                         Price = (decimal)(productDetails?.regularPrice ?? 0)
                     };
 
@@ -215,8 +144,8 @@ namespace RecipeHelper.Services
 
                     newRecipe.RecipeProducts.Add(new RecipeProduct
                     {
-                        Product = newProduct,                 
-                        Quantity = (int?)ingredient.Amount ?? 0,
+                        Product = newProduct,
+                        Quantity = ingredient.Amount,
                         MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
                     });
                 }
@@ -226,7 +155,7 @@ namespace RecipeHelper.Services
 
                     newRecipe.RecipeProducts.Add(new RecipeProduct
                     {
-                        ProductId = (int)ingredient.ProductId,                 
+                        ProductId = (int)ingredient.ProductId,
                         Quantity = ingredient.Amount,
                         MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
                     });
@@ -278,5 +207,96 @@ namespace RecipeHelper.Services
             int maxLen = Math.Max(n, m);
             return 1.0 - (double)dist / maxLen;
         }
+
+
+        private async Task<List<ImportPreviewIngredient>> IngredientFuzzySearch(List<PreviewImportedRecipeIngredient> ingredients, List<ProductLookup> products)
+        {
+            var ingredientList = new List<ImportPreviewIngredient>();
+            var throttle = new SemaphoreSlim(5);
+
+            var krogerTasks = ingredients.Select(async ing =>
+            {
+                await throttle.WaitAsync();     // ✅ wait until a slot is available
+                try
+                {
+                    var results = await _krogerService.SearchProductByFilter(ing.Name);
+                    return (ing.Name, results);
+                }
+                finally
+                {
+                    throttle.Release();         // ✅ return the slot no matter what
+                }
+            }).ToList();
+
+            var krogerResults = await Task.WhenAll(krogerTasks);
+            var krogerMap = krogerResults.ToDictionary(x => x.Name.ToLowerInvariant(), x => x.results);
+
+
+            foreach (var ingredient in ingredients)
+            {
+                var ingredientPreview = new ImportPreviewIngredient
+                {
+                    Name = ingredient.Name,
+                    Unit = ingredient.Unit,
+                    Amount = ingredient.Amount,
+                };
+
+                var ingredientName = ingredient.Name.ToLowerInvariant();
+                var tokens = ingredientName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Distinct().ToArray();
+
+                var dbFuzzyMatch = products
+                    .Where(p => tokens.Any(t => p.NameLower.Contains(t)))
+                    .Take(50)
+                    .Select(c => new
+                    {
+                        c.Id,
+                        c.Name,
+                        c.Upc,
+                        Score = LevenshteinRatio(c.Name, ingredient.Name) // 0..1 if you wrote it that way
+                    })
+                    .Where(c => c.Score >= .5)
+                    .OrderByDescending(x => x.Score)
+                    .FirstOrDefault();
+
+                if (dbFuzzyMatch != null)
+                {
+                    ingredientPreview.SuggestedProductId = dbFuzzyMatch.Id;
+                    ingredientPreview.SuggestedProductName = dbFuzzyMatch.Name;
+                    ingredientPreview.SuggestedProductUpc = dbFuzzyMatch.Upc;
+                    ingredientPreview.SuggestionKind = "Fuzzy";
+                }
+
+                if (krogerMap.TryGetValue(ingredientName, out var krogerProducts) && krogerProducts != null)
+                {
+                    var krogerFuzzySearch = krogerProducts
+                    .Select(c => new
+                    {
+                        c.ProductId,
+                        c.name,
+                        c.upc,
+                        Score = LevenshteinRatio(c.name, ingredient.Name) // 0..1 if you wrote it that way
+                    })
+                    .OrderByDescending(x => x.Score)
+                    .FirstOrDefault();
+
+                    if (krogerFuzzySearch != null)
+                    {
+                        ingredientPreview.Kroger = new SuggestedKrogerProductPreview
+                        {
+                            Name = krogerFuzzySearch.name,
+                            Upc = krogerFuzzySearch.upc,
+                            ImageUrl = $"https://www.kroger.com/product/images/xlarge/front/{krogerFuzzySearch.upc}"
+                        };
+                    }
+                }
+
+                ingredientList.Add(ingredientPreview);
+            }
+
+            return ingredientList;
+        }
+
+        public record ProductLookup(int Id, string Name, string? Upc, string NameLower);
+
     }
 }

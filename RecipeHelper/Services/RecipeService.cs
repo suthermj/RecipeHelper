@@ -25,6 +25,14 @@ namespace RecipeHelper.Services
             _productService = productService;
         }
 
+        public async Task<bool> RecipeNameExists(string recipeName)
+        {
+            var exists = await _context.Recipes.Where(r => r.Name.ToLower().Equals(recipeName.ToLower())).FirstOrDefaultAsync();
+
+            if (exists == null) return false;
+            return true;
+        }
+
         
     }
 }

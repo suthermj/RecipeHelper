@@ -15,7 +15,6 @@ namespace RecipeHelper.Models.Import
         public string Name { get; set; } = "";  
         public decimal Amount { get; set; }      
         public string? Unit { get; set; }       
-        public int? ProductId { get; set; }     
     }
 
 
@@ -56,9 +55,5 @@ namespace RecipeHelper.Models.Import
 
         public string? Name { get; set; }
         public string? ImageUrl { get; set; }
-
-        public bool OnSale { get; set; }
-        public decimal? RegularPrice { get; set; }
-        public decimal? PromoPrice { get; set; }
     }
 }

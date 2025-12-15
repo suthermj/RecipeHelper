@@ -78,9 +78,9 @@ namespace RecipeHelper.Utility
             };
         }
 
-        public static MappedImportPreviewVM ToVm(this ImportPreview dto)
+        public static MappedImportedRecipeVM ToVm(this ImportPreview dto)
         {
-            return new MappedImportPreviewVM
+            return new MappedImportedRecipeVM
             {
                 Title = dto.Title,
                 Image = dto.Image,
@@ -93,20 +93,19 @@ namespace RecipeHelper.Utility
                     SuggestedProductName = x.SuggestedProductName,
                     SuggestedProductUpc = x.SuggestedProductUpc,
                     SuggestionKind = x.SuggestionKind,
+                    //ProductId = x.SuggestedProductId,
                     Kroger = x.Kroger is null ? null : new KrogerPreviewVM
                     {
-                        Upc = x.Kroger.Upc,
+                        //Upc = x.Kroger.Upc,
                         Name = x.Kroger.Name,
                         ImageUrl = x.Kroger.ImageUrl,
-                        OnSale = x.Kroger.OnSale,
-                        RegularPrice = x.Kroger.RegularPrice,
-                        PromoPrice = x.Kroger.PromoPrice
+                        Upc = x.Kroger.Upc
                     }
                 }).ToList()
             };
         }
 
-        public static ImportRecipeRequest ToRequest(this ConfirmMappingVM vm)
+        public static ImportRecipeRequest ToRequest(this MappedImportedRecipeVM vm)
         {
             return new ImportRecipeRequest
             {
@@ -120,38 +119,9 @@ namespace RecipeHelper.Utility
                     Include = i.Include,
                     ProductId = i.ProductId,
                     UseKroger = i.UseKroger,
-                    KrogerUpc = i.KrogerUpc
+                    Upc = i.KrogerUpc
                 }).ToList()
             };
         }
-
-
-
-        // Example: Aggregated ingredient -> CartItemVM for AddToCart
-        // (Assumes you have something like an AggregatedIngredient model)
-        /*public static CartItemVM ToCartItemVm(this AggregatedIngredient ingredient, int krogerUnitsNeeded, string modality = "PICKUP")
-        {
-            if (ingredient == null) throw new ArgumentNullException(nameof(ingredient));
-
-            return new CartItemVM
-            {
-                Upc = ingredient.Upc,
-                Quantity = krogerUnitsNeeded,
-                Measurement = ingredient.Measurement,  // or normalized measurement string if you have it
-                Modality = modality,
-                Include = true
-            };
-        }
-
-        // Example collection mapping for AddToCart items
-        public static List<CartItemVM> ToCartItemVms(this IEnumerable<AggregatedIngredient> ingredients, Func<AggregatedIngredient, int> unitCalculator, string modality = "PICKUP")
-        {
-            if (ingredients == null) return new List<CartItemVM>();
-            if (unitCalculator == null) throw new ArgumentNullException(nameof(unitCalculator));
-
-            return ingredients
-                .Select(i => i.ToCartItemVm(unitCalculator(i), modality))
-                .ToList();
-        }*/
     }
 }

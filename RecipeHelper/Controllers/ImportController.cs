@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using RecipeHelper.Models.Import;
 using RecipeHelper.Services;
 using RecipeHelper.Utility;
 using RecipeHelper.ViewModels;
@@ -8,14 +9,16 @@ namespace RecipeHelper.Controllers
     public class ImportController : Controller
     {
         private ImportService _importService;
+        private RecipeService _recipeService;
         private ILogger<ImportController> _logger;
         private readonly SpoonacularService _spoonacularService;
 
-        public ImportController(ImportService importService, ILogger<ImportController> logger, SpoonacularService spoonacularService)
+        public ImportController(ImportService importService, ILogger<ImportController> logger, SpoonacularService spoonacularService, RecipeService recipeService)
         {
             _logger = logger;
             _spoonacularService = spoonacularService;
             _importService = importService;
+            _recipeService = recipeService;
         }
 
         [HttpGet]
@@ -62,13 +65,20 @@ namespace RecipeHelper.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SaveImportedRecipe(ConfirmMappingVM vm)
+        public async Task<IActionResult> SaveImportedRecipe(MappedImportedRecipeVM vm)
         {
             if (string.IsNullOrWhiteSpace(vm.Title) || vm.Ingredients.Count == 0)
             {
                 _logger.LogWarning("Invalid imported recipe data: missing title or ingredients.");
                 TempData["ErrorMessage"] = "Missing title or ingredients.";
                 return RedirectToAction(nameof(ImportRecipe));
+            }
+
+            if (await _recipeService.RecipeNameExists(vm.Title))
+            {
+                _logger.LogInformation("Recipe name {recipeName} already exists", vm.Title);
+                ModelState.AddModelError(nameof(vm.Title), $"Recipe name \"{vm.Title}\" already exists.");
+                return View("MappedImportedRecipe", vm);
             }
             
             var result = await _importService.SaveImportedRecipe(vm.ToRequest());

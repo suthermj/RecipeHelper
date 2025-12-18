@@ -6,6 +6,21 @@
 }
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-6">
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <div class="font-semibold mb-1">Please fix the following:</div>
+            <ul class="list-disc pl-5 space-y-0.5">
+                @foreach (var ms in ViewData.ModelState.Values)
+                {
+                    foreach (var e in ms.Errors)
+                    {
+                        <li>@e.ErrorMessage</li>
+                    }
+                }
+            </ul>
+        </div>
+    }
 
     <!-- Header -->
     <header class="space-y-1">

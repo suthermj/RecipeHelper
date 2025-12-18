@@ -94,7 +94,7 @@ namespace RecipeHelper.Utility
                     SuggestedProductUpc = x.SuggestedProductUpc,
                     SuggestionKind = x.SuggestionKind,
                     //ProductId = x.SuggestedProductId,
-                    Kroger = x.Kroger is null ? null : new KrogerPreviewVM
+                    Kroger = x.Kroger is null ? null : new SuggestedKrogerProductVM
                     {
                         //Upc = x.Kroger.Upc,
                         Name = x.Kroger.Name,

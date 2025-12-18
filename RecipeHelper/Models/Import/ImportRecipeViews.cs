@@ -178,10 +178,10 @@ public class IngredientPreviewVM
     // If true, prefer Kroger item even if ProductId is null/0
     public bool UseKroger { get; set; }
 
-    public KrogerPreviewVM? Kroger { get; set; }
+    public SuggestedKrogerProductVM? Kroger { get; set; }
 }
 
-public class KrogerPreviewVM
+public class SuggestedKrogerProductVM
 {
     public string? Name { get; set; }
     public string? ImageUrl { get; set; }

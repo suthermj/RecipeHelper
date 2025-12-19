@@ -520,7 +520,6 @@
             const useKroger = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`)?.checked || false;
             const pid = parseInt(document.querySelector(`input.js-product-id[data-idx="${idx}"]`)?.value || '0', 10);
 
-            // If we're not using Kroger and we have no ProductId, we need mapping
             const needs = !useKroger && (!pid || pid <= 0);
             setRowNeedsMapping(idx, needs);
         }
@@ -567,7 +566,6 @@
                 return;
             }
 
-            // If checked but no UPC set yet, assume fallback
             if (!currentUpc && fallback) {
                 setKrogerHidden(idx, fallback.dataset.krogerUpc || '', fallback.dataset.krogerName || '');
             }
@@ -598,13 +596,12 @@
 
             if (suggestedPid > 0 && suggestedUpc.trim()) {
                 if (pid) pid.value = String(suggestedPid);
-                if (labelHidden) labelHidden.value = ''; // keep DB label empty unless user picked from DB search
+                if (labelHidden) labelHidden.value = '';
                 setDbSelectedUpc(idx, suggestedUpc);
 
                 if (searchInput) {
                     searchInput.disabled = false;
-                    // optional: show suggested in input; comment out if you prefer blank
-                    // searchInput.value = suggestedName;
+                    // searchInput.value = suggestedName; // optional
                 }
 
                 setCurrentSelection(idx, { source: 'Suggested', name: suggestedName, upc: suggestedUpc });
@@ -621,6 +618,122 @@
                 setCurrentSelection(idx, { source: 'Unselected', name: 'No product mapped yet', upc: '' });
             }
 
+            refreshNeedsMapping(idx);
+        }
+
+        // ✅ Apply excluded UI without toggling twice (fixes "excluded not sticking" on ModelState reload)
+        function applyExcludedState(idx, excluded, { updateHidden = false } = {}) {
+            const includeInput = document.querySelector(`input.js-include[data-idx="${idx}"]`);
+            const badge = document.querySelector(`.js-excluded-badge[data-idx="${idx}"]`);
+            const body = document.querySelector(`.js-card-body[data-idx="${idx}"]`);
+            const btn = document.querySelector(`.js-exclude-btn[data-idx="${idx}"]`);
+
+            const searchInput = document.getElementById(`search-${idx}`);
+            const suggestList = document.getElementById(`list-${idx}`);
+            const krogerCb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
+            const amountInput = document.querySelector(`.js-amount[data-idx="${idx}"]`);
+            const unitSelect = document.querySelector(`.js-unit[data-idx="${idx}"]`);
+
+            if (updateHidden && includeInput) includeInput.value = excluded ? 'false' : 'true';
+
+            if (excluded) {
+                if (body) body.classList.add('hidden');
+                if (badge) badge.classList.remove('hidden');
+
+                if (searchInput) searchInput.disabled = true;
+                if (suggestList) { suggestList.classList.add('hidden'); suggestList.innerHTML = ''; }
+
+                if (amountInput) amountInput.disabled = true;
+                if (unitSelect) unitSelect.disabled = true;
+
+                if (btn) {
+                    btn.textContent = 'Include';
+                    btn.classList.add('bg-gray-100');
+                    btn.setAttribute('aria-pressed', 'true');
+                }
+
+                setCurrentSelection(idx, { source: 'Excluded', name: 'Excluded from recipe', upc: '' });
+                setRowNeedsMapping(idx, false);
+            } else {
+                if (body) body.classList.remove('hidden');
+                if (badge) badge.classList.add('hidden');
+
+                if (amountInput) amountInput.disabled = false;
+                if (unitSelect) unitSelect.disabled = false;
+
+                if (btn) {
+                    btn.textContent = 'Exclude';
+                    btn.classList.remove('bg-gray-100');
+                    btn.setAttribute('aria-pressed', 'false');
+                }
+
+                if (searchInput) searchInput.disabled = !!(krogerCb && krogerCb.checked);
+                initRow(idx);
+            }
+        }
+
+        // ✅ FIX: Initialize current selection correctly (Suggested vs DB vs Kroger)
+        function initRow(idx) {
+            const include = document.querySelector(`input.js-include[data-idx="${idx}"]`)?.value !== 'false';
+            if (!include) {
+                applyExcludedState(idx, true, { updateHidden: false });
+                return;
+            }
+
+            const useKroger = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`)?.checked || false;
+
+            const pid = parseInt(document.querySelector(`input.js-product-id[data-idx="${idx}"]`)?.value || '0', 10);
+            const dbLabel = document.querySelector(`input.js-selected-label[data-idx="${idx}"]`)?.value || '';
+            const dbUpc = document.querySelector(`input.js-selected-upc[data-idx="${idx}"]`)?.value || '';
+
+            const sugPid = parseInt(document.querySelector(`input[name="Ingredients[${idx}].SuggestedProductId"]`)?.value || '0', 10);
+            const sugName = document.querySelector(`input[name="Ingredients[${idx}].SuggestedProductName"]`)?.value || '';
+            const sugUpc = document.querySelector(`input[name="Ingredients[${idx}].SuggestedProductUpc"]`)?.value || '';
+
+            const krogerUpc = document.querySelector(`input[name="Ingredients[${idx}].KrogerUpc"]`)?.value || '';
+            const krogerName = document.querySelector(`input[name="Ingredients[${idx}].KrogerName"]`)?.value || '';
+
+            const searchInput = document.getElementById(`search-${idx}`);
+            if (searchInput) {
+                searchInput.value = (dbLabel || '').trim(); // only show DB label in input
+                searchInput.disabled = useKroger;
+            }
+
+            if (useKroger) {
+                updateKrogerState(idx);
+                setCurrentSelection(idx, { source: 'Kroger', name: krogerName || 'Kroger item selected', upc: krogerUpc });
+                refreshNeedsMapping(idx);
+                return;
+            }
+
+            // Default-mapped to suggested (ProductId == SuggestedProductId)
+            if (pid > 0 && sugPid > 0 && pid === sugPid && (sugUpc || '').trim()) {
+                setDbSelectedUpc(idx, sugUpc);
+                setCurrentSelection(idx, { source: 'Suggested', name: sugName || 'Suggested', upc: sugUpc });
+                refreshNeedsMapping(idx);
+                return;
+            }
+
+            // User-selected DB product
+            if (pid > 0 && (dbLabel || '').trim()) {
+                setCurrentSelection(idx, { source: 'My products', name: dbLabel, upc: dbUpc });
+                refreshNeedsMapping(idx);
+                return;
+            }
+
+            // Suggested exists but pid not set (or label empty) => show suggested as current fallback
+            if (sugPid > 0 && (sugUpc || '').trim()) {
+                const pidInput = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
+                if (pidInput && (!pid || pid <= 0)) pidInput.value = String(sugPid);
+                setDbSelectedUpc(idx, sugUpc);
+
+                setCurrentSelection(idx, { source: 'Suggested', name: sugName || 'Suggested', upc: sugUpc });
+                refreshNeedsMapping(idx);
+                return;
+            }
+
+            // Truly unmapped
+            setCurrentSelection(idx, { source: 'Unselected', name: 'No product mapped yet', upc: '' });
             refreshNeedsMapping(idx);
         }
 
@@ -744,7 +857,6 @@
                     const labelHidden = document.querySelector(`input.js-selected-label[data-idx="${idx}"]`);
                     const krogerCb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
 
-                    // show selection in input
                     input.value = li.querySelector('span')?.textContent || li.textContent || '';
 
                     if (liMode === 'db') {
@@ -879,33 +991,23 @@
             updateKrogerState(idx);
         });
 
-        // Include/Exclude toggle
+        // Include/Exclude toggle (uses applyExcludedState to avoid "double toggle" on reload)
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.js-exclude-btn');
             if (!btn) return;
 
             const idx = btn.dataset.idx;
             const includeInput = document.querySelector(`input.js-include[data-idx="${idx}"]`);
-            const badge = document.querySelector(`.js-excluded-badge[data-idx="${idx}"]`);
-            const body = document.querySelector(`.js-card-body[data-idx="${idx}"]`);
-
-            const pidInput = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
-            const labelHidden = document.querySelector(`input.js-selected-label[data-idx="${idx}"]`);
-            const searchInput = document.getElementById(`search-${idx}`);
-            const suggestList = document.getElementById(`list-${idx}`);
-            const krogerCb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
-
-            const amountInput = document.querySelector(`.js-amount[data-idx="${idx}"]`);
-            const unitSelect = document.querySelector(`.js-unit[data-idx="${idx}"]`);
-
             const isExcluded = (includeInput?.value === 'false');
             const nextExcluded = !isExcluded;
 
-            if (includeInput) includeInput.value = nextExcluded ? 'false' : 'true';
-
             if (nextExcluded) {
-                if (body) body.classList.add('hidden');
-                if (badge) badge.classList.remove('hidden');
+                // If user actively excludes, clear selections
+                const pidInput = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
+                const labelHidden = document.querySelector(`input.js-selected-label[data-idx="${idx}"]`);
+                const krogerCb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
+                const searchInput = document.getElementById(`search-${idx}`);
+                const suggestList = document.getElementById(`list-${idx}`);
 
                 if (pidInput) pidInput.value = '0';
                 if (labelHidden) labelHidden.value = '';
@@ -914,34 +1016,11 @@
                 if (krogerCb) krogerCb.checked = false;
                 clearKrogerHidden(idx);
 
-                if (searchInput) { searchInput.value = ''; searchInput.disabled = true; }
+                if (searchInput) { searchInput.value = ''; }
                 if (suggestList) { suggestList.classList.add('hidden'); suggestList.innerHTML = ''; }
-
-                if (amountInput) amountInput.disabled = true;
-                if (unitSelect) unitSelect.disabled = true;
-
-                setCurrentSelection(idx, { source: 'Excluded', name: 'Excluded from recipe', upc: '' });
-                setRowNeedsMapping(idx, false);
-
-                btn.textContent = 'Include';
-                btn.classList.add('bg-gray-100');
-                btn.setAttribute('aria-pressed', 'true');
-            } else {
-                if (body) body.classList.remove('hidden');
-                if (badge) badge.classList.add('hidden');
-
-                if (searchInput) searchInput.disabled = false;
-
-                if (amountInput) amountInput.disabled = false;
-                if (unitSelect) unitSelect.disabled = false;
-
-                btn.textContent = 'Exclude';
-                btn.classList.remove('bg-gray-100');
-                btn.setAttribute('aria-pressed', 'false');
-
-                // re-init to proper current selection state
-                initRow(idx);
             }
+
+            applyExcludedState(idx, nextExcluded, { updateHidden: true });
         });
 
         // Accordion toggle
@@ -966,91 +1045,22 @@
             }
         });
 
-        // 🔑 FIX: Initialize each row correctly on page load (Suggested vs DB vs Kroger)
-        function initRow(idx) {
-            const include = document.querySelector(`input.js-include[data-idx="${idx}"]`)?.value !== 'false';
-            if (!include) {
-                setCurrentSelection(idx, { source: 'Excluded', name: 'Excluded from recipe', upc: '' });
-                setRowNeedsMapping(idx, false);
-                return;
-            }
-
-            const useKroger = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`)?.checked || false;
-
-            const pid = parseInt(document.querySelector(`input.js-product-id[data-idx="${idx}"]`)?.value || '0', 10);
-            const dbLabel = document.querySelector(`input.js-selected-label[data-idx="${idx}"]`)?.value || '';
-            const dbUpc = document.querySelector(`input.js-selected-upc[data-idx="${idx}"]`)?.value || '';
-
-            const sugPid = parseInt(document.querySelector(`input[name="Ingredients[${idx}].SuggestedProductId"]`)?.value || '0', 10);
-            const sugName = document.querySelector(`input[name="Ingredients[${idx}].SuggestedProductName"]`)?.value || '';
-            const sugUpc = document.querySelector(`input[name="Ingredients[${idx}].SuggestedProductUpc"]`)?.value || '';
-
-            const krogerUpc = document.querySelector(`input[name="Ingredients[${idx}].KrogerUpc"]`)?.value || '';
-            const krogerName = document.querySelector(`input[name="Ingredients[${idx}].KrogerName"]`)?.value || '';
-
-            const searchInput = document.getElementById(`search-${idx}`);
-            if (searchInput) {
-                // only show DB label in input (avoid auto-filling suggested unless you want it)
-                searchInput.value = dbLabel || '';
-                searchInput.disabled = useKroger;
-            }
-
-            if (useKroger) {
-                updateKrogerState(idx);
-                setCurrentSelection(idx, { source: 'Kroger', name: krogerName || 'Kroger item selected', upc: krogerUpc });
-                refreshNeedsMapping(idx);
-                return;
-            }
-
-            // Not using kroger:
-            // If ProductId is set to suggested and we have suggested UPC, show Suggested (this is your default mapping case)
-            if (pid > 0 && sugPid > 0 && pid === sugPid && (sugUpc || '').trim()) {
-                // ensure SelectedProductUpc has something for downstream logic
-                setDbSelectedUpc(idx, sugUpc);
-                setCurrentSelection(idx, { source: 'Suggested', name: sugName || 'Suggested', upc: sugUpc });
-                refreshNeedsMapping(idx);
-                return;
-            }
-
-            // If user picked a DB product via search, we should have a label; UPC may or may not exist
-            if (pid > 0 && (dbLabel || '').trim()) {
-                setCurrentSelection(idx, { source: 'My products', name: dbLabel, upc: dbUpc });
-                refreshNeedsMapping(idx);
-                return;
-            }
-
-            // Otherwise if suggested exists but ProductId isn't set (or label empty), still show suggested as current fallback
-            if (sugPid > 0 && (sugUpc || '').trim()) {
-                // Optional: keep ProductId aligned with suggested on load
-                const pidInput = document.querySelector(`input.js-product-id[data-idx="${idx}"]`);
-                if (pidInput && (!pid || pid <= 0)) pidInput.value = String(sugPid);
-                setDbSelectedUpc(idx, sugUpc);
-
-                setCurrentSelection(idx, { source: 'Suggested', name: sugName || 'Suggested', upc: sugUpc });
-                refreshNeedsMapping(idx);
-                return;
-            }
-
-            // Truly unmapped
-            setCurrentSelection(idx, { source: 'Unselected', name: 'No product mapped yet', upc: '' });
-            refreshNeedsMapping(idx);
-        }
-
         // On load
         document.addEventListener('DOMContentLoaded', () => {
-            // Apply initial exclude visual state (your existing behavior)
-            document.querySelectorAll('input.js-include[value="false"]').forEach(inc => {
-                const idx = inc.dataset.idx;
-                const btn = document.querySelector(`.js-exclude-btn[data-idx="${idx}"]`);
-                if (btn) btn.click();
-            });
-
-            // Initialize every row deterministically (fixes "everything unselected" bug)
+            // 1) Initialize all rows (Suggested vs DB vs Kroger)
             document.querySelectorAll('.js-row').forEach(row => {
                 initRow(row.dataset.idx);
             });
 
-            // Auto-expand for needs mapping (uses server-side data-needs-mapping)
+            // 2) Re-apply excluded UI from hidden Include values WITHOUT clicking the button
+            document.querySelectorAll('input.js-include').forEach(inc => {
+                const idx = inc.dataset.idx;
+                if (inc.value === 'false') {
+                    applyExcludedState(idx, true, { updateHidden: false });
+                }
+            });
+
+            // 3) Auto-expand needs mapping (based on server-side attribute)
             document.querySelectorAll('.js-row').forEach(row => {
                 const idx = row.dataset.idx;
                 const needs = row.dataset.needsMapping === 'true';

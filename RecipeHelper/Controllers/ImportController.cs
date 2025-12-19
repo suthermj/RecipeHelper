@@ -91,6 +91,12 @@ namespace RecipeHelper.Controllers
             {
                 _logger.LogInformation("Recipe name {recipeName} already exists", vm.Title);
                 ModelState.AddModelError(nameof(vm.Title), $"Recipe name \"{vm.Title}\" already exists.");
+                vm.AvailableMeasurements = await _measurementService.GetAllMeasurementsAsync()
+                .ContinueWith(t => t.Result.Select(m => new SelectListItem
+                {
+                    Value = m.Name,
+                    Text = m.Name
+                }));
                 return View("MappedImportedRecipe", vm);
             }
             

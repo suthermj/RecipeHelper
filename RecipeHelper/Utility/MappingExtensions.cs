@@ -94,6 +94,7 @@ namespace RecipeHelper.Utility
                     SuggestedProductUpc = x.SuggestedProductUpc,
                     SuggestionKind = x.SuggestionKind,
                     ProductId = x.SuggestedProductId,
+                    Include = true,
                     Kroger = x.Kroger is null ? null : new SuggestedKrogerProductVM
                     {
                         //Upc = x.Kroger.Upc,
@@ -102,7 +103,7 @@ namespace RecipeHelper.Utility
                         Upc = x.Kroger.Upc
                     }
                 }).ToList()
-            };
+            }; ;
         }
 
         public static ImportRecipeRequest ToRequest(this MappedImportedRecipeVM vm)

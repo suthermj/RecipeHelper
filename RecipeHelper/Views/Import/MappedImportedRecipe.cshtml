@@ -87,14 +87,13 @@
                 {
                     showSearchValue = ing.SelectedProductLabel!;
                 }
+
                 <div class="js-row rounded-2xl p-4 sm:p-5 shadow-sm transition @(needsMapping ? "border border-amber-300 bg-amber-50/40 ring-1 ring-amber-200" : "border border-gray-200 bg-white")"
                      data-idx="@i"
                      data-needs-mapping="@(needsMapping.ToString().ToLowerInvariant())">
 
                     <!-- Required base fields -->
                     <input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
-                    <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0m)" />
-                    <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
 
                     <!-- Persist suggested mapping across postbacks -->
                     <input type="hidden" name="Ingredients[@i].SuggestedProductId" value="@(ing.SuggestedProductId ?? 0)" />
@@ -114,26 +113,41 @@
 
                     <!-- Header row -->
                     <div class="flex items-start justify-between gap-3">
-                        <div>
+                        <div class="flex-1">
                             <div class="text-sm font-semibold text-gray-900">
                                 @ing.Name
                             </div>
 
-                            @if (ing.Amount.HasValue && !string.IsNullOrWhiteSpace(ing.Unit))
-                            {
-                                <div class="mt-0.5 text-xs text-gray-500">
-                                    @ing.Amount @ing.Unit
-                                </div>
-                            }
+                            <!-- Editable quantity -->
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <span class="text-[0.7rem] font-semibold uppercase tracking-wide text-gray-500">
+                                    Quantity
+                                </span>
+
+                                <input type="number"
+                                       step="0.01"
+                                       min="0"
+                                       name="Ingredients[@i].Amount"
+                                       value="@(ing.Amount ?? 0m)"
+                                       class="js-amount w-24 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                       data-idx="@i" />
+
+                                <select asp-for="Ingredients[@i].Unit"
+                                        asp-items="Model.AvailableMeasurements"
+                                        class="js-unit w-32 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                        data-idx="@i">
+                                </select>
+
+                            </div>
 
                             @if (needsMapping)
                             {
-                                <div class="mt-1 inline-flex items-center gap-1 text-[0.7rem] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                <div class="mt-2 inline-flex items-center gap-1 text-[0.7rem] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
                                     <span class="font-semibold">Needs mapping</span>
                                 </div>
                             }
 
-                            <div class="mt-1 hidden js-excluded-badge text-[0.7rem] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 inline-flex items-center gap-1"
+                            <div class="mt-2 hidden js-excluded-badge text-[0.7rem] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 inline-flex items-center gap-1"
                                  data-idx="@i">
                                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-gray-500"></span>
                                 Excluded from recipe
@@ -615,6 +629,10 @@
             const suggestList = document.getElementById(`list-${idx}`);
             const krogerCb = document.querySelector(`input.js-use-kroger[data-idx="${idx}"]`);
 
+            // NEW: disable amount/unit on exclude
+            const amountInput = document.querySelector(`.js-amount[data-idx="${idx}"]`);
+            const unitSelect = document.querySelector(`.js-unit[data-idx="${idx}"]`);
+
             const isExcluded = (includeInput?.value === 'false');
             const nextExcluded = !isExcluded;
 
@@ -638,6 +656,9 @@
                     suggestList.innerHTML = '';
                 }
 
+                if (amountInput) amountInput.disabled = true;
+                if (unitSelect) unitSelect.disabled = true;
+
                 btn.textContent = 'Include';
                 btn.setAttribute('aria-pressed', 'true');
                 btn.classList.add('bg-gray-100');
@@ -646,6 +667,9 @@
                 if (badge) badge.classList.add('hidden');
 
                 if (searchInput) searchInput.disabled = false;
+
+                if (amountInput) amountInput.disabled = false;
+                if (unitSelect) unitSelect.disabled = false;
 
                 btn.textContent = 'Exclude';
                 btn.setAttribute('aria-pressed', 'false');

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace RecipeHelper.ViewModels;
 
@@ -154,6 +155,7 @@ public class MappedImportedRecipeVM
     // Each imported ingredient with suggestions + Kroger fallback
     [MinLength(1)]
     public List<IngredientPreviewVM> Ingredients { get; set; } = new();
+    public IEnumerable<SelectListItem> AvailableMeasurements { get; set; }
 }
 
 public class IngredientPreviewVM

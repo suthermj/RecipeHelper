@@ -228,6 +228,13 @@ namespace RecipeHelper.Services
                         }
                     }
                 }
+                else if (krogerProduct.soldBy.Equals("WEIGHT", StringComparison.OrdinalIgnoreCase))
+                {
+
+                    DetailedCartItem cartItem = krogerProduct.ToDetailedCartItem();
+                    cartItem.Quantity = (int)Math.Ceiling(item.Quantity);
+                    cartItems.Add(cartItem);
+                }
                 else
                 {
                     _logger.LogInformation("Product " + krogerProduct.upc + " is not sold by unit, skipping for now.");

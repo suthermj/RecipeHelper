@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Razor.TagHelpers;
 using RecipeHelper.Models.Import;
 using RecipeHelper.Services;
 using RecipeHelper.Utility;
@@ -10,15 +12,17 @@ namespace RecipeHelper.Controllers
     {
         private ImportService _importService;
         private RecipeService _recipeService;
+        private readonly MeasurementService _measurementService;
         private ILogger<ImportController> _logger;
         private readonly SpoonacularService _spoonacularService;
 
-        public ImportController(ImportService importService, ILogger<ImportController> logger, SpoonacularService spoonacularService, RecipeService recipeService)
+        public ImportController(ImportService importService, ILogger<ImportController> logger, SpoonacularService spoonacularService, RecipeService recipeService, MeasurementService measurementService)
         {
             _logger = logger;
             _spoonacularService = spoonacularService;
             _importService = importService;
             _recipeService = recipeService;
+            _measurementService = measurementService;
         }
 
         [HttpGet]
@@ -60,7 +64,16 @@ namespace RecipeHelper.Controllers
 
 
             var recipePreview = await _importService.GetImportedRecipePreview(vm.ToRequest());
-            return View("MappedImportedRecipe", recipePreview.ToVm());
+
+            var mappedImportRecipeVm = recipePreview.ToVm();
+            mappedImportRecipeVm.AvailableMeasurements = await _measurementService.GetAllMeasurementsAsync()
+                .ContinueWith(t => t.Result.Select(m => new SelectListItem
+                {
+                    Value = m.Name,
+                    Text = m.Name
+                }));
+            ModelState.Clear();
+            return View("MappedImportedRecipe", mappedImportRecipeVm);
         }
 
         [HttpPost]

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NuGet.Protocol;
 using RecipeHelper.Models;
@@ -56,6 +57,12 @@ namespace RecipeHelper.Services
                             Amount = g.Sum(x => x.Amount)
                         })
                         .ToList();
+
+            var availableMeasurements = _context.Measurements.Select(m => new SelectListItem
+            {
+                Value = m.Id.ToString(),
+                Text = m.Name
+            }).ToList();
 
             var ingredientsNoExactMatch = new List<PreviewImportedRecipeIngredient>();
 
@@ -138,13 +145,14 @@ namespace RecipeHelper.Services
                     };
 
                     await _context.Products.AddAsync(newProduct);
+                    await _context.SaveChangesAsync();
 
                     _logger.LogInformation($"Added [{newProduct.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
                     var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
 
                     newRecipe.RecipeProducts.Add(new RecipeProduct
                     {
-                        Product = newProduct,
+                        ProductId = newProduct.Id,
                         Quantity = ingredient.Amount,
                         MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
                     });

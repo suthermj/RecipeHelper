@@ -14,6 +14,8 @@
             // 🔥 Normalize abbreviations → match DB naming
             switch (unit.ToLower())
             {
+                case "millilitre":
+                case "millilitres":
                 case "tsp":
                 case "tsps":
                 case "teaspoon":
@@ -55,7 +57,7 @@
         }
 
 
-        public static string? GetSmallestMeasurementUnit(string? unitType)
+        /*public static string? GetSmallestMeasurementUnit(string? unitType)
         {
             if (string.IsNullOrWhiteSpace(unitType)) return null;
             // normalize common abbreviations here if you want:
@@ -112,7 +114,7 @@
             }
             return result;
         }
-
+        */
         public static decimal ConvertVolumeToBaseUnit(string fromUnit, decimal quantity)
         {
             if (quantity < 0)

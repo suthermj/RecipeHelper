@@ -293,7 +293,7 @@ namespace RecipeHelper.Services
                         {
                             Name = krogerFuzzySearch.name,
                             Upc = krogerFuzzySearch.upc,
-                            ImageUrl = $"https://www.kroger.com/product/images/xlarge/front/{krogerFuzzySearch.upc}"
+                            ImageUrl = $"https://www.kroger.com/product/images/large/front/{krogerFuzzySearch.upc}"
                         };
                     }
                 }

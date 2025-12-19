@@ -166,21 +166,22 @@ public class IngredientPreviewVM
 
     public decimal? Amount { get; set; }   // e.g., 2
     public string? Unit { get; set; }    // e.g., "cloves", "tsp", "g"
-    public bool Include { get; set; }
-    public int? SuggestedProductId { get; set; }
-    public string? SuggestedProductUpc { get; set; }
-    public string? SuggestedProductName { get; set; }
-    public string? SuggestionKind { get; set; }
-    public int? ProductId { get; set; }
+    public bool Include { get; set; }   // whether to include this ingredient when saving
+    public int? SuggestedProductId { get; set; } // suggested product id from db during fuzzy/exact match
+    public string? SuggestedProductUpc { get; set; } // suggested product upc from db during fuzzy/exact match
+    public string? SuggestedProductName { get; set; } // suggested product name from db during fuzzy/exact match
+    public string? SuggestionKind { get; set; } // fuzzy or exact
+    public int? ProductId { get; set; } // final chosen ProductId (from suggestion or search), 0 if kroger product selected
     public string? SelectedProductLabel { get; set; } // what to show in the search box on reload
-    //public string Upc { get; set; } = "";
+    public string? SelectedProductUpc { get; set; } // selected DB item's UPC (for image + rehydrate)
+
     public string? KrogerUpc { get; set; }            // chosen Kroger UPC (suggested or search)
     public string? KrogerName { get; set; }           // optional (for display/rehydrate)
     public string? KrogerImage { get; set; }          // optional
     // If true, prefer Kroger item even if ProductId is null/0
-    public bool UseKroger { get; set; }
+    public bool UseKroger { get; set; } // whether user decided to use suggested Kroger product
 
-    public SuggestedKrogerProductVM? Kroger { get; set; }
+    public SuggestedKrogerProductVM? Kroger { get; set; } // details if user selected Kroger option
 }
 
 public class SuggestedKrogerProductVM

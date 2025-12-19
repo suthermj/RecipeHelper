@@ -93,7 +93,7 @@ namespace RecipeHelper.Utility
                     SuggestedProductName = x.SuggestedProductName,
                     SuggestedProductUpc = x.SuggestedProductUpc,
                     SuggestionKind = x.SuggestionKind,
-                    //ProductId = x.SuggestedProductId,
+                    ProductId = x.SuggestedProductId,
                     Kroger = x.Kroger is null ? null : new SuggestedKrogerProductVM
                     {
                         //Upc = x.Kroger.Upc,

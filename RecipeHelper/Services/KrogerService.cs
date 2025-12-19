@@ -228,6 +228,7 @@ namespace RecipeHelper.Services
                         }
                     }
                 }
+                // usually produce or deli items
                 else if (krogerProduct.soldBy.Equals("WEIGHT", StringComparison.OrdinalIgnoreCase))
                 {
 

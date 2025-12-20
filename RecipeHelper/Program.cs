@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<KrogerService, KrogerService>();  // Registering your Kroger service
 builder.Services.AddScoped<StorageService, StorageService>();
 builder.Services.AddScoped<SpoonacularService, SpoonacularService>();

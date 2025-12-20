@@ -1,6 +1,8 @@
 ﻿using System.Net.Http.Headers;
 using System.Text;
+using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
+using NuGet.Common;
 using RecipeHelper.Models.Kroger;
 using RecipeHelper.Models.Kroger.Carts;
 using RecipeHelper.Utility;
@@ -16,7 +18,13 @@ namespace RecipeHelper.Services
         private readonly string _baseUri;
         private readonly string _clientId;
         private readonly string _clientSecret;
-        public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService)
+        private readonly IMemoryCache _cache;
+        private static readonly SemaphoreSlim _tokenLock = new(1, 1); // static => shared across scopes
+        private const string TokenCacheKey = "kroger:client-credentials-token";
+        private static readonly TimeSpan RefreshSkew = TimeSpan.FromSeconds(60);
+
+
+        public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService, IMemoryCache memoryCache)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
@@ -25,35 +33,77 @@ namespace RecipeHelper.Services
             _clientId = _configuration["Kroger:clientId"];
             _clientSecret = _configuration["Kroger:clientSecret"];
             _krogerAuthService = krogerAuthService;
+            _cache = memoryCache;
         }
 
         public async Task<string?> GetKrogerClientCredentialsToken()
         {
-            var client = _httpClientFactory.CreateClient();
-            string encodedCredentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_clientId}:{_clientSecret}"));
+            string token = "";
 
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", encodedCredentials);
-            var requestBody = new FormUrlEncodedContent(new[]
+            // check cache first
+            if (_cache != null && _cache.TryGetValue<string>(TokenCacheKey, out token) && !string.IsNullOrWhiteSpace(token))
             {
-                new KeyValuePair<string, string>("grant_type", "client_credentials"),
-                new KeyValuePair<string, string>("scope", "product.compact") // Adjust the scope according to your needs
-            });
-            var url = $"{_baseUri}/connect/oauth2/token?grant_type=client_credentials&scope=product.compact";
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", encodedCredentials);
-            var response = await client.PostAsync(url, requestBody);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<TokenResponse>(content);
-                return result?.Token;
+                _logger.LogInformation("Using cached Kroger client credentials token.");
+                return token;
             }
-            else
-            {
-                _logger.LogError("Error retrieving Kroger access token.");
-            }
+            
+            // prevent all tasks from hammering token endpoint
+            await _tokenLock.WaitAsync();
 
-            return null;
+            try
+            {
+                // re-check cache inside lock
+                if (_cache != null && _cache.TryGetValue<string>(TokenCacheKey, out token) && !string.IsNullOrWhiteSpace(token))
+                {
+                    _logger.LogInformation("Using cached Kroger client credentials token (after lock).");
+                    return token;
+                }
+
+                _logger.LogInformation("Requesting new Kroger client credentials token.");
+
+                var client = _httpClientFactory.CreateClient();
+                string encodedCredentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_clientId}:{_clientSecret}"));
+
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", encodedCredentials);
+                var requestBody = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("grant_type", "client_credentials"),
+                    new KeyValuePair<string, string>("scope", "product.compact") // Adjust the scope according to your needs
+                });
+                var url = $"{_baseUri}/connect/oauth2/token?grant_type=client_credentials&scope=product.compact";
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", encodedCredentials);
+                var response = await client.PostAsync(url, requestBody);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var result = JsonConvert.DeserializeObject<TokenResponse>(content);
+
+                    var expiresAt = DateTimeOffset.UtcNow.AddSeconds(Math.Max(0, result.ExpiresIn));
+
+                    // Cache entry with absolute expiration slightly BEFORE true expiry (skew)
+                    var ttl = TimeSpan.FromSeconds(Math.Max(5, result.ExpiresIn)) - RefreshSkew;
+                    if (ttl < TimeSpan.FromSeconds(5)) ttl = TimeSpan.FromSeconds(5);
+
+                    _cache.Set(TokenCacheKey, result.Token, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl });
+
+                    return result.Token;
+                }
+                else
+                {
+                    _logger.LogError("Error retrieving Kroger access token. [{status}]", response.StatusCode);
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error retrieving Kroger access token: {message}", ex.Message);
+                return null;
+            }
+            finally
+            {
+                _tokenLock.Release();
+            }
         }
 
         public async Task<List<KrogerProduct>?> SearchProductByFilter(string filterTerm)
@@ -187,7 +237,7 @@ namespace RecipeHelper.Services
                         try
                         {
                             var krogerProductMeasurementUnitType = MeasurementHelper.GetMeasurementUnitType(krogerProduct.unitOfMeasure);
-                            
+
                             var krogerProductNormalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(krogerProduct.sizeUnit);
                             var ingredientNormalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(item.Measurement);
                             decimal krogerProductAmountSmallestUnit = 0;
@@ -213,7 +263,7 @@ namespace RecipeHelper.Services
                                 cartItems.Add(cartItem);
                                 continue;
                             }
-                            
+
                             var quantityNeeded = (int)Math.Ceiling(ingredientAmountSmallestUnit / krogerProductAmountSmallestUnit);
 
                             cartItem = krogerProduct.ToDetailedCartItem();

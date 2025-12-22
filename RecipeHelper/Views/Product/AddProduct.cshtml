@@ -1,98 +1,232 @@
 ﻿@model RecipeHelper.Models.Products.ProductSearchVM
 
-<div class="max-w-2xl mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold text-center mb-6">Search for Products</h1>
+@{
+    ViewData["Title"] = "Search Products";
+    var imgBase = "https://www.kroger.com/product/images/large/front/";
+}
 
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <div id="successMessage" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-            <strong class="font-bold">Success! </strong>
-            <span class="block sm:inline">@TempData["SuccessMessage"].ToString()</span>
-            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('successMessage').style.display='none';">
-                <span class="text-2xl">&times;</span>
-            </button>
-        </div>
-    }
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-20 space-y-4">
 
-    @if (TempData["ErrorMessage"] != null)
-    {
-        <div id="successMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-            <strong class="font-bold">Error! </strong>
-            <span class="block sm:inline">@TempData["ErrorMessage"].ToString()</span>
-            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('successMessage').style.display='none';">
-                <span class="text-2xl">&times;</span>
-            </button>
+    <!-- Header -->
+    <div class="sticky top-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-white/90 backdrop-blur border-b border-gray-200">
+        <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+                <h1 class="text-lg sm:text-2xl font-bold text-gray-900 leading-tight">Product search</h1>
+                <p class="text-sm text-gray-600">Search Kroger and add items to your database</p>
+            </div>
+
+            <a href="@Url.Action("Products", "Product")"
+               class="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                ← Back
+            </a>
         </div>
-    }
-    <div class="mb-4 text-left">
-        <a href="@Url.Action("Products", "Product")" class="inline-block bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-            ← Back to Products
-        </a>
+
+        <!-- Alerts -->
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div id="toastSuccess" class="mt-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <span class="font-semibold">Success: </span>@TempData["SuccessMessage"]?.ToString()
+                </div>
+                <button type="button"
+                        class="shrink-0 rounded-lg px-2 py-1 text-green-900/70 hover:bg-green-100"
+                        onclick="document.getElementById('toastSuccess')?.remove()">
+                    ✕
+                </button>
+            </div>
+        }
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div id="toastError" class="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <span class="font-semibold">Error: </span>@TempData["ErrorMessage"]?.ToString()
+                </div>
+                <button type="button"
+                        class="shrink-0 rounded-lg px-2 py-1 text-red-900/70 hover:bg-red-100"
+                        onclick="document.getElementById('toastError')?.remove()">
+                    ✕
+                </button>
+            </div>
+        }
+
+        <!-- Search form -->
+        <form asp-action="SearchProduct" asp-controller="Product" method="post" class="mt-3">
+            <div class="flex flex-col sm:flex-row gap-2">
+                <div class="relative flex-1">
+                    <input id="searchTerm"
+                           type="text"
+                           name="SearchTerm"
+                           value="@Model.SearchTerm"
+                           placeholder="Search products…"
+                           required
+                           autocomplete="off"
+                           class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 pl-10 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500" />
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
+                </div>
+
+                <button type="submit"
+                        class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                    Search
+                </button>
+            </div>
+
+            <p class="mt-2 text-[0.75rem] text-gray-500">
+                Tip: Search broad terms first (e.g., “chicken”, “broth”, “yogurt”).
+            </p>
+        </form>
     </div>
-
-    <form asp-action="SearchProduct" asp-controller="Product" method="post" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-        <div class="mb-4">
-            <label class="block text-gray-700 text-sm font-bold mb-2" for="searchTerm">
-                Enter Product Name
-            </label>
-            <input type="text" name="SearchTerm" value="@Model.SearchTerm" placeholder="Enter product name" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
-        </div>
-        <div class="flex items-center justify-between">
-            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                Search
-            </button>
-        </div>
-    </form>
 
     @if (Model.ProductSearchResults != null && Model.ProductSearchResults.Any())
     {
-        <form asp-action="AddSelectedProducts" asp-controller="Product" method="post">
-            <div class="bg-white shadow-md rounded px-8 pt-6 pb-8">
-                <h2 class="text-xl font-semibold my-4">Search Results</h2>
-                <ul>
-                    @foreach (var product in Model.ProductSearchResults)
-                    {
-                        <li class="flex items-center border-b border-gray-200 py-2">
-                            <img src="@Url.Content($"https://www.kroger.com/product/images/xlarge/front/{product.upc}")" alt="Product Image" class="w-20 h-20 mr-4">
-                            <div class="flex-grow">
-                                <span class="font-bold">@product.name</span> - <span class="text-gray-600">$@product.regularPrice.ToString("0.00")</span>
+        <form asp-action="AddSelectedProducts" asp-controller="Product" method="post" id="resultsForm" class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base sm:text-lg font-semibold text-gray-900">
+                    Results
+                    <span class="text-sm font-normal text-gray-500">(@Model.ProductSearchResults.Count())</span>
+                </h2>
+
+                <button type="button"
+                        id="clearSelections"
+                        class="hidden sm:inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                    Clear selections
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3">
+                @foreach (var product in Model.ProductSearchResults)
+                {
+                    var upc = product.upc ?? "";
+                    var name = product.name ?? "";
+                    var price = product.regularPrice;
+
+                    <label class="group flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm hover:shadow-md transition cursor-pointer">
+                        <div class="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 border border-gray-200">
+                            <img src="@(imgBase + upc)"
+                                 alt="@name"
+                                 class="h-full w-full object-cover"
+                                 loading="lazy"
+                                 onerror="this.onerror=null; this.src='@Url.Content("~/images/default-product.png")';" />
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm sm:text-base font-semibold text-gray-900 leading-snug line-clamp-2">
+                                @name
                             </div>
-                            <div>
-                                <input type="checkbox" class="product-checkbox ml-4" data-upc="@product.upc">
-                                <input type="hidden" name="selectedProducts" value="@product.upc" disabled>
-                                <input type="hidden" name="productNames[@product.upc]" value="@product.name" disabled>
-                                <input type="hidden" name="productPrices[@product.upc]" value="@product.regularPrice" disabled>
+                            <div class="mt-1 text-sm text-gray-600">
+                                $@price.ToString("0.00")
                             </div>
-                        </li>
-                    }
-                </ul>
-                <div class="mt-4 flex justify-end">
-                    <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                        Add Selected to Database
-                    </button>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox"
+                                   class="product-checkbox h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                   data-upc="@upc" />
+
+                            <!-- These are enabled only when checked (matches your current server handling) -->
+                            <input type="hidden" name="selectedProducts" value="@upc" disabled>
+                            <input type="hidden" name="productNames[@upc]" value="@name" disabled>
+                            <input type="hidden" name="productPrices[@upc]" value="@price" disabled>
+                        </div>
+                    </label>
+                }
+            </div>
+
+            <!-- Sticky bottom action bar (only shows when selections exist) -->
+            <div id="actionBar"
+                 class="fixed left-0 right-0 bottom-0 z-20 hidden">
+                <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
+                    <div class="rounded-2xl border border-gray-200 bg-white/95 backdrop-blur shadow-lg p-3 flex items-center justify-between gap-3">
+                        <div class="text-sm text-gray-700">
+                            <span class="font-semibold" id="selectedCount">0</span> selected
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button type="button"
+                                    id="clearSelectionsMobile"
+                                    class="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                                Clear
+                            </button>
+
+                            <button type="submit"
+                                    class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                                Add selected
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </form>
-
+    }
+    else if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
+    {
+        <div class="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+            <div class="text-lg font-semibold text-gray-900">No results</div>
+            <p class="mt-1 text-sm text-gray-600">Try a different search term.</p>
+        </div>
+    }
+    else
+    {
+        <div class="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+            <div class="text-lg font-semibold text-gray-900">Search for a product</div>
+            <p class="mt-1 text-sm text-gray-600">Enter a product name above to see results.</p>
+        </div>
     }
 </div>
 
 <script>
-    document.querySelectorAll('.product-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            // Toggle the disabled property based on checkbox state
-            this.parentNode.querySelectorAll('input[type="hidden"]').forEach(hidden => {
-                hidden.disabled = !this.checked;
-            });
-        });
-    });
+    (function () {
+        // Auto-dismiss toasts
+        const success = document.getElementById('toastSuccess');
+        const error = document.getElementById('toastError');
+        if (success) setTimeout(() => success.remove(), 6000);
+        if (error) setTimeout(() => error.remove(), 8000);
 
-    $(document).ready(function() {
-        // Check if the success message exists
-        if ($("#successMessage").length) {
-            setTimeout(function() {
-                $("#successMessage").fadeOut("slow");
-            }, 7000); // Adjust the time to your preference, here it's 7000ms (7 seconds)
+        const checkboxes = Array.from(document.querySelectorAll('.product-checkbox'));
+        const actionBar = document.getElementById('actionBar');
+        const selectedCountEl = document.getElementById('selectedCount');
+
+        const clearBtnDesktop = document.getElementById('clearSelections');
+        const clearBtnMobile = document.getElementById('clearSelectionsMobile');
+
+        function updateHiddenInputsFor(checkbox) {
+            const container = checkbox.closest('label') || checkbox.parentNode;
+            if (!container) return;
+
+            container.querySelectorAll('input[type="hidden"]').forEach(h => {
+                h.disabled = !checkbox.checked;
+            });
         }
-    });
+
+        function updateActionBar() {
+            const count = checkboxes.filter(c => c.checked).length;
+            if (selectedCountEl) selectedCountEl.textContent = String(count);
+
+            if (actionBar) actionBar.classList.toggle('hidden', count === 0);
+            if (clearBtnDesktop) clearBtnDesktop.classList.toggle('hidden', count === 0);
+        }
+
+        function clearSelections() {
+            checkboxes.forEach(cb => {
+                cb.checked = false;
+                updateHiddenInputsFor(cb);
+            });
+            updateActionBar();
+        }
+
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                updateHiddenInputsFor(cb);
+                updateActionBar();
+            });
+
+            // initial state
+            updateHiddenInputsFor(cb);
+        });
+
+        clearBtnDesktop?.addEventListener('click', clearSelections);
+        clearBtnMobile?.addEventListener('click', clearSelections);
+
+        updateActionBar();
+    })();
 </script>

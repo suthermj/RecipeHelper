@@ -130,7 +130,8 @@ namespace RecipeHelper.Services
             {
                 if (ingredient.Include == false) continue;
 
-                if (ingredient.UseKroger)
+                // replaces useKroger
+                if (ingredient.ProductId == null || ingredient.ProductId == 0)
                 {
                     _logger.LogInformation($"Looking up Kroger product [{ingredient.Name}] [{ingredient.Upc}] to add to database");
 

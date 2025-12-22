@@ -43,7 +43,6 @@ namespace RecipeHelper.Services
             // check cache first
             if (_cache != null && _cache.TryGetValue<string>(TokenCacheKey, out token) && !string.IsNullOrWhiteSpace(token))
             {
-                _logger.LogInformation("Using cached Kroger client credentials token.");
                 return token;
             }
             
@@ -55,11 +54,8 @@ namespace RecipeHelper.Services
                 // re-check cache inside lock
                 if (_cache != null && _cache.TryGetValue<string>(TokenCacheKey, out token) && !string.IsNullOrWhiteSpace(token))
                 {
-                    _logger.LogInformation("Using cached Kroger client credentials token (after lock).");
                     return token;
                 }
-
-                _logger.LogInformation("Requesting new Kroger client credentials token.");
 
                 var client = _httpClientFactory.CreateClient();
                 string encodedCredentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_clientId}:{_clientSecret}"));
@@ -177,8 +173,6 @@ namespace RecipeHelper.Services
             if (!auth.IsAuthorized || string.IsNullOrEmpty(auth.AccessToken))
             {
                 _logger.LogError("User not authorized for Kroger APIs. Prompting re-login.");
-
-
                 return false;
             }
 
@@ -218,9 +212,13 @@ namespace RecipeHelper.Services
         {
             List<DetailedCartItem> cartItems = new();
 
+            _logger.LogInformation("Converting [{count} ingredients to Kroger Cart items", vm.Items.Count);
+
             foreach (var item in vm.Items)
             {
                 var krogerProduct = await GetProductDetails(item.Upc);
+
+                _logger.LogInformation("Kroger product info Name: {name} SoldBy: {soldBy} SizeUnit: {sizeUnit} UnitOfMeasure: {uof}", krogerProduct.name, krogerProduct.soldBy, krogerProduct.sizeUnit, krogerProduct.unitOfMeasure);
 
                 if (krogerProduct.soldBy.Equals("UNIT", StringComparison.OrdinalIgnoreCase))
                 {

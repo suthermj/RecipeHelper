@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RecipeHelper;
 
@@ -11,9 +12,11 @@ using RecipeHelper;
 namespace RecipeHelper.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20251226164302_IngredientTableMiddleWare")]
+    partial class IngredientTableMiddleWare
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -66,7 +69,7 @@ namespace RecipeHelper.Migrations
                     b.ToTable("DraftRecipes");
                 });
 
-            modelBuilder.Entity("RecipeHelper.Models.IngredientModels.Ingredient", b =>
+            modelBuilder.Entity("RecipeHelper.Models.Ingredient", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -86,7 +89,7 @@ namespace RecipeHelper.Migrations
                     b.ToTable("Ingredients");
                 });
 
-            modelBuilder.Entity("RecipeHelper.Models.IngredientModels.IngredientKrogerProduct", b =>
+            modelBuilder.Entity("RecipeHelper.Models.IngredientKrogerProduct", b =>
                 {
                     b.Property<int>("IngredientId")
                         .HasColumnType("int");
@@ -247,9 +250,9 @@ namespace RecipeHelper.Migrations
                     b.ToTable("RecipeIngredient");
                 });
 
-            modelBuilder.Entity("RecipeHelper.Models.IngredientModels.IngredientKrogerProduct", b =>
+            modelBuilder.Entity("RecipeHelper.Models.IngredientKrogerProduct", b =>
                 {
-                    b.HasOne("RecipeHelper.Models.IngredientModels.Ingredient", "Ingredient")
+                    b.HasOne("RecipeHelper.Models.Ingredient", "Ingredient")
                         .WithMany("KrogerMappings")
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -268,7 +271,7 @@ namespace RecipeHelper.Migrations
 
             modelBuilder.Entity("RecipeHelper.Models.RecipeIngredient", b =>
                 {
-                    b.HasOne("RecipeHelper.Models.IngredientModels.Ingredient", "Ingredient")
+                    b.HasOne("RecipeHelper.Models.Ingredient", "Ingredient")
                         .WithMany("RecipeIngredients")
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -301,7 +304,7 @@ namespace RecipeHelper.Migrations
                     b.Navigation("SelectedKrogerProduct");
                 });
 
-            modelBuilder.Entity("RecipeHelper.Models.IngredientModels.Ingredient", b =>
+            modelBuilder.Entity("RecipeHelper.Models.Ingredient", b =>
                 {
                     b.Navigation("KrogerMappings");
 

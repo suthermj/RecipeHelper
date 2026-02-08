@@ -25,6 +25,8 @@
                 case "tablespoon":
                 case "tablespoons":
                 case "cup":
+                case "fl oz":
+                case "cup us":
                 case "cups":
                 case "pt":
                 case "pint":
@@ -203,6 +205,7 @@
                     return "Pints";
 
                 case "oz":
+                case "fl oz":
                 case "ounce":
                 case "ounces":
                     return "Ounces";
@@ -222,6 +225,7 @@
                 case "piece":
                 case "pieces":
                 case "count":
+                case "ct":
                     return "Unit";
 
                 default:

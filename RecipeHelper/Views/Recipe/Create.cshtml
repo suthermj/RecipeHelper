@@ -1,0 +1,599 @@
+﻿@model CreateRecipeVM2
+@using Microsoft.AspNetCore.Mvc.Rendering
+
+@{
+    ViewData["Title"] = "Create Recipe";
+    var measurements = ViewBag.Measurements as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+
+    if (Model.Ingredients == null)
+        Model.Ingredients = new List<CreateRecipeIngredientVM>();
+
+    if (!Model.Ingredients.Any())
+        Model.Ingredients.Add(new CreateRecipeIngredientVM { Quantity = 1 });
+}
+
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">Create Recipe</h1>
+    </div>
+
+    <div asp-validation-summary="ModelOnly" class="text-red-600 mb-4"></div>
+    <span asp-validation-for="Title" class="text-red-600 text-sm"></span>
+    <form asp-action="CreateRecipe" asp-controller="Recipe" method="post" enctype="multipart/form-data" class="space-y-8">
+        @Html.AntiForgeryToken()
+
+        <!-- Basic info -->
+        <div class="bg-white rounded-2xl shadow p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input asp-for="Title"
+                       class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring"
+                       placeholder="e.g., Chicken Tacos" />
+                <span asp-validation-for="Title" class="text-sm text-red-600"></span>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Image (optional)</label>
+                <input asp-for="ImageFile" type="file" accept="image/*"
+                       class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 hover:file:bg-gray-200" />
+                <span asp-validation-for="ImageFile" class="text-sm text-red-600"></span>
+            </div>
+        </div>
+
+        <!-- Ingredients -->
+        <div class="bg-white rounded-2xl shadow p-6">
+            <div class="flex items-center justify-between gap-3 mb-2">
+                <h2 class="text-lg font-semibold">Ingredients</h2>
+
+                <button type="button"
+                        id="addIngredientBtn"
+                        class="inline-flex items-center rounded-lg bg-gray-900 text-white px-3 py-2 text-sm hover:bg-black">
+                    + Add ingredient
+                </button>
+            </div>
+
+            <p class="text-sm text-gray-600 mb-6">
+                Add ingredient lines for your recipe. You can optionally link a Kroger product for shopping later.
+                <span class="block text-gray-500 mt-1">Tip: Choose a product by searching your DB (or your backend can fall back to live Kroger search).</span>
+            </p>
+
+            <div id="ingredientsContainer" class="space-y-4">
+                @for (int i = 0; i < Model.Ingredients.Count; i++)
+                {
+                    <div class="ingredient-row border border-gray-200 rounded-2xl p-4" data-index="@i">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3">
+
+                                <!-- Display name -->
+                                <div class="md:col-span-4">
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Ingredient</label>
+                                    <input name="Ingredients[@i].DisplayName"
+                                           value="@Model.Ingredients[i].DisplayName"
+                                           class="display-name w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                                           placeholder="e.g., Yellow onion, diced" />
+                                    <span class="text-sm text-red-600 field-validation-valid"
+                                          data-valmsg-for="Ingredients[@i].DisplayName"
+                                          data-valmsg-replace="true"></span>
+                                </div>
+
+                                <!-- Quantity -->
+                                <div class="md:col-span-2">
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Qty</label>
+                                    <input name="Ingredients[@i].Quantity"
+                                           value="@Model.Ingredients[i].Quantity"
+                                           type="number"
+                                           step="0.01"
+                                           min="0"
+                                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring" />
+                                    <span class="text-sm text-red-600 field-validation-valid"
+                                          data-valmsg-for="Ingredients[@i].Quantity"
+                                          data-valmsg-replace="true"></span>
+                                </div>
+
+                                <!-- Measurement -->
+                                <div class="md:col-span-2">
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Unit</label>
+                                    <select name="Ingredients[@i].MeasurementId"
+                                            class="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring">
+                                        <option value="">Count</option>
+                                        @foreach (var m in measurements)
+                                        {
+                                            var selected = (Model.Ingredients[i].MeasurementId?.ToString() == m.Value);
+                                            <option value="@m.Value" selected="@(selected ? "selected" : null)">@m.Text</option>
+                                        }
+                                    </select>
+                                </div>
+
+                                <!-- Product mapping -->
+                                <div class="md:col-span-12">
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Kroger product (optional)</label>
+
+                                    <!-- submitted UPC (hidden) -->
+                                    <input type="hidden"
+                                           name="Ingredients[@i].SelectedKrogerUpc"
+                                           value="@Model.Ingredients[i].SelectedKrogerUpc"
+                                           class="selected-upc" />
+
+                                    <div class="flex flex-col md:flex-row md:items-center gap-2">
+                                        <button type="button"
+                                                class="choose-product-btn rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                disabled>
+                                            Choose Kroger product
+                                        </button>
+
+                                        <div class="text-sm text-gray-700">
+                                            <span class="product-status text-gray-500">No product selected</span>
+                                            <span class="product-upc text-gray-400 ml-2"></span>
+                                        </div>
+
+                                        <button type="button"
+                                                class="clear-product-btn text-sm text-gray-600 hover:text-gray-900 underline underline-offset-2 hidden">
+                                            Clear
+                                        </button>
+                                    </div>
+
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        This affects shopping/add-to-cart only. You can skip it for now.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button type="button"
+                                    class="remove-ingredient text-sm text-red-600 hover:text-red-800 px-2 py-1">
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex items-center justify-end gap-3">
+            <a asp-action="Index" asp-controller="Recipe"
+               class="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="rounded-lg bg-green-600 text-white px-5 py-2 text-sm font-semibold hover:bg-green-700">
+                Save Recipe
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Product picker modal -->
+<!-- Product picker modal (improved) -->
+<div id="productModal" class="fixed inset-0 hidden items-center justify-center bg-black/50 p-4 z-50">
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden">
+        <!-- Header -->
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Choose Kroger product</h3>
+            </div>
+            <button type="button" id="closeProductModal"
+                    class="h-9 w-9 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900">
+                <span class="text-2xl leading-none">&times;</span>
+            </button>
+        </div>
+
+        <!-- Tabs + Search -->
+        <div class="px-5 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <!-- Tabs -->
+                <div class="inline-flex rounded-xl bg-gray-100 p-1 self-start">
+                    <button type="button" id="tabExisting"
+                            class="tab-btn px-3 py-1.5 text-sm font-medium rounded-lg bg-white shadow-sm text-gray-900">
+                        Search existing
+                    </button>
+                    <button type="button" id="tabKroger"
+                            class="tab-btn px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900">
+                        Search Kroger
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search row -->
+            <div class="mt-4 flex gap-2">
+                <div class="relative flex-1">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 103.5 10.5a7.5 7.5 0 0013.15 6.15z" />
+                        </svg>
+                    </span>
+                    <input id="productSearchInput" type="text"
+                           class="w-full rounded-xl border border-gray-200 pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring focus:ring-gray-200"
+                           placeholder="Search products…" />
+                </div>
+
+                <button type="button" id="productSearchBtn"
+                        class="rounded-xl bg-gray-900 text-white px-4 py-2 text-sm font-semibold hover:bg-black">
+                    Search
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Results -->
+        <div class="border-t border-gray-100">
+            <div id="productResults" class="max-h-[55vh] overflow-y-auto">
+                <div class="px-5 py-6 text-sm text-gray-600">
+                    Search to see products.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (function () {
+            const container = document.getElementById('ingredientsContainer');
+            const addBtn = document.getElementById('addIngredientBtn');
+
+            // Product modal state
+            const productModal = document.getElementById('productModal');
+            const closeProductModal = document.getElementById('closeProductModal');
+            const productSearchInput = document.getElementById('productSearchInput');
+            const tabExisting = document.getElementById('tabExisting');
+            const tabKroger = document.getElementById('tabKroger');
+            const productSearchBtn = document.getElementById('productSearchBtn');
+            const productResults = document.getElementById('productResults');
+
+            let activeRowForProduct = null; // row currently choosing product for
+
+            // Measurements for new rows
+            const measurementOptions = [
+                @foreach (var m in measurements)
+                {
+                        <text>{ value: "@m.Value", text: "@m.Text" },</text>
+                }
+            ];
+            function buildMeasurementOptions() {
+                return measurementOptions.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
+            }
+
+            function nextIndex() {
+                return container.querySelectorAll('.ingredient-row').length;
+            }
+
+                    let searchMode = "existing"; // "existing" | "kroger"
+
+            const ACTIVE_TAB =
+              "tab-btn px-3 py-1.5 text-sm font-medium rounded-lg bg-white shadow-sm text-gray-900";
+            const INACTIVE_TAB =
+              "tab-btn px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900";
+
+            function setSearchMode(mode) {
+              searchMode = mode;
+
+              if (mode === "existing") {
+                tabExisting.className = ACTIVE_TAB;
+                tabKroger.className = INACTIVE_TAB;
+              } else {
+                tabExisting.className = INACTIVE_TAB;
+                tabKroger.className = ACTIVE_TAB;
+              }
+            }
+
+            tabExisting.addEventListener('click', async () => {
+              setSearchMode("existing");
+              // optional: auto-run search if text exists
+              if (productSearchInput.value.trim().length >= 2) {
+                await searchProducts(`/Product/SearchDb?term=${encodeURIComponent(productSearchInput.value.trim())}`);
+              }
+            });
+
+            tabKroger.addEventListener('click', async () => {
+              setSearchMode("kroger");
+              if (productSearchInput.value.trim().length >= 2) {
+                await searchProducts(`/Product/SearchKroger?term=${encodeURIComponent(productSearchInput.value.trim())}`);
+              }
+            });
+
+
+            function escapeHtml(str) {
+                return String(str ?? '')
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+            }
+
+            function getDisplayName(row) {
+                return row.querySelector('input[name^="Ingredients"][name$=".DisplayName"]')?.value?.trim() ?? "";
+            }
+
+            function updateProductButtonState(row) {
+                const display = getDisplayName(row);
+                const btn = row.querySelector('.choose-product-btn');
+                if (!btn) return;
+                btn.disabled = display.length < 2;
+            }
+
+            function updateProductStatus(row) {
+                const upc = row.querySelector('.selected-upc')?.value ?? "";
+                const status = row.querySelector('.product-status');
+                const upcSpan = row.querySelector('.product-upc');
+                const clearBtn = row.querySelector('.clear-product-btn');
+
+                if (!status || !upcSpan || !clearBtn) return;
+
+                if (!upc) {
+                    status.textContent = "No product selected";
+                    status.classList.add("text-gray-500");
+                    status.classList.remove("text-green-700");
+                    upcSpan.textContent = "";
+                    clearBtn.classList.add("hidden");
+                } else {
+                    status.textContent = "Product selected";
+                    status.classList.remove("text-gray-500");
+                    status.classList.add("text-green-700");
+                    upcSpan.textContent = `UPC: ${upc}`;
+                    clearBtn.classList.remove("hidden");
+                }
+            }
+
+            const rowTemplate = (index) => `
+                <div class="ingredient-row border border-gray-200 rounded-2xl p-4" data-index="${index}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3">
+
+                            <div class="md:col-span-4">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Ingredient</label>
+                                <input name="Ingredients[${index}].DisplayName"
+                                       value=""
+                                       class="display-name w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                                       placeholder="e.g., Yellow onion, diced" />
+                            </div>
+
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Qty</label>
+                                <input name="Ingredients[${index}].Quantity"
+                                       value="1"
+                                       type="number"
+                                       step="0.01"
+                                       min="0"
+                                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring" />
+                            </div>
+
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Unit</label>
+                                <select name="Ingredients[${index}].MeasurementId"
+                                        class="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring">
+                                    <option value="">Count</option>
+                                    ${buildMeasurementOptions()}
+                                </select>
+                            </div>
+
+                            <div class="md:col-span-12">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Kroger product (optional)</label>
+
+                                <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="" class="selected-upc" />
+
+                                <div class="flex flex-col md:flex-row md:items-center gap-2">
+                                    <button type="button"
+                                            class="choose-product-btn rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            disabled>
+                                        Choose Kroger product
+                                    </button>
+
+                                    <div class="text-sm text-gray-700">
+                                        <span class="product-status text-gray-500">No product selected</span>
+                                        <span class="product-upc text-gray-400 ml-2"></span>
+                                    </div>
+
+                                    <button type="button"
+                                            class="clear-product-btn text-sm text-gray-600 hover:text-gray-900 underline underline-offset-2 hidden">
+                                        Clear
+                                    </button>
+                                </div>
+
+                                <p class="text-xs text-gray-500 mt-1">
+                                    This affects shopping/add-to-cart only. You can skip it for now.
+                                </p>
+                            </div>
+                        </div>
+
+                        <button type="button"
+                                class="remove-ingredient text-sm text-red-600 hover:text-red-800 px-2 py-1">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            function reindexRows() {
+                const rows = Array.from(container.querySelectorAll('.ingredient-row'));
+                rows.forEach((row, newIndex) => {
+                    row.setAttribute('data-index', newIndex);
+
+                    row.querySelectorAll('[name]').forEach(el => {
+                        el.name = el.name.replace(/Ingredients\[\d+\]/g, `Ingredients[${newIndex}]`);
+                    });
+
+                    row.querySelectorAll('[data-valmsg-for]').forEach(el => {
+                        el.setAttribute('data-valmsg-for', el.getAttribute('data-valmsg-for').replace(/Ingredients\[\d+\]/g, `Ingredients[${newIndex}]`));
+                    });
+                });
+            }
+
+            addBtn.addEventListener('click', function () {
+                const idx = nextIndex();
+                container.insertAdjacentHTML('beforeend', rowTemplate(idx));
+
+                const newRow = container.querySelector(`.ingredient-row[data-index="${idx}"]`);
+                if (newRow) {
+                    updateProductButtonState(newRow);
+                    updateProductStatus(newRow);
+                }
+            });
+
+            // Global click handler for row actions
+            container.addEventListener('click', function (e) {
+                const row = e.target.closest('.ingredient-row');
+                if (!row) return;
+
+                if (e.target.classList.contains('remove-ingredient')) {
+                    row.remove();
+                    reindexRows();
+                    return;
+                }
+
+                if (e.target.classList.contains('choose-product-btn')) {
+                    if (e.target.disabled) return;
+
+                    activeRowForProduct = row;
+                    e.target.blur();
+
+                    const prefill = getDisplayName(row);
+                    openProductModal(prefill);
+                    return;
+                }
+
+                if (e.target.classList.contains('clear-product-btn')) {
+                    row.querySelector('.selected-upc').value = '';
+                    updateProductStatus(row);
+                    return;
+                }
+            });
+
+            // Enable/disable "Choose Kroger product" based on DisplayName
+            container.addEventListener('input', function (e) {
+                if (!e.target.matches('input[name^="Ingredients"][name$=".DisplayName"]')) return;
+                const row = e.target.closest('.ingredient-row');
+                if (!row) return;
+                updateProductButtonState(row);
+            });
+
+            // Initialize existing rows on page load
+            Array.from(container.querySelectorAll('.ingredient-row')).forEach(row => {
+                updateProductButtonState(row);
+                updateProductStatus(row);
+            });
+
+            // --- Product modal ---
+
+            function openProductModal(prefill = '') {
+                setSearchMode("existing");
+                productSearchInput.value = prefill ?? '';
+                productResults.innerHTML = `<div class="px-3 py-3 text-sm text-gray-600">Search to see products.</div>`;
+                productModal.classList.remove('hidden');
+                productModal.classList.add('flex');
+                productSearchInput.focus();
+
+                if (productSearchInput.value.trim().length >= 2) {
+                    productSearchBtn.click();
+                }
+            }
+
+            function closeModal() {
+                productModal.classList.add('hidden');
+                productModal.classList.remove('flex');
+                activeRowForProduct = null;
+            }
+
+            closeProductModal.addEventListener('click', closeModal);
+            productModal.addEventListener('click', (e) => {
+                if (e.target === productModal) closeModal();
+            });
+
+            function productImageUrl(upc) {
+                const clean = String(upc ?? '').trim();
+                return clean ? `https://www.kroger.com/product/images/medium/front/${encodeURIComponent(clean)}` : "";
+            }
+
+            function renderProducts(data) {
+                if (!Array.isArray(data) || data.length === 0) {
+                    productResults.innerHTML = `<div class="px-3 py-3 text-sm text-gray-600">No results</div>`;
+                    return;
+                }
+
+                productResults.innerHTML = data.map(p => {
+                    const upc = escapeHtml(p.upc ?? p.Upc ?? '');
+                    const name = escapeHtml(p.name ?? p.Name ?? '');
+                    const sub = escapeHtml(p.size ?? p.Size ?? p.brand ?? p.Brand ?? '');
+                    const img = productImageUrl(upc);
+
+                    return `
+                        <button type="button"
+                                class="product-result-item w-full text-left px-3 py-3 border-b border-gray-100 hover:bg-gray-50"
+                                data-upc="${upc}"
+                                data-name="${name}">
+
+                            <div class="flex items-center gap-3">
+                                <div class="h-12 w-12 rounded-lg border border-gray-200 bg-white overflow-hidden flex items-center justify-center shrink-0">
+                                    <img src="${img}"
+                                         alt=""
+                                         class="h-full w-full object-cover"
+                                         loading="lazy"
+                                         onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/><path d=%22M16 30l6-6 4 4 6-6 4 8H16z%22 fill=%22%239ca3af%22/><circle cx=%2220%22 cy=%2220%22 r=%223%22 fill=%22%239ca3af%22/></svg>';" />
+                                </div>
+
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-sm font-medium text-gray-900 truncate">${name}</div>
+                                    <div class="text-xs text-gray-500 mt-1 flex items-center justify-between gap-3">
+                                        <span class="truncate">${sub}</span>
+                                        <span class="text-gray-400 shrink-0">UPC: ${upc}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            async function searchProducts(url) {
+                const q = productSearchInput.value.trim();
+                if (!q) return;
+
+                productResults.innerHTML = `<div class="px-3 py-3 text-sm text-gray-600">Searching…</div>`;
+
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error('Search failed');
+                    const data = await res.json();
+                    renderProducts(data);
+                } catch {
+                    productResults.innerHTML = `<div class="px-3 py-3 text-sm text-red-600">Search error (wire your backend)</div>`;
+                }
+            }
+
+            // Default search button (you decide what it hits)
+            productSearchBtn.addEventListener('click', async () => {
+                const term = productSearchInput.value.trim();
+                if (term.length < 2) return;
+
+                const url = (searchMode === "existing")
+                  ? `/Product/SearchDb?term=${encodeURIComponent(term)}`
+                  : `/Product/SearchKroger?term=${encodeURIComponent(term)}`;
+
+                await searchProducts(url);
+            });
+
+            // Enter key triggers search
+            productSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    productSearchBtn.click();
+                }
+            });
+
+            // Selecting a product from modal
+            productResults.addEventListener('click', (e) => {
+                const btn = e.target.closest('.product-result-item');
+                if (!btn || !activeRowForProduct) return;
+
+                const upc = btn.getAttribute('data-upc') ?? '';
+                activeRowForProduct.querySelector('.selected-upc').value = upc;
+
+                updateProductStatus(activeRowForProduct);
+                closeModal();
+            });
+        })();
+    </script>
+}

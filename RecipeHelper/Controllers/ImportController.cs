@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using RecipeHelper.Models.Import;
@@ -36,21 +37,32 @@ namespace RecipeHelper.Controllers
             if (!string.IsNullOrWhiteSpace(model.Url))
             {
                 _logger.LogInformation("Importing recipe from URL: {Url}", model.Url);
+
                 var importedRecipe = await _spoonacularService.ImportRecipe(model.Url);
                 if (importedRecipe is null)
                 {
-                    TempData["ErrorMessage"] = "Could not extract recipe from the provided URL.";
+                    var backupImport = await _spoonacularService.Import(model.Url);
+
+                    if (backupImport is null)
+                    {
+                        TempData["ErrorMessage"] = "Could not extract recipe from the provided URL.";
+                        return View(model);
+                    }
+
+                    model.Preview = backupImport;
                     return View(model);
                 }
 
-                model.Preview = ImportRecipeVM.FromSpoonacular(importedRecipe);
+                 model.Preview = ImportRecipeVM.FromSpoonacular(importedRecipe);
 
-                return View(model);
+                 return View(model);
+                
             }
 
             return View(model);
         }
 
+        // Returns MappedImportRecipeVm
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> GetImportedRecipePreview(PreviewImportedRecipeVM vm)

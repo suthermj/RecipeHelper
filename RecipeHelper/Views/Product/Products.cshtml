@@ -95,7 +95,7 @@
         <div id="productsGrid" class="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             @foreach (var product in Model)
             {
-                <a href="@Url.Action("ViewProduct", "Product", new { productId = product.Id })"
+                <a href="@Url.Action("ViewProduct", "Product", new { productId = product.Upc })"
                    class="product-card group rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition overflow-hidden"
                    data-name="@product.Name">
 

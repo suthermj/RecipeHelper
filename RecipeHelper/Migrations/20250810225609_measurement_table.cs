@@ -12,7 +12,7 @@ namespace RecipeHelper.Migrations
         {
             migrationBuilder.AddColumn<int>(
                 name: "MeasurementId",
-                table: "RecipeProducts",
+                table: "Ingredients",
                 type: "int",
                 nullable: true);
 
@@ -31,12 +31,12 @@ namespace RecipeHelper.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_RecipeProducts_MeasurementId",
-                table: "RecipeProducts",
+                table: "Ingredients",
                 column: "MeasurementId");
 
             migrationBuilder.AddForeignKey(
                 name: "FK_RecipeProducts_Measurements_MeasurementId",
-                table: "RecipeProducts",
+                table: "Ingredients",
                 column: "MeasurementId",
                 principalTable: "Measurements",
                 principalColumn: "Id");
@@ -47,18 +47,18 @@ namespace RecipeHelper.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "FK_RecipeProducts_Measurements_MeasurementId",
-                table: "RecipeProducts");
+                table: "Ingredients");
 
             migrationBuilder.DropTable(
                 name: "Measurements");
 
             migrationBuilder.DropIndex(
                 name: "IX_RecipeProducts_MeasurementId",
-                table: "RecipeProducts");
+                table: "Ingredients");
 
             migrationBuilder.DropColumn(
                 name: "MeasurementId",
-                table: "RecipeProducts");
+                table: "Ingredients");
         }
     }
 }

@@ -1,6 +1,8 @@
-﻿namespace RecipeHelper.Models.Kroger
+﻿using RecipeHelper.Utility;
+
+namespace RecipeHelper.Models.Kroger
 {
-    public class KrogerProduct
+    public class KrogerProductDto
     {
         public string ProductId { get; set; }
         public string upc { get; set; }
@@ -22,7 +24,10 @@
         {
             get
             {
-                return size.Split(" ")[1];
+                if (string.IsNullOrWhiteSpace(size) || size == "N/A") return null;
+                var parts = size.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2) return null;
+                return string.Join(' ', parts.Skip(1)); // handles "fl oz"
             }
         }
         public string? unitOfMeasure { get; set; }

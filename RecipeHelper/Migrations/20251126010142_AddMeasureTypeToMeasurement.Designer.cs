@@ -112,7 +112,7 @@ namespace RecipeHelper.Migrations
                     b.ToTable("Recipes");
                 });
 
-            modelBuilder.Entity("RecipeHelper.Models.RecipeProduct", b =>
+            modelBuilder.Entity("RecipeHelper.Models.RecipeIngredients", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -140,23 +140,23 @@ namespace RecipeHelper.Migrations
 
                     b.HasIndex("RecipeId");
 
-                    b.ToTable("RecipeProducts");
+                    b.ToTable("Ingredients");
                 });
 
-            modelBuilder.Entity("RecipeHelper.Models.RecipeProduct", b =>
+            modelBuilder.Entity("RecipeHelper.Models.RecipeIngredients", b =>
                 {
                     b.HasOne("Measurement", "Measurement")
                         .WithMany()
                         .HasForeignKey("MeasurementId");
 
                     b.HasOne("RecipeHelper.Models.Product", "Product")
-                        .WithMany("RecipeProducts")
+                        .WithMany("Ingredients")
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("RecipeHelper.Models.Recipe", "Recipe")
-                        .WithMany("RecipeProducts")
+                        .WithMany("Ingredients")
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -170,12 +170,12 @@ namespace RecipeHelper.Migrations
 
             modelBuilder.Entity("RecipeHelper.Models.Product", b =>
                 {
-                    b.Navigation("RecipeProducts");
+                    b.Navigation("Ingredients");
                 });
 
             modelBuilder.Entity("RecipeHelper.Models.Recipe", b =>
                 {
-                    b.Navigation("RecipeProducts");
+                    b.Navigation("Ingredients");
                 });
 #pragma warning restore 612, 618
         }

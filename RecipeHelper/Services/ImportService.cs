@@ -4,6 +4,8 @@ using Microsoft.IdentityModel.Tokens;
 using NuGet.Protocol;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Import;
+using RecipeHelper.Models.IngredientModels;
+using RecipeHelper.Models.Kroger;
 using RecipeHelper.Utility;
 using RecipeHelper.ViewModels;
 
@@ -11,14 +13,18 @@ namespace RecipeHelper.Services
 {
     public class ImportService
     {
-        public DatabaseContext _context;
-        public ILogger<ImportService> _logger;
-        public KrogerService _krogerService;
-        public ImportService(DatabaseContext context, ILogger<ImportService> logger, KrogerService krogerService)
+        private readonly DatabaseContext _context;
+        private readonly ILogger<ImportService> _logger;
+        private  IngredientsService _ingredientService;
+        private readonly KrogerService _krogerService;
+        private readonly ProductService _productService;
+        public ImportService(DatabaseContext context, ILogger<ImportService> logger, KrogerService krogerService, IngredientsService ingredientService, ProductService productService)
         {
             _context = context;
             _logger = logger;
             _krogerService = krogerService;
+            _ingredientService = ingredientService;
+            _productService = productService;
         }
         public async Task<ImportPreview> GetImportedRecipePreview(PreviewImportedRecipeRequest importedRecipe)
         {
@@ -39,20 +45,23 @@ namespace RecipeHelper.Services
 
             var ingredientList = new List<ImportPreviewIngredient>();
 
-            var allProducts = await _context.Products.AsNoTracking()
-                .Select(p => new ProductLookup(p.Id, p.Name, p.Upc, p.Name.ToLower()))
-                .ToListAsync();
+
+            var ingredientDict = await _context.Ingredients.AsNoTracking()
+                .Select(i => new { i.Id, i.CanonicalName })
+                .ToDictionaryAsync(x => x.CanonicalName, x => x.Id);
 
             // merge any duplicates
             var mergedIngredients = ingredients
                         .GroupBy(i => new
                         {
-                            Name = i.Name.Trim().ToLowerInvariant(),
+                            Name = i.Name,
+                            CleanName = i.CleanName.Trim().ToLowerInvariant(),
                             Unit = MeasurementHelper.NormalizeMeasurementUnit(i.Unit) ?? i.Unit
                         })
                         .Select(g => new PreviewImportedRecipeIngredient
                         {
                             Name = g.Key.Name,
+                            CleanName = g.Key.CleanName,
                             Unit = g.Key.Unit,
                             Amount = g.Sum(x => x.Amount)
                         })
@@ -75,26 +84,37 @@ namespace RecipeHelper.Services
                     Amount = ingredient.Amount,
                 };
 
-                var exactSearch = allProducts.FirstOrDefault(p =>
-                    p.NameLower == ingredient.Name ||
-                    p.NameLower.Contains(ingredient.Name)
-                );
+                var canonicalName = await _ingredientService.CanonicalizeAsync(ingredient.CleanName, CancellationToken.None);
+                var cleanedName = canonicalName.CanonicalName;  
 
-                if (exactSearch != null)
+                if (ingredientDict.TryGetValue(cleanedName, out var ingredientId))
                 {
-                    ingredientPreview.SuggestedProductId = exactSearch.Id;
-                    ingredientPreview.SuggestedProductName = exactSearch.Name;
-                    ingredientPreview.SuggestedProductUpc = exactSearch.Upc;
-                    ingredientPreview.SuggestionKind = "Exact";
+                    ingredientPreview.MatchedIngredientId = ingredientId;
+                    ingredientPreview.MatchedCanonicalName = cleanedName;
+
+                    // Get default kroger mapping for this ingredient (IngredientKrogerProduct)
+                    var defaultMap = await _context.IngredientKrogerProducts
+                        .AsNoTracking()
+                        .Where(m => m.IngredientId == ingredientId && m.IsDefault)
+                        .Select(m => new { m.Upc, ProductName = m.KrogerProduct.Name })
+                        .FirstOrDefaultAsync();
+
+                    if (defaultMap != null)
+                    {
+                        ingredientPreview.SuggestedProductUpc = defaultMap.Upc;
+                        ingredientPreview.SuggestedProductName = defaultMap.ProductName;
+                    }
+
                     ingredientList.Add(ingredientPreview);
                 }
                 else
                 {
+                    ingredient.CleanName = cleanedName;
                     ingredientsNoExactMatch.Add(ingredient);
                 }
             }
 
-            var fuzzySearchIngredients = await IngredientFuzzySearch(ingredientsNoExactMatch, allProducts);
+            var fuzzySearchIngredients = await IngredientFuzzySearch(ingredientsNoExactMatch, ingredientDict);
             ingredientList.AddRange(fuzzySearchIngredients);
             importPreview.Ingredients = ingredientList;
             return importPreview;
@@ -110,7 +130,7 @@ namespace RecipeHelper.Services
             {
                 Name = recipe.Title,
                 ImageUri = recipe.Image,
-                RecipeProducts = new List<RecipeProduct>()
+                Ingredients = new List<RecipeIngredient>()
             };
 
             // Build a case-insensitive lookup for measurements once
@@ -130,48 +150,89 @@ namespace RecipeHelper.Services
             {
                 if (ingredient.Include == false) continue;
 
-                // replaces useKroger
-                if (ingredient.ProductId == null || ingredient.ProductId == 0)
+                // Create new canonical ingredient since no ingredientId is present
+                if (ingredient.IngredientId is null || ingredient.IngredientId == 0)
                 {
-                    _logger.LogInformation($"Looking up Kroger product [{ingredient.Name}] [{ingredient.Upc}] to add to database");
+                    var canonicalResult = await _ingredientService.CanonicalizeAsync(ingredient.Name, CancellationToken.None);
+                    var canonicalName = canonicalResult.CanonicalName;
 
-                    var productDetails = await _krogerService.GetProductDetails(ingredient.Upc);
-                    productDetails?.RemoveKrogerBrandFromName();
+                    var canonicalIngredient = await _ingredientService.GetIngredientByCanonical(canonicalName);
 
-                    Product newProduct = new Product
+                    if (canonicalIngredient == null)
                     {
-                        Name = productDetails?.name ?? ingredient.Name,
-                        Upc = productDetails?.upc ?? ingredient.Upc,
-                        Price = (decimal)(productDetails?.regularPrice ?? 0)
-                    };
-
-                    await _context.Products.AddAsync(newProduct);
-                    await _context.SaveChangesAsync();
-
-                    _logger.LogInformation($"Added [{newProduct.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
-                    var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
-
-                    newRecipe.RecipeProducts.Add(new RecipeProduct
+                        _logger.LogInformation($"Creating new ingredient [{canonicalName}]");
+                        canonicalIngredient = new Ingredient
+                        {
+                            CanonicalName = canonicalName,
+                        };
+                        await _context.Ingredients.AddAsync(canonicalIngredient);
+                        await _context.SaveChangesAsync();
+                        ingredient.IngredientId = canonicalIngredient.Id;
+                    }
+                    else
                     {
-                        ProductId = newProduct.Id,
-                        Quantity = ingredient.Amount,
-                        MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
-                    });
+                        ingredient.IngredientId = canonicalIngredient.Id;
+                    }
                 }
-                else
+
+                var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
+
+                var recipeIngredient = new RecipeIngredient
                 {
-                    var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
+                    DisplayName = ingredient.Name,
+                    Quantity = ingredient.Amount,
+                    MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null,
+                    SelectedKrogerUpc = ingredient.Upc,
+                    IngredientId = (int)ingredient.IngredientId
+                };
 
-                    newRecipe.RecipeProducts.Add(new RecipeProduct
+                // Link kroger product to ingredient if UPC is provided 
+                // Create Kroger product if not already in database
+                if (!String.IsNullOrEmpty(ingredient.Upc)) 
+                { 
+                    // check if kroger product already exists
+                    var krogerProduct = await _productService.GetProductAsync(ingredient.Upc);
+
+                    // add kroger product if not found
+                    if (krogerProduct == null)
                     {
-                        ProductId = (int)ingredient.ProductId,
-                        Quantity = ingredient.Amount,
-                        MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null
-                    });
+                        _logger.LogInformation($"Looking up Kroger product [{ingredient.Name}] [{ingredient.Upc}] to add to database");
+                        var productDetails = await _krogerService.GetProductDetails(ingredient.Upc);
 
-                    _logger.LogInformation($"Added [{ingredient.Name}] to recipe. Amount [{ingredient.Amount}] Measurement [{ingredient.Unit}]");
+                        if (productDetails != null)
+                        {
+                            productDetails.RemoveKrogerBrandFromName();
+                            krogerProduct = new KrogerProduct
+                            {
+                                Name = productDetails.name ?? ingredient.Name,
+                                Upc = productDetails.upc ?? ingredient.Upc,
+                                Price = (decimal)(productDetails?.regularPrice ?? 0)
+                            };
+                            await _context.KrogerProducts.AddAsync(krogerProduct);
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"Added [{krogerProduct.Name}] to database.");
+                        }
+                        
+                    }
 
+                    var mappingExists = await _ingredientService.IngredientProductLinkExists((int)ingredient.IngredientId, ingredient.Upc);
+
+                    if (!mappingExists)
+                    {
+                        var hasExistingKrogerMappings = await _ingredientService.GetLinkedKrogerProductsAsync((int)ingredient.IngredientId);
+
+                        IngredientKrogerProduct krogerProductLink = new IngredientKrogerProduct
+                        {
+                            IngredientId = (int)ingredient.IngredientId,
+                            Upc = ingredient.Upc,
+                            IsDefault = hasExistingKrogerMappings.Count != 0 ? false : true
+                        };
+
+                        _context.Add(krogerProductLink);
+                    }
                 }
+
+                newRecipe.Ingredients.Add(recipeIngredient);
             }
 
             _context.Recipes.Add(newRecipe);
@@ -218,7 +279,7 @@ namespace RecipeHelper.Services
         }
 
 
-        private async Task<List<ImportPreviewIngredient>> IngredientFuzzySearch(List<PreviewImportedRecipeIngredient> ingredients, List<ProductLookup> products)
+        private async Task<List<ImportPreviewIngredient>> IngredientFuzzySearch(List<PreviewImportedRecipeIngredient> ingredients, Dictionary<string, int> allIngredients)
         {
             var ingredientList = new List<ImportPreviewIngredient>();
             var throttle = new SemaphoreSlim(5);
@@ -238,7 +299,7 @@ namespace RecipeHelper.Services
             }).ToList();
 
             var krogerResults = await Task.WhenAll(krogerTasks);
-            var krogerMap = krogerResults.ToDictionary(x => x.Name.ToLowerInvariant(), x => x.results);
+            var krogerMap = krogerResults.ToDictionary(x => x.Name, x => x.results);
 
 
             foreach (var ingredient in ingredients)
@@ -250,53 +311,58 @@ namespace RecipeHelper.Services
                     Amount = ingredient.Amount,
                 };
 
-                var ingredientName = ingredient.Name.ToLowerInvariant();
+                var ingredientName = ingredient.CleanName.ToLowerInvariant();
                 var tokens = ingredientName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Distinct().ToArray();
 
-                var dbFuzzyMatch = products
-                    .Where(p => tokens.Any(t => p.NameLower.Contains(t)))
-                    .Take(50)
-                    .Select(c => new
+                var bestIngredient = allIngredients
+                    .Where(kvp => tokens.Any(t => kvp.Key.Contains(t)))
+                    .Select(kvp => new
                     {
-                        c.Id,
-                        c.Name,
-                        c.Upc,
-                        Score = LevenshteinRatio(c.Name, ingredient.Name) // 0..1 if you wrote it that way
+                        IngredientId = kvp.Value,
+                        CanonicalName = kvp.Key,
+                        Score = LevenshteinRatio(kvp.Key, ingredientName)
                     })
-                    .Where(c => c.Score >= .5)
+                    .Where(x => x.Score >= 0.70)
                     .OrderByDescending(x => x.Score)
                     .FirstOrDefault();
 
-                if (dbFuzzyMatch != null)
+                if (bestIngredient != null)
                 {
-                    ingredientPreview.SuggestedProductId = dbFuzzyMatch.Id;
-                    ingredientPreview.SuggestedProductName = dbFuzzyMatch.Name;
-                    ingredientPreview.SuggestedProductUpc = dbFuzzyMatch.Upc;
-                    ingredientPreview.SuggestionKind = "Fuzzy";
+                    ingredientPreview.MatchedIngredientId = bestIngredient.IngredientId;
+                    ingredientPreview.MatchedCanonicalName = bestIngredient.CanonicalName;
+
+                    var defaultMap = await _context.IngredientKrogerProducts
+                        .AsNoTracking()
+                        .Where(m => m.IngredientId == bestIngredient.IngredientId && m.IsDefault)
+                        .Select(m => new { m.Upc, Name = m.KrogerProduct.Name })
+                        .FirstOrDefaultAsync();
+
+                    if (defaultMap != null)
+                    {
+                        ingredientPreview.SuggestedProductUpc = defaultMap.Upc;
+                        ingredientPreview.SuggestedProductName = defaultMap.Name;
+                    }
                 }
 
-                if (krogerMap.TryGetValue(ingredientName, out var krogerProducts) && krogerProducts != null)
-                {
-                    var krogerFuzzySearch = krogerProducts
+                var krogerProducts = krogerMap.TryGetValue(ingredient.Name, out var products);
+                var krogerFuzzySearch = products?
                     .Select(c => new
                     {
-                        c.ProductId,
-                        c.name,
-                        c.upc,
-                        Score = LevenshteinRatio(c.name, ingredient.Name) // 0..1 if you wrote it that way
+                        Name = c.name,
+                        Upc = c.upc,
+                        Score = LevenshteinRatio(c.name, ingredient.Name) 
                     })
                     .OrderByDescending(x => x.Score)
                     .FirstOrDefault();
 
-                    if (krogerFuzzySearch != null)
+                if (krogerFuzzySearch != null)
+                {
+                    ingredientPreview.Kroger = new SuggestedKrogerProductPreview
                     {
-                        ingredientPreview.Kroger = new SuggestedKrogerProductPreview
-                        {
-                            Name = krogerFuzzySearch.name,
-                            Upc = krogerFuzzySearch.upc,
-                            ImageUrl = $"https://www.kroger.com/product/images/large/front/{krogerFuzzySearch.upc}"
-                        };
-                    }
+                        Name = krogerFuzzySearch.Name,
+                        Upc = krogerFuzzySearch.Upc,
+                        ImageUrl = $"https://www.kroger.com/product/images/medium/front/{krogerFuzzySearch.Upc}"
+                    };
                 }
 
                 ingredientList.Add(ingredientPreview);
@@ -305,7 +371,8 @@ namespace RecipeHelper.Services
             return ingredientList;
         }
 
-        public record ProductLookup(int Id, string Name, string? Upc, string NameLower);
+        public record ProductLookup(string Name, string? Upc, string NameLower);
+        public record IngredientLookup(int Id, string ConicalName, List<IngredientKrogerProduct> krogerMappings);
 
     }
 }

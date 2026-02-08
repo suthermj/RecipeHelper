@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore.SqlServer;
+using Microsoft.Extensions.DependencyInjection;
+using OpenAI;
 using RecipeHelper;
 using RecipeHelper.Services;
 
@@ -19,6 +20,11 @@ builder.Services.AddScoped<ProductService, ProductService>();
 builder.Services.AddScoped<KrogerAuthService, KrogerAuthService>();
 builder.Services.AddScoped<ImportService, ImportService>();
 builder.Services.AddScoped<MeasurementService, MeasurementService>();
+builder.Services.AddScoped<IngredientsService, IngredientsService>();
+
+builder.Services.AddSingleton(new OpenAIClient(
+    apiKey: builder.Configuration["OpenAI:ApiKey"]
+));
 
 builder.Services.AddDbContext<DatabaseContext>(options =>
     options.UseSqlServer(builder.Configuration["ConnectionString"] ?? throw new InvalidOperationException("Connection string 'ConnectionString' not found.")));

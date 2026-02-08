@@ -1,5 +1,7 @@
-﻿using RecipeHelper.Models.Import;
+﻿using RecipeHelper.Models;
+using RecipeHelper.Models.Import;
 using RecipeHelper.Models.Kroger;
+using RecipeHelper.Models.RecipeModels;
 using RecipeHelper.ViewModels;
 
 namespace RecipeHelper.Utility
@@ -7,7 +9,7 @@ namespace RecipeHelper.Utility
     public static class MappingExtensions
     {
         // Example: Kroger cart item DTO -> DetailedCartItem
-        public static DetailedCartItem ToDetailedCartItem(this KrogerProduct source, int quantity = 0)
+        public static DetailedCartItem ToDetailedCartItem(this KrogerProductDto source, int quantity = 0)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
 
@@ -28,18 +30,18 @@ namespace RecipeHelper.Utility
         }
 
         // Collection version (super convenient in controllers/services)
-        public static List<DetailedCartItem> ToDetailedCartItems(this IEnumerable<KrogerProduct> source)
+        public static List<DetailedCartItem> ToDetailedCartItems(this IEnumerable<KrogerProductDto> source)
         {
             if (source == null) return new List<DetailedCartItem>();
             return source.Select(ToDetailedCartItem).ToList();
         }
 
-        public static KrogerProduct ToKrogerProduct(this KrogerProductModel source, int quantity = 0)
+        public static KrogerProductDto ToKrogerProduct(this KrogerProductModel source, int quantity = 0)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
 
             // Adjust property names based on your actual KrogerCartItem model
-            return new KrogerProduct
+            return new KrogerProductDto
             {
                 ProductId = source.productId,
                 name = source.description,
@@ -57,9 +59,9 @@ namespace RecipeHelper.Utility
         }
 
         // Collection version (super convenient in controllers/services)
-        public static List<KrogerProduct> ToKrogerProducts(this IEnumerable<KrogerProductModel> source)
+        public static List<KrogerProductDto> ToKrogerProducts(this IEnumerable<KrogerProductModel> source)
         {
-            if (source == null) return new List<KrogerProduct>();
+            if (source == null) return new List<KrogerProductDto>();
             return source.Select(ToKrogerProduct).ToList();
         }
 
@@ -72,6 +74,7 @@ namespace RecipeHelper.Utility
                 Ingredients = vm.Ingredients.Select(i => new PreviewImportedRecipeIngredient
                 {
                     Name = i.Name ?? "",
+                    CleanName = i.CleanName ?? "",
                     Amount = i.Amount ?? 0m,
                     Unit = i.Unit
                 }).ToList()
@@ -89,11 +92,13 @@ namespace RecipeHelper.Utility
                     Name = x.Name,
                     Amount = x.Amount,
                     Unit = x.Unit,
-                    SuggestedProductId = x.SuggestedProductId,
-                    SuggestedProductName = x.SuggestedProductName,
-                    SuggestedProductUpc = x.SuggestedProductUpc,
-                    SuggestionKind = x.SuggestionKind,
-                    ProductId = x.SuggestedProductId,
+                    IngredientId = x.MatchedIngredientId,
+                    CanonicalName = x.MatchedCanonicalName,
+                    SuggestedName = x.SuggestedProductName,
+                    SuggestedUpc = x.SuggestedProductUpc,
+                    SelectedName = x.SuggestedProductName,
+                    SelectedUpc = x.SuggestedProductUpc,
+                    //SelectedSource 
                     Include = true,
                     Kroger = x.Kroger is null ? null : new SuggestedKrogerProductVM
                     {
@@ -114,13 +119,46 @@ namespace RecipeHelper.Utility
                 Image = vm.Image,
                 Ingredients = vm.Ingredients.Select(i => new ImportedIngredient
                 {
-                    Name = i.Name ?? "",
+                    Name = i.Name,
+                    CanonicalName = i.CanonicalName,
+                    IngredientId = i.IngredientId,
                     Amount = i.Amount ?? 0m,
                     Unit = i.Unit,
                     Include = i.Include,
-                    ProductId = i.ProductId,
-                    UseKroger = i.UseKroger,
-                    Upc = i.KrogerUpc
+                    Upc = i.SelectedUpc,
+                    SelectedSource = i.SelectedSource
+                }).ToList()
+            };
+        }
+
+        public static CreateRecipeRequest ToRequest(this CreateRecipeVM2 vm)
+        {
+            return new CreateRecipeRequest
+            {
+                Title = (vm.Title ?? "").Trim(),
+                ImageFile = vm.ImageFile,
+                Ingredients = vm.Ingredients.Select(i => new CreateRecipeIngredientDto
+                {
+                    DisplayName = i.DisplayName ?? "",
+                    Quantity = i.Quantity, //?? 0m,
+                    MeasurementId = i.MeasurementId,
+                    SelectedKrogerUpc = i.SelectedKrogerUpc,
+                }).ToList()
+            };
+        }
+
+        public static ViewRecipeVM ToVM(this Recipe recipe)
+        {
+            return new ViewRecipeVM
+            {
+                RecipeName = (recipe.Name ?? "").Trim(),
+                ImageUri = recipe.ImageUri,
+                Ingredients = recipe.Ingredients.Select(i => new IngredientVM
+                {
+                    Name = i.DisplayName ?? "",
+                    Quantity = i.Quantity, //?? 0m,
+                    Measurement = i.Measurement.Name ?? "",
+                    Upc = i.SelectedKrogerUpc,
                 }).ToList()
             };
         }

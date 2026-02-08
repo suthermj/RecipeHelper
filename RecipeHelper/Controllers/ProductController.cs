@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
+using RecipeHelper.Models.Kroger;
 using RecipeHelper.Models.Products;
 using RecipeHelper.Services;
 
@@ -20,21 +22,22 @@ namespace RecipeHelper.Controllers
             _productService = productService;
         }
 
-        public ActionResult Products()
+        //  Returns List<ViewProductVM> Model
+        public async Task<ActionResult> Products()
         {
+            var products = await _productService.GetProductsAsync();
 
-            var products = _context.Products.Select(p => new ViewProductVM
+            var vm = products.Select(p => new ViewProductVM
             {
                 Name = p.Name,
-                Upc = p.Upc,
-                Id = p.Id,
+                Upc = p.Upc
             }).ToList();
 
-            return View(products);
+            return View(vm);
         }
 
         [HttpGet]
-        public async Task<ActionResult> ViewProduct(int productId)
+        public async Task<ActionResult> ViewProduct(string productId)
         {
             var product = await _productService.GetProductAsync(productId);
 
@@ -51,7 +54,7 @@ namespace RecipeHelper.Controllers
             if (!string.IsNullOrWhiteSpace(product.Name))
                 krogerProduct.name = product.Name;
 
-            ViewBag.ProductId = product.Id;
+            ViewBag.ProductId = product.Upc;
             return View(krogerProduct);
         }
 
@@ -110,6 +113,7 @@ namespace RecipeHelper.Controllers
                 SearchTerm = searchTerm
             });
         }
+
 
         [HttpGet]
         public async Task<IActionResult> SearchKroger(string term)
@@ -171,6 +175,15 @@ namespace RecipeHelper.Controllers
 
             // Redirect to a confirmation page or back to the product list
             return RedirectToAction("AddProduct", new ProductSearchVM());
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateProducts(List<KrogerDatabaseProduct> productsToAdd)
+        {
+            var result = await _productService.AddProducts(productsToAdd);
+
+            return Ok(result);
         }
 
         [HttpPost]

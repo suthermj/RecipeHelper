@@ -40,7 +40,7 @@ namespace RecipeHelper.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "RecipeProducts",
+                name: "Ingredients",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
@@ -68,12 +68,12 @@ namespace RecipeHelper.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_RecipeProducts_ProductId",
-                table: "RecipeProducts",
+                table: "Ingredients",
                 column: "ProductId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_RecipeProducts_RecipeId",
-                table: "RecipeProducts",
+                table: "Ingredients",
                 column: "RecipeId");
         }
 
@@ -81,7 +81,7 @@ namespace RecipeHelper.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "RecipeProducts");
+                name: "Ingredients");
 
             migrationBuilder.DropTable(
                 name: "Products");

@@ -183,6 +183,7 @@
                         {
                             var ing = Model.Preview.Ingredients[i];
                             <input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
+                            <input type="hidden" name="Ingredients[@i].CleanName" value="@ing.CleanName" />
                             <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
                             <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
                         }

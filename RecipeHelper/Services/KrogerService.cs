@@ -102,7 +102,7 @@ namespace RecipeHelper.Services
             }
         }
 
-        public async Task<List<KrogerProduct>?> SearchProductByFilter(string filterTerm)
+        public async Task<List<KrogerProductDto>?> SearchProductByFilter(string filterTerm)
         {
             var client = _httpClientFactory.CreateClient();
             var token = await GetKrogerClientCredentialsToken();
@@ -134,7 +134,7 @@ namespace RecipeHelper.Services
             return null;
         }
 
-        public async Task<KrogerProduct?> GetProductDetails(string productId)
+        public async Task<KrogerProductDto?> GetProductDetails(string productId)
         {
             var client = _httpClientFactory.CreateClient();
             var token = await GetKrogerClientCredentialsToken();
@@ -218,9 +218,11 @@ namespace RecipeHelper.Services
             {
                 var krogerProduct = await GetProductDetails(item.Upc);
 
+                var krogerPack = KrogerPackInfo.BuildPackInfo(krogerProduct);
+
                 _logger.LogInformation("Kroger product info Name: {name} SoldBy: {soldBy} SizeUnit: {sizeUnit} UnitOfMeasure: {uof}", krogerProduct.name, krogerProduct.soldBy, krogerProduct.sizeUnit, krogerProduct.unitOfMeasure);
 
-                if (krogerProduct.soldBy.Equals("UNIT", StringComparison.OrdinalIgnoreCase))
+                if (krogerPack.Dimension == PackDimension.Unit)
                 {
                     DetailedCartItem cartItem = null;
                     // ingredient measured in units (lasagna noodles / onions / ect)
@@ -234,7 +236,7 @@ namespace RecipeHelper.Services
                     {
                         try
                         {
-                            var krogerProductMeasurementUnitType = MeasurementHelper.GetMeasurementUnitType(krogerProduct.unitOfMeasure);
+                            var krogerProductMeasurementUnitType = MeasurementHelper.GetMeasurementUnitType(krogerProduct.sizeUnit);
 
                             var krogerProductNormalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(krogerProduct.sizeUnit);
                             var ingredientNormalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(item.Measurement);

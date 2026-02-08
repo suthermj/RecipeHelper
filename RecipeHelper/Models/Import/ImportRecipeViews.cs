@@ -83,9 +83,10 @@ public class ImportRecipeVM
             {
                 vm.Ingredients.Add(new ImportIngredientVM
                 {
-                    Name = FirstNonEmpty(ei.name, ei.originalName, ei.original, "UNKNOWN"),
+                    Name = FirstNonEmpty(ei.originalName, ei.name, ei.original, "UNKNOWN"),
+                    CleanName = FirstNonEmpty(ei.name, ei.originalName, ei.original, "UNKNOWN"),
                     DisplayAmount = PickAmount(ei),
-                    Amount = ei.amount,
+                    Amount = (decimal)ei.amount,
                     Unit = ei.unit
 
                 }); 
@@ -120,8 +121,9 @@ public class ImportRecipeVM
 public class ImportIngredientVM
 {
     public string Name { get; set; } = "";
+    public string CleanName { get; set; } = "";
     public string? DisplayAmount { get; set; }  // e.g. "1 cup" or "200 g"
-    public float? Amount { get; set; }          // e.g. 1 or 200
+    public decimal? Amount { get; set; }          // e.g. 1 or 200
     public string? Unit { get; set; }        // e.g. "cup" or "g"
 }
 
@@ -139,10 +141,10 @@ public class PreviewImportedRecipeVM
 
 public class PreviewImportedIngredientVM
 {
-    public string Name { get; set; } = "";   // editable
-    public decimal? Amount { get; set; }       // editable
-    public string? Unit { get; set; }        // editable
-    //public int? ProductId { get; set; }      // optional mapping to your Product
+    public string Name { get; set; } = "";  
+    public string CleanName { get; set; } = "";  
+    public decimal? Amount { get; set; }      
+    public string? Unit { get; set; }       
 }
 
 public class MappedImportedRecipeVM
@@ -167,21 +169,25 @@ public class IngredientPreviewVM
     public decimal? Amount { get; set; }   // e.g., 2
     public string? Unit { get; set; }    // e.g., "cloves", "tsp", "g"
     public bool Include { get; set; }   // whether to include this ingredient when saving
-    public int? SuggestedProductId { get; set; } // suggested product id from db during fuzzy/exact match
-    public string? SuggestedProductUpc { get; set; } // suggested product upc from db during fuzzy/exact match
-    public string? SuggestedProductName { get; set; } // suggested product name from db during fuzzy/exact match
-    public string? SuggestionKind { get; set; } // fuzzy or exact
-    public int? ProductId { get; set; } // final chosen ProductId (from suggestion or search), 0 if kroger product selected
-    public string? SelectedProductLabel { get; set; } // what to show in the search box on reload
-    public string? SelectedProductUpc { get; set; } // selected DB item's UPC (for image + rehydrate)
 
-    public string? KrogerUpc { get; set; }            // chosen Kroger UPC (suggested or search)
-    public string? KrogerName { get; set; }           // optional (for display/rehydrate)
-    public string? KrogerImage { get; set; }          // optional
-    // If true, prefer Kroger item even if ProductId is null/0
-    public bool UseKroger { get; set; } // whether user decided to use suggested Kroger product
+    // Optional: if you already matched/created a canonical ingredient in preview
+    public int? IngredientId { get; set; }              // matched ingredient id, if any
+    public string? CanonicalName { get; set; }          // matched canonical name, if any
+    public string? IngredientMatchKind { get; set; }    // "Exact", "Fuzzy", "None"
 
-    public SuggestedKrogerProductVM? Kroger { get; set; } // details if user selected Kroger option
+    // Suggested default from IngredientKrogerProduct (if exists)
+    public string? SuggestedUpc { get; set; }
+    public string? SuggestedName { get; set; }
+
+    // Kroger fallback suggestion (from API search)
+    public SuggestedKrogerProductVM? Kroger { get; set; }
+
+    // ✅ Final chosen selection (what gets saved)
+    public string? SelectedUpc { get; set; }
+    public string? SelectedName { get; set; }
+
+    // populated in ui based on how user chooses ingredient product
+    public string? SelectedSource { get; set; }         // "Suggested", "Kroger", "Unselected"
 }
 
 public class SuggestedKrogerProductVM

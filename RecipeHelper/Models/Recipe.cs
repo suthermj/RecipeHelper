@@ -11,7 +11,7 @@ namespace RecipeHelper.Models
         public int Id { get; set; }
         public required string Name { get; set; }
         public string? ImageUri { get; set; } = string.Empty;
-        public List<RecipeProduct> RecipeProducts { get; set; } = [];
+        public List<RecipeIngredient> Ingredients { get; set; } = [];
     }
 
     public class DraftRecipe
@@ -27,7 +27,7 @@ namespace RecipeHelper.Models
         public string Name { get; set; }
 
         public string? ImageUri { get; set; } = string.Empty;
-        //public List<RecipeProduct> RecipeProducts { get; set; } = new List<RecipeProduct>();
+        //public List<RecipeIngredients> Ingredients { get; set; } = new List<RecipeIngredients>();
 
         // Navigation property for the published recipe
         //public virtual Recipe? PublishedRecipe { get; set; }
@@ -42,9 +42,22 @@ namespace RecipeHelper.Models
         public List<IngredientVM> Ingredients { get; set; } = [];
     }
 
-    
+    public class CreateRecipeVM2
+    {
+        public string Title { get; set; }
+        public IFormFile? ImageFile { get; set; }
+        public List<CreateRecipeIngredientVM> Ingredients { get; set; } = new();
+    }
 
-    
+    public class CreateRecipeIngredientVM
+    {
+        public string DisplayName { get; set; } = "";   // required
+        public decimal Quantity { get; set; }           // required
+        public int? MeasurementId { get; set; }         // required-ish (or default “Count”)
+        public string? SelectedKrogerUpc { get; set; }  // optional
+    }
+
+
     public class CreateRecipeVM
     {
         public int recipeId { get; set; }

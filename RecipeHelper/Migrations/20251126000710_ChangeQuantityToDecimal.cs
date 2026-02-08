@@ -12,7 +12,7 @@ namespace RecipeHelper.Migrations
         {
             migrationBuilder.AlterColumn<decimal>(
                 name: "Quantity",
-                table: "RecipeProducts",
+                table: "Ingredients",
                 type: "decimal(10,2)",
                 nullable: false,
                 oldClrType: typeof(int),
@@ -24,7 +24,7 @@ namespace RecipeHelper.Migrations
         {
             migrationBuilder.AlterColumn<int>(
                 name: "Quantity",
-                table: "RecipeProducts",
+                table: "Ingredients",
                 type: "int",
                 nullable: false,
                 oldClrType: typeof(decimal),

@@ -12,7 +12,7 @@ namespace RecipeHelper.Models
         public decimal Price { get; set; }
 
         // Navigations
-        public List<RecipeProduct>? RecipeProducts { get; set; }
+        //public List<RecipeIngredient>? RecipeProducts { get; set; }
     }
 
     public class ProductVM

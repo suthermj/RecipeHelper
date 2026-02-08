@@ -31,9 +31,9 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
+                Ingredients = r.Ingredients.Select(rp => new IngredientVM
                 {
-                    Name = rp.Product.Name,
+                    Name = rp.DisplayName,
                     Quantity = rp.Quantity,
                 }).ToList(),
             }).ToList();
@@ -55,12 +55,12 @@ namespace RecipeHelper.Controllers
             {
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
-                Ingredients = r.RecipeProducts.Select(rp => new IngredientVM
+                Ingredients = r.Ingredients.Select(rp => new IngredientVM
                 {
-                    Id = rp.Product.Id,
-                    Name = rp.Product.Name,
+                    Id = rp.IngredientId,
+                    Name = rp.DisplayName,
                     Quantity = rp.Quantity,
-                    Upc = rp.Product.Upc,
+                    Upc = rp.SelectedKrogerUpc,
                     Measurement = rp.Measurement.Name == null ? "Count" : rp.Measurement.Name
                 }).ToList(),
             }).ToList();

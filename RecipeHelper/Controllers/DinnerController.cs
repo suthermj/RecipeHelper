@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Dinner;
+using RecipeHelper.Utility;
 
 namespace RecipeHelper.Controllers
 {
@@ -114,7 +115,6 @@ namespace RecipeHelper.Controllers
             foreach (var ingredient in ingDict)
             {
                 _logger.LogInformation("Processing ingredient ID: {ingredientId} with {count} entries", ingredient.Key, ingredient.Value.Count);
-                var measurements = _context.Measurements.ToList();
                 bool allSame = ingredient.Value.All(x => x.Measurement.Equals(ingredient.Value[0].Measurement));
 
                 if (allSame)
@@ -131,65 +131,70 @@ namespace RecipeHelper.Controllers
                 }
                 else
                 {
-                    var uniqueValues = ingredient.Value
-                        .Select(x => x.Measurement)
-                        .Distinct()
-                        .ToList();
+                    // Different measurements for the same ingredient across recipes.
+                    // Sum by dimension, then pick the best display unit.
+                    decimal totalVolumeBase = 0;
+                    decimal totalWeightBase = 0;
+                    decimal totalUnits = 0;
+                    bool hasVolume = false, hasWeight = false, hasUnit = false;
 
-                    
-                    foreach (var measurement in uniqueValues)
+                    foreach (var entry in ingredient.Value)
                     {
-                        var newAmount = 0m;
-                        var quantities = ingredient.Value
-                            .Where(x => x.Measurement.Equals(measurement))
-                            .Select(x => x.Quantity)
-                            .ToList()
-                            .Sum(); 
+                        var mu = UnitConverter.Parse(entry.Measurement);
+                        var dim = UnitConverter.GetDimension(mu);
 
-                        var measurementType = measurements
-                            .Where(m => m.Name.Equals(measurement))
-                            .Select(m => m.MeasureType)
-                            .FirstOrDefault();
+                        switch (dim)
+                        {
+                            case MeasureDimension.Volume:
+                                totalVolumeBase += UnitConverter.ToBase(entry.Quantity, mu) ?? 0;
+                                hasVolume = true;
+                                break;
+                            case MeasureDimension.Weight:
+                                totalWeightBase += UnitConverter.ToBase(entry.Quantity, mu) ?? 0;
+                                hasWeight = true;
+                                break;
+                            default:
+                                totalUnits += entry.Quantity;
+                                hasUnit = true;
+                                break;
+                        }
+                    }
 
-                        if (measurementType == null)
-                        {
-                            newAmount += quantities;
-                        }
-                        else if (measurementType.Equals("Volume"))
-                        {
-                            if (measurement.Equals("Teaspoons"))
-                            {
-                                newAmount += quantities;
-                            }
-                            else if (measurement.Equals("Tablespoons"))
-                            {
-                                newAmount += quantities * 3m;
-                            }
-                            else if (measurement.Equals("Cups"))
-                            {
-                                newAmount += quantities * 48m;
-                            }
-                        }
-                        
-                        else if (measurementType.Equals("Weight"))
-                        {
-                             if (measurement.Equals("Ounces"))
-                            {
-                                newAmount += quantities;
-                            }
-                            else if (measurement.Equals("Pounds"))
-                            {
-                                newAmount += quantities *  16m;
-                            }
-                        }
-                        
+                    if (hasVolume)
+                    {
+                        var (displayQty, displayName) = UnitConverter.PickBestVolumeDisplay(totalVolumeBase);
                         model.Ingredients.Add(new IngredientVM
                         {
                             Id = ingredient.Key,
                             Name = ingredient.Value[0].Name,
-                            Quantity = newAmount,
+                            Quantity = displayQty,
                             Upc = ingredient.Value[0].Upc,
-                            Measurement = measurement
+                            Measurement = displayName
+                        });
+                    }
+
+                    if (hasWeight)
+                    {
+                        var (displayQty, displayName) = UnitConverter.PickBestWeightDisplay(totalWeightBase);
+                        model.Ingredients.Add(new IngredientVM
+                        {
+                            Id = ingredient.Key,
+                            Name = ingredient.Value[0].Name,
+                            Quantity = displayQty,
+                            Upc = ingredient.Value[0].Upc,
+                            Measurement = displayName
+                        });
+                    }
+
+                    if (hasUnit)
+                    {
+                        model.Ingredients.Add(new IngredientVM
+                        {
+                            Id = ingredient.Key,
+                            Name = ingredient.Value[0].Name,
+                            Quantity = totalUnits,
+                            Upc = ingredient.Value[0].Upc,
+                            Measurement = "Unit"
                         });
                     }
                 }

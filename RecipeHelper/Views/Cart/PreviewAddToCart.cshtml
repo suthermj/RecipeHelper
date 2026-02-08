@@ -99,6 +99,18 @@
                                                 @item.RegularPrice.ToString("C")
                                             </div>
                                         }
+                                        @if (!string.IsNullOrWhiteSpace(item.OriginalIngredient))
+                                        {
+                                            <div class="mt-1 text-[0.65rem] text-gray-400">
+                                                Needed: @item.OriginalIngredient
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(item.ConversionNote))
+                                        {
+                                            <div class="mt-1 text-[0.65rem] text-amber-600">
+                                                &#9888; @item.ConversionNote
+                                            </div>
+                                        }
                                     </td>
                                     <td class="px-3 py-2 align-top text-right text-sm">
                                         <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />

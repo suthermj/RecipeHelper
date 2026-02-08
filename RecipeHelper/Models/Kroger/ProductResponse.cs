@@ -1,5 +1,3 @@
-﻿using RecipeHelper.Utility;
-
 namespace RecipeHelper.Models.Kroger
 {
     public class KrogerProductDto
@@ -13,23 +11,6 @@ namespace RecipeHelper.Models.Kroger
 
         public string soldBy { get; set; }
         public string size { get; set; }
-        public decimal sizeQuantity
-        {
-            get
-            {
-                return Convert.ToDecimal(size.Split(" ")[0]);
-            }
-        }
-        public string sizeUnit
-        {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(size) || size == "N/A") return null;
-                var parts = size.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 2) return null;
-                return string.Join(' ', parts.Skip(1)); // handles "fl oz"
-            }
-        }
         public string? unitOfMeasure { get; set; }
         public float regularPrice { get; set; }
         public float promoPrice { get; set; }

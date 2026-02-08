@@ -60,12 +60,13 @@ namespace RecipeHelper.Controllers
                     Name = cartItem.Name,
                     Brand = cartItem.Brand,
                     StockLevel = cartItem.StockLevel,
-                    //Size = $"{cartItem.} {product.sizeUnit}",
+                    Size = cartItem.KrogerPackSize ?? "",
                     Aisle = cartItem.Aisle ?? "",
                     RegularPrice = cartItem.RegularPrice,
                     PromoPrice = cartItem.PromoPrice,
-                    //OnSale = product.onSale,
-                    Include = true
+                    Include = true,
+                    ConversionNote = cartItem.ConversionNote,
+                    OriginalIngredient = cartItem.OriginalIngredient,
                 });
             }
 

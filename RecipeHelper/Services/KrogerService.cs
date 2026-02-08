@@ -212,88 +212,198 @@ namespace RecipeHelper.Services
         {
             List<DetailedCartItem> cartItems = new();
 
-            _logger.LogInformation("Converting [{count} ingredients to Kroger Cart items", vm.Items.Count);
+            _logger.LogInformation("Converting {count} ingredients to Kroger cart items", vm.Items.Count);
 
             foreach (var item in vm.Items)
             {
+                if (string.IsNullOrWhiteSpace(item.Upc))
+                {
+                    _logger.LogWarning("Ingredient has no UPC, skipping.");
+                    continue;
+                }
+
                 var krogerProduct = await GetProductDetails(item.Upc);
-
-                var krogerPack = KrogerPackInfo.BuildPackInfo(krogerProduct);
-
-                _logger.LogInformation("Kroger product info Name: {name} SoldBy: {soldBy} SizeUnit: {sizeUnit} UnitOfMeasure: {uof}", krogerProduct.name, krogerProduct.soldBy, krogerProduct.sizeUnit, krogerProduct.unitOfMeasure);
-
-                if (krogerPack.Dimension == PackDimension.Unit)
+                if (krogerProduct == null)
                 {
-                    DetailedCartItem cartItem = null;
-                    // ingredient measured in units (lasagna noodles / onions / ect)
-                    if (item.Measurement.Equals("UNIT", StringComparison.OrdinalIgnoreCase))
-                    {
-                        cartItem = krogerProduct.ToDetailedCartItem();
-                        cartItem.Quantity = (int)Math.Ceiling(item.Quantity);
-                        cartItems.Add(cartItem);
-                    }
-                    else
-                    {
-                        try
-                        {
-                            var krogerProductMeasurementUnitType = MeasurementHelper.GetMeasurementUnitType(krogerProduct.sizeUnit);
-
-                            var krogerProductNormalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(krogerProduct.sizeUnit);
-                            var ingredientNormalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(item.Measurement);
-                            decimal krogerProductAmountSmallestUnit = 0;
-                            decimal ingredientAmountSmallestUnit = 0;
-
-                            if (krogerProductMeasurementUnitType == "Volume")
-                            {
-                                krogerProductAmountSmallestUnit = MeasurementHelper.ConvertVolumeToBaseUnit(krogerProductNormalizedMeasurementUnit, krogerProduct.sizeQuantity);
-                                ingredientAmountSmallestUnit = MeasurementHelper.ConvertVolumeToBaseUnit(ingredientNormalizedMeasurementUnit, item.Quantity);
-
-                            }
-                            else
-                            {
-                                krogerProductAmountSmallestUnit = MeasurementHelper.ConvertWeightToBaseUnit(krogerProductNormalizedMeasurementUnit, krogerProduct.sizeQuantity);
-                                ingredientAmountSmallestUnit = MeasurementHelper.ConvertWeightToBaseUnit(ingredientNormalizedMeasurementUnit, item.Quantity);
-                            }
-
-                            if (krogerProductAmountSmallestUnit == null || ingredientAmountSmallestUnit == null)
-                            {
-                                _logger.LogInformation("Could not convert measurement for product " + item.Upc + ", skipping.");
-                                cartItem = krogerProduct.ToDetailedCartItem();
-                                cartItem.Quantity = 0;
-                                cartItems.Add(cartItem);
-                                continue;
-                            }
-
-                            var quantityNeeded = (int)Math.Ceiling(ingredientAmountSmallestUnit / krogerProductAmountSmallestUnit);
-
-                            cartItem = krogerProduct.ToDetailedCartItem();
-                            cartItem.Quantity = quantityNeeded;
-                            cartItems.Add(cartItem);
-                        }
-                        catch
-                        {
-                            _logger.LogInformation("Could not parse measurement " + item.Measurement + " for product " + item.Upc + ", skipping.");
-                            continue;
-
-                        }
-                    }
+                    _logger.LogWarning("Could not fetch product details for UPC {upc}, skipping.", item.Upc);
+                    continue;
                 }
-                // usually produce or deli items
-                else if (krogerProduct.soldBy.Equals("WEIGHT", StringComparison.OrdinalIgnoreCase))
+
+                var pack = KrogerPackInfo.BuildPackInfo(krogerProduct);
+                var cartItem = krogerProduct.ToDetailedCartItem();
+                cartItem.OriginalIngredient = $"{item.Quantity:0.##} {item.Measurement}";
+                cartItem.KrogerPackSize = krogerProduct.size;
+                string? conversionNote = null;
+
+                _logger.LogInformation(
+                    "Converting: {qty} {meas} → Kroger '{name}' (size={size}, soldBy={soldBy}, dim={dim})",
+                    item.Quantity, item.Measurement, krogerProduct.name, krogerProduct.size,
+                    pack.SoldByEffective, pack.Dimension);
+
+                var ingredientUnit = UnitConverter.Parse(item.Measurement);
+                var ingredientDim = UnitConverter.GetDimension(ingredientUnit);
+
+                // If product size couldn't be parsed, fall back to raw quantity
+                if (!pack.ParsedOk)
                 {
-
-                    DetailedCartItem cartItem = krogerProduct.ToDetailedCartItem();
-                    cartItem.Quantity = (int)Math.Ceiling(item.Quantity);
-                    cartItems.Add(cartItem);
+                    cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
+                    conversionNote = "Could not parse product size, using ingredient quantity as-is";
+                    _logger.LogWarning("Could not parse size '{size}' for UPC {upc}", krogerProduct.size, item.Upc);
                 }
+                // BRANCH 1: Weight-sold items (produce/deli priced per-lb)
+                // Kroger expects quantity in the unit they price by (usually lb)
+                else if (pack.SoldByEffective.Equals("WEIGHT", StringComparison.OrdinalIgnoreCase))
+                {
+                    cartItem.Quantity = ConvertForWeightSoldItem(item, ingredientUnit, ingredientDim, krogerProduct.name, out conversionNote);
+                }
+                // BRANCH 2: Both ingredient and product are count-based
+                else if (ingredientDim == MeasureDimension.Count &&
+                         (pack.Dimension == PackDimension.Unit || pack.Dimension == PackDimension.Composite))
+                {
+                    var packCount = pack.CountEach ?? pack.PrimaryQty ?? 1;
+                    cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity / packCount));
+                }
+                // BRANCH 3: Ingredient is count-based but product is weight/volume
+                else if (ingredientDim == MeasureDimension.Count)
+                {
+                    cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
+                    conversionNote = $"Ingredient is counted but product is sold by {pack.Dimension} — using raw count";
+                }
+                // BRANCH 4: Same dimension (both volume or both weight)
+                else if (AreSameDimension(ingredientDim, pack.Dimension))
+                {
+                    cartItem.Quantity = ConvertSameDimension(item, ingredientUnit, pack, out conversionNote);
+                }
+                // BRANCH 5: Cross-dimension (volume ↔ weight)
+                else if (IsCrossDimension(ingredientDim, pack.Dimension))
+                {
+                    cartItem.Quantity = ConvertCrossDimension(item, ingredientUnit, ingredientDim, pack, krogerProduct.name, out conversionNote);
+                }
+                // BRANCH 6: Fallback
                 else
                 {
-                    _logger.LogInformation("Product " + krogerProduct.upc + " is not sold by unit, skipping for now.");
+                    cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
+                    conversionNote = "Could not determine conversion method";
                 }
 
+                cartItem.ConversionNote = conversionNote;
+                cartItems.Add(cartItem);
+
+                _logger.LogInformation("Result: {qty}x '{name}' {note}",
+                    cartItem.Quantity, cartItem.Name, conversionNote ?? "OK");
             }
 
             return cartItems;
+        }
+
+        private int ConvertForWeightSoldItem(CartItemVM item, MeasureUnit ingredientUnit,
+            MeasureDimension ingredientDim, string productName, out string? conversionNote)
+        {
+            conversionNote = null;
+
+            if (ingredientDim == MeasureDimension.Weight)
+            {
+                // Convert ingredient to pounds (Kroger weight items are per-lb)
+                var inPounds = UnitConverter.Convert(item.Quantity, ingredientUnit, MeasureUnit.Pound);
+                if (inPounds.HasValue)
+                    return Math.Max(1, (int)Math.Ceiling(inPounds.Value));
+            }
+            else if (ingredientDim == MeasureDimension.Volume)
+            {
+                // Cross-dimension: try density table
+                var density = DensityTable.GetDensity(productName);
+                var teaspoons = UnitConverter.ToBase(item.Quantity, ingredientUnit);
+                if (teaspoons.HasValue)
+                {
+                    var effectiveDensity = density ?? 1.0m;
+                    var grams = DensityTable.VolumeToGrams(teaspoons.Value, effectiveDensity);
+                    var pounds = grams / 453.592m;
+
+                    if (density == null)
+                        conversionNote = "Weight-sold item: used default density (water) for volume→weight";
+
+                    return Math.Max(1, (int)Math.Ceiling(pounds));
+                }
+            }
+
+            conversionNote = "Weight-sold item: could not convert, using raw quantity";
+            return Math.Max(1, (int)Math.Ceiling(item.Quantity));
+        }
+
+        private static int ConvertSameDimension(CartItemVM item, MeasureUnit ingredientUnit,
+            KrogerPackInfo pack, out string? conversionNote)
+        {
+            conversionNote = null;
+
+            var krogerUnit = UnitConverter.Parse(pack.PrimaryUnit);
+            var ingredientBase = UnitConverter.ToBase(item.Quantity, ingredientUnit);
+            var krogerBase = UnitConverter.ToBase(pack.PrimaryQty ?? 0, krogerUnit);
+
+            if (ingredientBase.HasValue && krogerBase.HasValue && krogerBase.Value > 0)
+            {
+                var ratio = ingredientBase.Value / krogerBase.Value;
+                return Math.Max(1, (int)Math.Ceiling(ratio));
+            }
+
+            conversionNote = "Same dimension but could not compute ratio";
+            return Math.Max(1, (int)Math.Ceiling(item.Quantity));
+        }
+
+        private int ConvertCrossDimension(CartItemVM item, MeasureUnit ingredientUnit,
+            MeasureDimension ingredientDim, KrogerPackInfo pack, string productName,
+            out string? conversionNote)
+        {
+            conversionNote = null;
+
+            var krogerUnit = UnitConverter.Parse(pack.PrimaryUnit);
+            var density = DensityTable.GetDensity(productName);
+            var effectiveDensity = density ?? 1.0m;
+
+            if (density == null)
+                conversionNote = "Cross-dimension: used default density (water) — review quantity";
+
+            decimal ingredientGrams;
+            decimal krogerGrams;
+
+            if (ingredientDim == MeasureDimension.Volume)
+            {
+                // Ingredient is volume, product is weight
+                var tsp = UnitConverter.ToBase(item.Quantity, ingredientUnit);
+                ingredientGrams = DensityTable.VolumeToGrams(tsp ?? 0, effectiveDensity);
+                krogerGrams = UnitConverter.ToBase(pack.PrimaryQty ?? 0, krogerUnit) ?? 0;
+            }
+            else
+            {
+                // Ingredient is weight, product is volume
+                ingredientGrams = UnitConverter.ToBase(item.Quantity, ingredientUnit) ?? 0;
+                var krogerTsp = UnitConverter.ToBase(pack.PrimaryQty ?? 0, krogerUnit);
+                krogerGrams = DensityTable.VolumeToGrams(krogerTsp ?? 0, effectiveDensity);
+            }
+
+            if (krogerGrams > 0)
+            {
+                var ratio = ingredientGrams / krogerGrams;
+                return Math.Max(1, (int)Math.Ceiling(ratio));
+            }
+
+            conversionNote = "Cross-dimension: could not compute ratio";
+            return Math.Max(1, (int)Math.Ceiling(item.Quantity));
+        }
+
+        private static bool AreSameDimension(MeasureDimension ingredientDim, PackDimension packDim)
+        {
+            return (ingredientDim == MeasureDimension.Volume &&
+                    (packDim == PackDimension.Volume || packDim == PackDimension.Composite)) ||
+                   (ingredientDim == MeasureDimension.Weight &&
+                    (packDim == PackDimension.Weight || packDim == PackDimension.Composite));
+        }
+
+        private static bool IsCrossDimension(MeasureDimension ingredientDim, PackDimension packDim)
+        {
+            return (ingredientDim == MeasureDimension.Volume &&
+                    (packDim == PackDimension.Weight)) ||
+                   (ingredientDim == MeasureDimension.Weight &&
+                    (packDim == PackDimension.Volume));
         }
 
         public async Task<List<DetailedCartItem>?> GetKrogerCartItemsAsync(string accessToken)

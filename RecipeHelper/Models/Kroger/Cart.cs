@@ -59,6 +59,9 @@ namespace RecipeHelper.Models.Kroger
         public int Quantity { get; set; }
         public string Brand { get; set; }
         public List<string> Categories { get; set; }
+        public string? ConversionNote { get; set; }
+        public string? OriginalIngredient { get; set; }
+        public string? KrogerPackSize { get; set; }
     }
 
     public class AddToCartPreviewItemVM
@@ -78,6 +81,8 @@ namespace RecipeHelper.Models.Kroger
         }
         public bool Include { get; set; } = true;      // checkbox in UI
         public string StockLevel { get; set; }
+        public string? ConversionNote { get; set; }
+        public string? OriginalIngredient { get; set; }
     }
 
     public class AddToCartPreviewVM

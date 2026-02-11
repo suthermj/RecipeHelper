@@ -87,18 +87,14 @@
                 </h2>
 
                 <!-- Search -->
-                <form method="get" class="w-full sm:w-auto">
+                <div class="w-full sm:w-auto">
                     <div class="flex w-full sm:min-w-[260px] items-center rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
                         <input type="text"
-                               name="search"
-                               value="@Context.Request.Query["search"]"
+                               id="recipeSearch"
                                placeholder="Search recipes..."
                                class="w-full bg-transparent outline-none border-none text-sm text-gray-900 placeholder-gray-400" />
-                        <button type="submit" class="ml-2 text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-                            Go
-                        </button>
                     </div>
-                </form>
+                </div>
             </div>
 
             <!-- 2-column grid on phones, scales up on larger screens -->
@@ -108,7 +104,8 @@
                     <a asp-controller="Recipe"
                        asp-action="ViewRecipe"
                        asp-route-id="@recipe.Id"
-                       class="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
+                       data-recipe-name="@recipe.RecipeName"
+                       class="recipe-card group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
                               hover:shadow-md transition hover:-translate-y-0.5">
 
                         <!-- Slightly shorter image to keep cards compact -->
@@ -146,3 +143,18 @@
         </section>
     }
 </div>
+
+<script>
+    (function () {
+        const input = document.getElementById('recipeSearch');
+        if (!input) return;
+
+        input.addEventListener('input', function () {
+            const term = this.value.toLowerCase().trim();
+            document.querySelectorAll('.recipe-card').forEach(card => {
+                const name = (card.dataset.recipeName || '').toLowerCase();
+                card.style.display = name.includes(term) ? '' : 'none';
+            });
+        });
+    })();
+</script>

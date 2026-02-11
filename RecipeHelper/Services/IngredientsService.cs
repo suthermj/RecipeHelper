@@ -117,13 +117,30 @@ namespace RecipeHelper.Services
                 ct
             );
 
-            var text = completion.Value.Content[0].Text;
+            var text = StripMarkdownFences(completion.Value.Content[0].Text);
 
             var result = JsonSerializer.Deserialize<CanonicalizeResult>(text)
                          ?? throw new InvalidOperationException("Invalid JSON from OpenAI");
             result.CanonicalName = Normalize(result.CanonicalName);
 
             return result;
+        }
+
+        private static string StripMarkdownFences(string text)
+        {
+            text = (text ?? "").Trim();
+            if (text.StartsWith("```"))
+            {
+                // Remove opening fence (e.g. ```json)
+                var firstNewline = text.IndexOf('\n');
+                if (firstNewline >= 0)
+                    text = text[(firstNewline + 1)..];
+
+                // Remove closing fence
+                if (text.EndsWith("```"))
+                    text = text[..^3];
+            }
+            return text.Trim();
         }
 
         private static string Normalize(string s){
@@ -188,7 +205,7 @@ namespace RecipeHelper.Services
                 ct
             );
 
-            var text = completion.Value.Content[0].Text;
+            var text = StripMarkdownFences(completion.Value.Content[0].Text);
 
             var result = JsonSerializer.Deserialize<IngredientParseResponse>(text)
                          ?? throw new InvalidOperationException("Invalid JSON from OpenAI");

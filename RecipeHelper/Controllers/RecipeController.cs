@@ -74,30 +74,33 @@ namespace RecipeHelper.Controllers
         [HttpGet]
         public async Task<ActionResult> CreateEditRecipe(int? id)
         {
-            if (id == null)
-            {
-                ViewBag.Measurements = _context.Measurements
+            ViewBag.Measurements = _context.Measurements
                     .Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Name })
                     .ToList();
+
+            if (id == null)
+            {
                 return View("Create", new CreateRecipeVM2());
             }
             else
             {
-                var recipe = await _context.Recipes.Where(r => r.Id == id).Select(r => new CreateRecipeVM
+                var recipe = await _context.Recipes.Where(r => r.Id == id).Select(r => new EditRecipeVM
                 {
-                    recipeId = r.Id,
-                    recipeName = r.Name,
-                    imageUri = r.ImageUri,
-                    ingredients = r.Ingredients.Select(rp => new IngredientVM
+                    RecipeId = r.Id,
+                    Title = r.Name,
+                    ImageUri = r.ImageUri,
+                    Ingredients = r.Ingredients.Select(rp => new EditRecipeIngredientVM
                     {
                         Id = rp.Id,
+                        DisplayName = rp.DisplayName,
                         Quantity = rp.Quantity,
+                        MeasurementId = rp.MeasurementId,
+                        SelectedKrogerUpc = rp.SelectedKrogerUpc,
+                        IngredientId = rp.IngredientId
                     }).ToList(),
                 }).FirstOrDefaultAsync();
 
-                recipe.modifying = true;
-
-                return View(recipe);
+                return View("Edit", recipe);
             }
         }
 
@@ -131,131 +134,31 @@ namespace RecipeHelper.Controllers
             }
 
             if (recipeExists) return View("Create", vm);
+
             var recipe = await _recipeService.CreateRecipe(vm.ToRequest());
+
 
             return RedirectToAction("ViewRecipe", new { Id = recipe.Id });
 
         }
 
-        public async Task<ActionResult> CreateEditRecipeForm(CreateRecipeVM newRecipe)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> EditRecipe(EditRecipeVM vm)
         {
-            var recipeExists = await _context.Recipes.Where(r => r.Name.Equals(newRecipe.recipeName)).FirstOrDefaultAsync();
-
-            if (recipeExists != null && !newRecipe.modifying)
+            if (!ModelState.IsValid)
             {
-                _logger.LogInformation($"Recipe name [{newRecipe.recipeName}] already exists");
-                TempData["ErrorMessage"] = "Please correct the errors before proceeding.";
-                return RedirectToAction("CreateEditRecipe");
+                ViewBag.Measurements = _context.Measurements
+                    .Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Name })
+                    .ToList();
+
+                return View("Edit", vm);
             }
 
-            var allProducts = _context.Products.Select(p => new ProductVM
-            {
-                Name = p.Name,
-                Upc = p.Upc,
-                Id = p.Id
-            }).ToList();
+            var update = await _recipeService.UpdateRecipeAsync(vm.ToRequest());
 
-            var availableMeasurements = _context.Measurements.Select(m => new SelectListItem
-            {
-                Value = m.Id.ToString(),
-                Text = m.Name
-            }).ToList();
+            return RedirectToAction("ViewRecipe", new { Id = vm.RecipeId });
 
-            if (newRecipe.modifying)
-            {
-                var publishedRecipe = _context.Recipes
-                    .Include(r => r.Ingredients)
-                    .ThenInclude(rp => rp.SelectedKrogerProduct)
-                    .FirstOrDefault(r => r.Id == newRecipe.recipeId);
-
-                var currentIngredients = publishedRecipe.Ingredients.Select(rp => new ProductVM
-                {
-                    Id = rp.IngredientId,
-                    Name = rp.DisplayName,
-                    Upc = rp.SelectedKrogerUpc,
-                    Quantity = rp.Quantity,
-                    MeasurementId = rp.MeasurementId
-                }).ToList();
-
-                var currentIngredientIds = publishedRecipe.Ingredients.Select(rp => rp.IngredientId).ToHashSet();
-
-                var filteredAllProducts = allProducts.Where(p => !currentIngredientIds.Contains(p.Id)).ToList();
-
-                var draftRecipe = new DraftRecipe();
-                draftRecipe.Name = newRecipe.recipeName;
-                draftRecipe.PublishedRecipeId = publishedRecipe.Id;
-                draftRecipe.ImageUri = publishedRecipe.ImageUri;
-
-                // Detects new recipe image
-                if (newRecipe.imageFile != null)
-                {
-                    StoreImageBlobResponse newImageBlobResponse = new();
-                    if (newRecipe.imageFile != null)
-                    {
-                        _logger.LogInformation($"storing recipe image in blob storage [{newRecipe.imageFile.FileName}]");
-                        newImageBlobResponse = await _storageService.StoreRecipeImage(newRecipe.imageFile);
-                    }
-                    draftRecipe.ImageUri = newImageBlobResponse.BlobUri;
-                }
-
-                try
-                {
-                    _context.DraftRecipes.Add(draftRecipe);
-                    _context.SaveChanges();
-                }
-                catch (Exception ex)
-                {
-                    return BadRequest(ex.Message);
-                }
-
-                ModifyIngredientsVM vm = new ModifyIngredientsVM
-                {
-                    publishedRecipeId = publishedRecipe.Id,
-                    RecipeId = draftRecipe.Id,
-                    CurrentIngredients = currentIngredients,
-                    AllProducts = filteredAllProducts,
-                    AvailableMeasurements = availableMeasurements
-                };
-
-                return View("ModifyIngredients", vm);
-
-            }
-            else
-            {
-                StoreImageBlobResponse blobResponse = new();
-                if (newRecipe.imageFile != null)
-                {
-                    _logger.LogInformation($"storing recipe image in blob storage [{newRecipe.imageFile.FileName}]");
-                    blobResponse = await _storageService.StoreRecipeImage(newRecipe.imageFile);
-                }
-
-                var recipe = new Recipe
-                {
-                    Name = newRecipe.recipeName,
-                    ImageUri = blobResponse.BlobUri,
-                };
-
-                try
-                {
-                    _context.Recipes.Add(recipe);
-                    _context.SaveChanges();
-                }
-                catch (Exception ex)
-                {
-                    return BadRequest(ex.Message);
-                }
-
-                var vm = new IngredientsVM
-                {
-                    RecipeId = recipe.Id,
-                    RecipeName = recipe.Name,
-                    ImageUri = recipe.ImageUri,
-                    Ingredients = allProducts,
-                    AvailableMeasurements = availableMeasurements
-                };
-
-                return View("ProductToChoose", vm);
-            }
         }
 
         [HttpPost("{id}")]

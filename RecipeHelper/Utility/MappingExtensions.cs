@@ -131,6 +131,25 @@ namespace RecipeHelper.Utility
             };
         }
 
+        public static EditRecipeRequest ToRequest(this EditRecipeVM vm)
+        {
+            return new EditRecipeRequest
+            {
+                Id = vm.RecipeId,
+                Title = (vm.Title ?? "").Trim(),
+                ImageFile = vm.ImageFile,
+                Ingredients = vm.Ingredients.Select(i => new EditRecipeIngredientDto
+                {
+                    Id = i.Id,
+                    DisplayName = i.DisplayName ?? "",
+                    Quantity = i.Quantity,
+                    MeasurementId = i.MeasurementId,
+                    IngredientId = i.IngredientId,
+                    SelectedKrogerUpc = i.SelectedKrogerUpc,
+                }).ToList()
+            };
+        }
+
         public static CreateRecipeRequest ToRequest(this CreateRecipeVM2 vm)
         {
             return new CreateRecipeRequest

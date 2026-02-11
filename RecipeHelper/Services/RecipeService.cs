@@ -44,108 +44,146 @@ namespace RecipeHelper.Services
                 newRecipe.ImageUri = blobResponse.BlobUri;
             }
 
-            var currentProducts = await _context.KrogerProducts.Select(p => new KrogerProduct
-            {
-                Upc = p.Upc,
-                Name = p.Name
-            }).AsNoTracking()
-            .ToListAsync();
-
-            // Process each ingredient
             foreach (var ingredient in request.Ingredients)
             {
-                var conicalResult = await _ingredientService.CanonicalizeAsync(ingredient.DisplayName, CancellationToken.None);
-                var canonicalIngredient = await _ingredientService.GetIngredientByCanonical(conicalResult.CanonicalName);
+                var resolved = await ResolveIngredientAsync(ingredient.DisplayName, ingredient.SelectedKrogerUpc);
 
-                // selected kroger product does not exist in db, fetch and add it
-                if (ingredient.SelectedKrogerUpc != null && !currentProducts.Where(p => p.Upc == ingredient.SelectedKrogerUpc).Any())
+                newRecipe.Ingredients.Add(new RecipeIngredient
                 {
-                    var krogerProduct = await _krogerService.GetProductDetails(ingredient.SelectedKrogerUpc);
-                    if (krogerProduct != null)
-                    {
-                        // Add the new product to the database
-                        var newKrogerProduct = new KrogerProduct
-                        {
-                            Upc = krogerProduct.upc,
-                            Name = krogerProduct.name,
-                        };
-                        _context.KrogerProducts.Add(newKrogerProduct);
-                        await _context.SaveChangesAsync();
-                    }
-                }
-
-                if (canonicalIngredient == null)
-                {
-                    // Create new Ingredient entry
-                    var newIngredient = new Ingredient
-                    {
-                        CanonicalName = conicalResult.CanonicalName,
-                        DefaultDisplayName = ingredient.DisplayName
-                    };
-                    _context.Ingredients.Add(newIngredient);
-                    await _context.SaveChangesAsync();
-
-                    var recipeIngredient = new RecipeIngredient
-                    {
-                        DisplayName = ingredient.DisplayName,
-                        Quantity = ingredient.Quantity,
-                        MeasurementId = ingredient.MeasurementId,
-                        SelectedKrogerUpc = ingredient.SelectedKrogerUpc,
-                        IngredientId = newIngredient.Id
-                    };
-
-                    if (!String.IsNullOrEmpty(ingredient.SelectedKrogerUpc))
-                    {
-                        IngredientKrogerProduct krogerProductLink = new IngredientKrogerProduct
-                        {
-                            IngredientId = newIngredient.Id,
-                            Upc = ingredient.SelectedKrogerUpc,
-                            IsDefault = true
-                        };
-
-                        _context.Add(krogerProductLink);
-                    }
-                    
-                    newRecipe.Ingredients.Add(recipeIngredient);
-                }
-                else
-                {
-                    var recipeIngredient = new RecipeIngredient
-                    {
-                        DisplayName = ingredient.DisplayName,
-                        Quantity = ingredient.Quantity,
-                        MeasurementId = ingredient.MeasurementId,
-                        SelectedKrogerUpc = ingredient.SelectedKrogerUpc,
-                        IngredientId = canonicalIngredient.Id
-                    };
-
-                    if (!String.IsNullOrEmpty(ingredient.SelectedKrogerUpc))
-                    {
-                        var ingredientHasExistingMapping = await _ingredientService.GetLinkedKrogerProductsAsync(canonicalIngredient.Id);
-
-                        IngredientKrogerProduct krogerProductLink = new IngredientKrogerProduct
-                        {
-                            IngredientId = canonicalIngredient.Id,
-                            Upc = ingredient.SelectedKrogerUpc,
-                            IsDefault = ingredientHasExistingMapping.Count != 0 ? false : true
-                        };
-
-                        _context.Add(krogerProductLink);
-
-                    }
-
-                    newRecipe.Ingredients.Add(recipeIngredient);
-                }
-
+                    DisplayName = ingredient.DisplayName,
+                    Quantity = ingredient.Quantity,
+                    MeasurementId = ingredient.MeasurementId,
+                    SelectedKrogerUpc = ingredient.SelectedKrogerUpc,
+                    IngredientId = resolved.Id
+                });
             }
-            // Save the new recipe to the database
+
             _context.Recipes.Add(newRecipe);
             await _context.SaveChangesAsync();
 
             return newRecipe;
         }
 
-        
+        /// <summary>
+        /// Canonicalizes a display name to find or create an Ingredient record,
+        /// ensures the Kroger product exists in DB, and links ingredient ↔ product.
+        /// </summary>
+        private async Task<Ingredient> ResolveIngredientAsync(string displayName, string? krogerUpc)
+        {
+            var canonResult = await _ingredientService.CanonicalizeAsync(displayName, CancellationToken.None);
+            var ingredient = await _ingredientService.GetIngredientByCanonical(canonResult.CanonicalName);
+
+            if (ingredient == null)
+            {
+                ingredient = new Ingredient
+                {
+                    CanonicalName = canonResult.CanonicalName,
+                    DefaultDisplayName = displayName
+                };
+                _context.Ingredients.Add(ingredient);
+                await _context.SaveChangesAsync();
+            }
+
+            if (!string.IsNullOrEmpty(krogerUpc))
+            {
+                var productExists = await _context.KrogerProducts.AnyAsync(p => p.Upc == krogerUpc);
+                if (!productExists)
+                {
+                    var krogerProduct = await _krogerService.GetProductDetails(krogerUpc);
+                    if (krogerProduct != null)
+                    {
+                        _context.KrogerProducts.Add(new KrogerProduct
+                        {
+                            Upc = krogerProduct.upc,
+                            Name = krogerProduct.name,
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                }
+
+                var linkExists = await _context.IngredientKrogerProducts
+                    .AnyAsync(l => l.IngredientId == ingredient.Id && l.Upc == krogerUpc);
+
+                if (!linkExists)
+                {
+                    var existingLinks = await _ingredientService.GetLinkedKrogerProductsAsync(ingredient.Id);
+                    _context.Add(new IngredientKrogerProduct
+                    {
+                        IngredientId = ingredient.Id,
+                        Upc = krogerUpc,
+                        IsDefault = existingLinks.Count == 0
+                    });
+                }
+            }
+
+            return ingredient;
+        }
+
+        public async Task<Recipe> UpdateRecipeAsync(EditRecipeRequest request)
+        {
+            _logger.LogInformation("[UpdateRecipe] Updating recipe {RecipeId}", request.Id);
+
+            var recipe = await _context.Recipes
+                .Include(r => r.Ingredients)
+                .FirstOrDefaultAsync(r => r.Id == request.Id);
+
+            if (recipe == null)
+            {
+                _logger.LogWarning("[UpdateRecipe] Recipe {RecipeId} not found", request.Id);
+                return null;
+            }
+
+            recipe.Name = request.Title;
+            _logger.LogInformation("[UpdateRecipe] Recipe {RecipeId} title set to [{Title}]", recipe.Id, request.Title);
+
+            if (request.ImageFile != null && request.ImageFile.Length > 0)
+            {
+                _logger.LogInformation("[UpdateRecipe] Uploading new image [{FileName}] for recipe {RecipeId}", request.ImageFile.FileName, recipe.Id);
+                var blobResponse = await _storageService.StoreRecipeImage(request.ImageFile);
+                recipe.ImageUri = blobResponse.BlobUri;
+            }
+
+            var existingById = recipe.Ingredients.ToDictionary(i => i.Id);
+            var incomingIds = request.Ingredients.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
+
+            var toRemove = recipe.Ingredients.Where(i => !incomingIds.Contains(i.Id)).ToList();
+            foreach (var removed in toRemove)
+            {
+                _logger.LogInformation("[UpdateRecipe] Removing ingredient {IngredientRowId} [{DisplayName}] from recipe {RecipeId}", removed.Id, removed.DisplayName, recipe.Id);
+            }
+            _context.RecipeIngredients.RemoveRange(toRemove);
+
+            foreach (var dto in request.Ingredients)
+            {
+                if (dto.Id > 0 && existingById.TryGetValue(dto.Id, out var existing))
+                {
+                    _logger.LogInformation("[UpdateRecipe] Updating existing ingredient {IngredientRowId} [{DisplayName}]", existing.Id, dto.DisplayName);
+                    existing.DisplayName = dto.DisplayName;
+                    existing.Quantity = dto.Quantity;
+                    existing.MeasurementId = dto.MeasurementId;
+                    existing.SelectedKrogerUpc = dto.SelectedKrogerUpc;
+                    existing.IngredientId = dto.IngredientId;
+                }
+                else
+                {
+                    _logger.LogInformation("[UpdateRecipe] Adding new ingredient [{DisplayName}] to recipe {RecipeId}", dto.DisplayName, recipe.Id);
+                    var resolved = await ResolveIngredientAsync(dto.DisplayName, dto.SelectedKrogerUpc);
+
+                    recipe.Ingredients.Add(new RecipeIngredient
+                    {
+                        RecipeId = recipe.Id,
+                        DisplayName = dto.DisplayName,
+                        Quantity = dto.Quantity,
+                        MeasurementId = dto.MeasurementId,
+                        SelectedKrogerUpc = dto.SelectedKrogerUpc,
+                        IngredientId = resolved.Id
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("[UpdateRecipe] Recipe {RecipeId} saved successfully", recipe.Id);
+            return recipe;
+        }
     }
 }
-

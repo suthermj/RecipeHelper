@@ -49,12 +49,31 @@ namespace RecipeHelper.Models
         public List<CreateRecipeIngredientVM> Ingredients { get; set; } = new();
     }
 
+    public class EditRecipeVM
+    {
+        public int RecipeId { get; set; }
+        public string Title { get; set; }
+        public string? ImageUri { get; set; }
+        public IFormFile? ImageFile { get; set; }
+        public List<EditRecipeIngredientVM> Ingredients { get; set; } = new();
+    }
+
     public class CreateRecipeIngredientVM
     {
         public string DisplayName { get; set; } = "";   // required
         public decimal Quantity { get; set; }           // required
         public int? MeasurementId { get; set; }         // required-ish (or default “Count”)
         public string? SelectedKrogerUpc { get; set; }  // optional
+    }
+
+    public class EditRecipeIngredientVM
+    {
+        public int Id { get; set; }                     // RecipeIngredient PK (0 = new row)
+        public string DisplayName { get; set; } = "";   // required
+        public decimal Quantity { get; set; }           // required
+        public int? MeasurementId { get; set; }         // required-ish (or default "Count")
+        public string? SelectedKrogerUpc { get; set; }  // optional
+        public int IngredientId { get; set; }           // FK to Ingredient table
     }
 
 

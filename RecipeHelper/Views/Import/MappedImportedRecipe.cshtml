@@ -69,6 +69,15 @@
 
         <input type="hidden" name="Image" value="@Model.Image" />
 
+        @* Steps (hidden) *@
+        @if (Model.Steps != null)
+        {
+            @for (var i = 0; i < Model.Steps.Count; i++)
+            {
+                <input type="hidden" name="Steps[@i]" value="@Model.Steps[i]" />
+            }
+        }
+
         @* Ingredient cards *@
         <section class="space-y-4">
             @for (var i = 0; i < Model.Ingredients.Count; i++)

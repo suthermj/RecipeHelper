@@ -148,6 +148,40 @@
             </div>
         </div>
 
+        <!-- Instructions -->
+        <div class="bg-white rounded-2xl shadow p-6">
+            <div class="flex items-center justify-between gap-3 mb-2">
+                <h2 class="text-lg font-semibold">Instructions</h2>
+
+                <button type="button"
+                        id="addStepBtn"
+                        class="inline-flex items-center rounded-lg bg-gray-900 text-white px-3 py-2 text-sm hover:bg-black">
+                    + Add step
+                </button>
+            </div>
+
+            <p class="text-sm text-gray-600 mb-6">
+                Add step-by-step cooking instructions. Drag to reorder if needed.
+            </p>
+
+            <div id="stepsContainer" class="space-y-3">
+                @if (Model.Instructions != null)
+                {
+                    @for (int i = 0; i < Model.Instructions.Count; i++)
+                    {
+                        <div class="step-row flex items-start gap-3" data-step-index="@i">
+                            <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white text-sm font-bold mt-1">@(i + 1)</span>
+                            <textarea name="Instructions[@i]"
+                                      rows="2"
+                                      class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                                      placeholder="Describe this step...">@Model.Instructions[i]</textarea>
+                            <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1">Remove</button>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
         <!-- Submit -->
         <div class="flex items-center justify-end gap-3">
             <a asp-action="Index" asp-controller="Recipe"
@@ -474,6 +508,48 @@
             Array.from(container.querySelectorAll('.ingredient-row')).forEach(row => {
                 updateProductButtonState(row);
                 updateProductStatus(row);
+            });
+
+            // --- Steps (instructions) ---
+            const stepsContainer = document.getElementById('stepsContainer');
+            const addStepBtn = document.getElementById('addStepBtn');
+
+            function nextStepIndex() {
+                return stepsContainer.querySelectorAll('.step-row').length;
+            }
+
+            function reindexSteps() {
+                const rows = Array.from(stepsContainer.querySelectorAll('.step-row'));
+                rows.forEach((row, newIndex) => {
+                    row.setAttribute('data-step-index', newIndex);
+                    const num = row.querySelector('.step-number');
+                    if (num) num.textContent = newIndex + 1;
+                    const textarea = row.querySelector('textarea');
+                    if (textarea) textarea.name = `Instructions[${newIndex}]`;
+                });
+            }
+
+            const stepTemplate = (index) => `
+                <div class="step-row flex items-start gap-3" data-step-index="${index}">
+                    <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white text-sm font-bold mt-1">${index + 1}</span>
+                    <textarea name="Instructions[${index}]"
+                              rows="2"
+                              class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                              placeholder="Describe this step..."></textarea>
+                    <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1">Remove</button>
+                </div>
+            `;
+
+            addStepBtn.addEventListener('click', function () {
+                const idx = nextStepIndex();
+                stepsContainer.insertAdjacentHTML('beforeend', stepTemplate(idx));
+            });
+
+            stepsContainer.addEventListener('click', function (e) {
+                if (e.target.classList.contains('remove-step')) {
+                    e.target.closest('.step-row').remove();
+                    reindexSteps();
+                }
             });
 
             // --- Product modal ---

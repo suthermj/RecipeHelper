@@ -78,6 +78,7 @@ namespace RecipeHelper.Controllers
             var recipePreview = await _importService.GetImportedRecipePreview(vm.ToRequest());
 
             var mappedImportRecipeVm = recipePreview.ToVm();
+            mappedImportRecipeVm.Steps = vm.Steps ?? new();
             mappedImportRecipeVm.AvailableMeasurements = await _measurementService.GetAllMeasurementsAsync()
                 .ContinueWith(t => t.Result.Select(m => new SelectListItem
                 {

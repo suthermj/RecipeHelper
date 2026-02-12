@@ -8,6 +8,7 @@ namespace RecipeHelper.Models.RecipeModels
 
         public IFormFile? ImageFile { get; set; }
         public List<CreateRecipeIngredientDto> Ingredients { get; set; } = new();
+        public List<string> Instructions { get; set; } = new();
     }
 
     public class CreateRecipeIngredientDto

@@ -11,6 +11,7 @@ namespace RecipeHelper.Models.Import
 
         [MinLength(1)]
         public List<ImportedIngredient> Ingredients { get; set; } = new();
+        public List<string> Steps { get; set; } = new();
     }
 
     public class ImportedIngredient

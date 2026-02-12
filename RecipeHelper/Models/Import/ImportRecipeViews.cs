@@ -136,7 +136,7 @@ public class PreviewImportedRecipeVM
     public string? Image { get; set; }
 
     public List<PreviewImportedIngredientVM> Ingredients { get; set; } = new();
-
+    public List<string> Steps { get; set; } = new();
 }
 
 public class PreviewImportedIngredientVM
@@ -157,6 +157,7 @@ public class MappedImportedRecipeVM
     // Each imported ingredient with suggestions + Kroger fallback
     [MinLength(1)]
     public List<IngredientPreviewVM> Ingredients { get; set; } = new();
+    public List<string> Steps { get; set; } = new();
     public IEnumerable<SelectListItem> AvailableMeasurements { get; set; }
 }
 

@@ -1,4 +1,5 @@
-﻿using RecipeHelper.Models;
+﻿using System.Text.Json;
+using RecipeHelper.Models;
 using RecipeHelper.Models.Import;
 using RecipeHelper.Models.Kroger;
 using RecipeHelper.Models.RecipeModels;
@@ -127,7 +128,8 @@ namespace RecipeHelper.Utility
                     Include = i.Include,
                     Upc = i.SelectedUpc,
                     SelectedSource = i.SelectedSource
-                }).ToList()
+                }).ToList(),
+                Steps = vm.Steps ?? new()
             };
         }
 
@@ -146,7 +148,8 @@ namespace RecipeHelper.Utility
                     MeasurementId = i.MeasurementId,
                     IngredientId = i.IngredientId,
                     SelectedKrogerUpc = i.SelectedKrogerUpc,
-                }).ToList()
+                }).ToList(),
+                Instructions = vm.Instructions ?? new()
             };
         }
 
@@ -162,7 +165,8 @@ namespace RecipeHelper.Utility
                     Quantity = i.Quantity, //?? 0m,
                     MeasurementId = i.MeasurementId,
                     SelectedKrogerUpc = i.SelectedKrogerUpc,
-                }).ToList()
+                }).ToList(),
+                Instructions = vm.Instructions ?? new()
             };
         }
 
@@ -178,7 +182,10 @@ namespace RecipeHelper.Utility
                     Quantity = i.Quantity, //?? 0m,
                     Measurement = i.Measurement.Name ?? "",
                     Upc = i.SelectedKrogerUpc,
-                }).ToList()
+                }).ToList(),
+                Instructions = string.IsNullOrEmpty(recipe.Instructions)
+                    ? new()
+                    : JsonSerializer.Deserialize<List<string>>(recipe.Instructions) ?? new()
             };
         }
     }

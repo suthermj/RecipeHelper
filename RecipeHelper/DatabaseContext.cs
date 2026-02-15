@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Reflection.Emit;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
 using RecipeHelper.Models.IngredientModels;
 using RecipeHelper.Models.Kroger;
@@ -44,7 +42,6 @@ namespace RecipeHelper
         }
 
         public DbSet<Recipe> Recipes { get; set; }
-        public DbSet<Product> Products { get; set; }
         public DbSet<RecipeIngredient> RecipeProducts { get; set; }
         public DbSet<Ingredient> Ingredients => Set<Ingredient>();
         public DbSet<KrogerProduct> KrogerProducts => Set<KrogerProduct>();
@@ -52,8 +49,6 @@ namespace RecipeHelper
         public DbSet<IngredientKrogerProduct> IngredientKrogerProducts => Set<IngredientKrogerProduct>();
 
         public DbSet<Measurement> Measurements { get; set; }
-        public DbSet<DraftRecipe> DraftRecipes { get; set; }
         public DbSet<KrogerCustomerToken> KrogerCustomerTokens { get; set; }
-        //public DbSet<RecipeHelper.Models.ProductVM> ProductVM { get; set; } = default!;
     }
 }

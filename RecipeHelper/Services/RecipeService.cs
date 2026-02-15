@@ -1,4 +1,5 @@
-﻿using RecipeHelper.Models.RecipeModels;
+﻿using System.Text.Json;
+using RecipeHelper.Models.RecipeModels;
 using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
 using RecipeHelper.Models.IngredientModels;
@@ -35,6 +36,9 @@ namespace RecipeHelper.Services
             var newRecipe = new Recipe
             {
                 Name = request.Title,
+                Instructions = request.Instructions.Count > 0
+                    ? JsonSerializer.Serialize(request.Instructions)
+                    : null,
                 Ingredients = new List<RecipeIngredient>()
             };
 
@@ -134,6 +138,9 @@ namespace RecipeHelper.Services
             }
 
             recipe.Name = request.Title;
+            recipe.Instructions = request.Instructions.Count > 0
+                ? JsonSerializer.Serialize(request.Instructions)
+                : null;
             _logger.LogInformation("[UpdateRecipe] Recipe {RecipeId} title set to [{Title}]", recipe.Id, request.Title);
 
             if (request.ImageFile != null && request.ImageFile.Length > 0)

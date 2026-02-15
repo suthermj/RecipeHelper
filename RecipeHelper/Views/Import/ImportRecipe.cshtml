@@ -188,6 +188,15 @@
                             <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
                         }
 
+                        <!-- steps (all hidden) -->
+                        @if (Model.Preview.Steps != null)
+                        {
+                            @for (var i = 0; i < Model.Preview.Steps.Count; i++)
+                            {
+                                <input type="hidden" name="Steps[@i]" value="@Model.Preview.Steps[i]" />
+                            }
+                        }
+
                         <button type="submit"
                                 class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md">
                             Review &amp; Save

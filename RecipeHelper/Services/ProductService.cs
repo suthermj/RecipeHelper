@@ -25,31 +25,6 @@ namespace RecipeHelper.Services
             }).AsNoTracking()
             .ToListAsync();
         }
-        public async Task<Product> AddProduct(string name, string upc, decimal price)
-        {
-            try
-            {
-                Product product = new Product
-                {
-                    Name = name,
-                    Price = price,
-                    Upc = upc
-                };
-
-                await _context.Products.AddAsync(product);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Added product {ProductName} with UPC {ProductUpc}", name, upc);
-
-                return product;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error saving product");
-                return null;
-            }
-            
-        }
-
         public async Task<bool> AddProducts(List<KrogerDatabaseProduct> products)
         {
 

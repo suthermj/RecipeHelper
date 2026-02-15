@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -48,11 +49,12 @@ namespace RecipeHelper.Controllers
 
         public ActionResult ViewRecipe(int Id)
         {
-            var recipe = _context.Recipes.Where(r => r.Id == Id).Select(r => new ViewRecipeVM
+            var data = _context.Recipes.Where(r => r.Id == Id).Select(r => new
             {
-                Id = r.Id,
-                RecipeName = r.Name,
-                ImageUri = r.ImageUri,
+                r.Id,
+                r.Name,
+                r.ImageUri,
+                r.Instructions,
                 Ingredients = r.Ingredients.Select(rp => new IngredientVM
                 {
                     Name = rp.DisplayName,
@@ -60,6 +62,19 @@ namespace RecipeHelper.Controllers
                     Measurement = rp.Measurement.Name,
                 }).ToList(),
             }).FirstOrDefault();
+
+            if (data == null) return RedirectToAction("Recipe");
+
+            var recipe = new ViewRecipeVM
+            {
+                Id = data.Id,
+                RecipeName = data.Name,
+                ImageUri = data.ImageUri,
+                Ingredients = data.Ingredients,
+                Instructions = string.IsNullOrEmpty(data.Instructions)
+                    ? new()
+                    : JsonSerializer.Deserialize<List<string>>(data.Instructions) ?? new()
+            };
 
             return View(recipe);
         }
@@ -70,7 +85,7 @@ namespace RecipeHelper.Controllers
         }
 
         // Returns create recipe view or shows current recipe if id is not null
-        // VM Returned: CreateRecipeVM2
+        // VM Returned: CreateRecipeVM
         [HttpGet]
         public async Task<ActionResult> CreateEditRecipe(int? id)
         {
@@ -80,15 +95,16 @@ namespace RecipeHelper.Controllers
 
             if (id == null)
             {
-                return View("Create", new CreateRecipeVM2());
+                return View("Create", new CreateRecipeVM());
             }
             else
             {
-                var recipe = await _context.Recipes.Where(r => r.Id == id).Select(r => new EditRecipeVM
+                var data = await _context.Recipes.Where(r => r.Id == id).Select(r => new
                 {
-                    RecipeId = r.Id,
-                    Title = r.Name,
-                    ImageUri = r.ImageUri,
+                    r.Id,
+                    r.Name,
+                    r.ImageUri,
+                    r.Instructions,
                     Ingredients = r.Ingredients.Select(rp => new EditRecipeIngredientVM
                     {
                         Id = rp.Id,
@@ -100,13 +116,26 @@ namespace RecipeHelper.Controllers
                     }).ToList(),
                 }).FirstOrDefaultAsync();
 
+                if (data == null) return RedirectToAction("Recipe");
+
+                var recipe = new EditRecipeVM
+                {
+                    RecipeId = data.Id,
+                    Title = data.Name,
+                    ImageUri = data.ImageUri,
+                    Ingredients = data.Ingredients,
+                    Instructions = string.IsNullOrEmpty(data.Instructions)
+                        ? new()
+                        : JsonSerializer.Deserialize<List<string>>(data.Instructions) ?? new()
+                };
+
                 return View("Edit", recipe);
             }
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> CreateRecipe(CreateRecipeVM2 vm)
+        public async Task<ActionResult> CreateRecipe(CreateRecipeVM vm)
         {
             if (!ModelState.IsValid)
             {

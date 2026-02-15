@@ -130,6 +130,9 @@ namespace RecipeHelper.Services
             {
                 Name = recipe.Title,
                 ImageUri = recipe.Image,
+                Instructions = recipe.Steps.Count > 0
+                    ? System.Text.Json.JsonSerializer.Serialize(recipe.Steps)
+                    : null,
                 Ingredients = new List<RecipeIngredient>()
             };
 

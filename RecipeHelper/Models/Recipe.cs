@@ -11,28 +11,9 @@ namespace RecipeHelper.Models
         public int Id { get; set; }
         public required string Name { get; set; }
         public string? ImageUri { get; set; } = string.Empty;
+        public string? Instructions { get; set; }
         public List<RecipeIngredient> Ingredients { get; set; } = [];
     }
-
-    public class DraftRecipe
-    {
-        [Key]
-        public int Id { get; set; }
-
-        // Nullable to accommodate drafts without a corresponding published recipe
-        [ForeignKey("PublishedRecipe")]
-        public int? PublishedRecipeId { get; set; }
-
-        [Required]
-        public string Name { get; set; }
-
-        public string? ImageUri { get; set; } = string.Empty;
-        //public List<RecipeIngredients> Ingredients { get; set; } = new List<RecipeIngredients>();
-
-        // Navigation property for the published recipe
-        //public virtual Recipe? PublishedRecipe { get; set; }
-    }
-
 
     public class ViewRecipeVM
     {
@@ -40,13 +21,15 @@ namespace RecipeHelper.Models
         public required string RecipeName { get; set; }
         public string ImageUri { get; set; } = string.Empty;
         public List<IngredientVM> Ingredients { get; set; } = [];
+        public List<string> Instructions { get; set; } = new();
     }
 
-    public class CreateRecipeVM2
+    public class CreateRecipeVM
     {
         public string Title { get; set; }
         public IFormFile? ImageFile { get; set; }
         public List<CreateRecipeIngredientVM> Ingredients { get; set; } = new();
+        public List<string> Instructions { get; set; } = new();
     }
 
     public class EditRecipeVM
@@ -56,6 +39,7 @@ namespace RecipeHelper.Models
         public string? ImageUri { get; set; }
         public IFormFile? ImageFile { get; set; }
         public List<EditRecipeIngredientVM> Ingredients { get; set; } = new();
+        public List<string> Instructions { get; set; } = new();
     }
 
     public class CreateRecipeIngredientVM
@@ -74,27 +58,6 @@ namespace RecipeHelper.Models
         public int? MeasurementId { get; set; }         // required-ish (or default "Count")
         public string? SelectedKrogerUpc { get; set; }  // optional
         public int IngredientId { get; set; }           // FK to Ingredient table
-    }
-
-
-    public class CreateRecipeVM
-    {
-        public int recipeId { get; set; }
-        public string recipeName { get; set; }
-        public IFormFile? imageFile { get; set; }
-        public string? imageUri { get; set; }
-        public List<IngredientVM> ingredients { get; set; } = [];
-
-        public bool modifying { get; set; } = false;
-    }
-
-    public class ModifyIngredientsVM
-    {
-        public int RecipeId { get; set; }
-        public int publishedRecipeId { get; set; }
-        public List<ProductVM> CurrentIngredients { get; set; } = new();
-        public List<ProductVM> AllProducts { get; set; } = new();
-        public IEnumerable<SelectListItem> AvailableMeasurements { get; set; }
     }
 
     public class IngredientVM

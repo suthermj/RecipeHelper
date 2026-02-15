@@ -153,7 +153,7 @@ namespace RecipeHelper.Utility
             };
         }
 
-        public static CreateRecipeRequest ToRequest(this CreateRecipeVM2 vm)
+        public static CreateRecipeRequest ToRequest(this CreateRecipeVM vm)
         {
             return new CreateRecipeRequest
             {

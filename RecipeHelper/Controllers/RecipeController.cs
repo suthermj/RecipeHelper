@@ -85,7 +85,7 @@ namespace RecipeHelper.Controllers
         }
 
         // Returns create recipe view or shows current recipe if id is not null
-        // VM Returned: CreateRecipeVM2
+        // VM Returned: CreateRecipeVM
         [HttpGet]
         public async Task<ActionResult> CreateEditRecipe(int? id)
         {
@@ -95,7 +95,7 @@ namespace RecipeHelper.Controllers
 
             if (id == null)
             {
-                return View("Create", new CreateRecipeVM2());
+                return View("Create", new CreateRecipeVM());
             }
             else
             {
@@ -135,7 +135,7 @@ namespace RecipeHelper.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> CreateRecipe(CreateRecipeVM2 vm)
+        public async Task<ActionResult> CreateRecipe(CreateRecipeVM vm)
         {
             if (!ModelState.IsValid)
             {

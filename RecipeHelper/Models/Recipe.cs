@@ -24,7 +24,7 @@ namespace RecipeHelper.Models
         public List<string> Instructions { get; set; } = new();
     }
 
-    public class CreateRecipeVM2
+    public class CreateRecipeVM
     {
         public string Title { get; set; }
         public IFormFile? ImageFile { get; set; }

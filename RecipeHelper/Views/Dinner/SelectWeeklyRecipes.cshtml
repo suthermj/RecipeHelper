@@ -29,7 +29,7 @@
             @foreach (var recipe in Model)
             {
                 <button type="button"
-                        class="relative p-4 text-left bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-300 transition js-selectable w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        class="relative p-4 text-left bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md hover:border-red-400 transition js-selectable w-full focus:outline-none focus:ring-2 focus:ring-red-600"
                         data-id="@recipe.Id">
                     <div class="flex flex-col gap-1">
                         <h2 class="text-base font-semibold text-gray-900 line-clamp-2">
@@ -40,7 +40,7 @@
                     </div>
 
                     <div class="absolute top-3 right-3 hidden js-check-indicator">
-                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs">
+                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-800 text-white text-xs">
                             ✓
                         </span>
                     </div>
@@ -55,7 +55,7 @@
 
             <button id="submitButton"
                     type="submit"
-                    class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition">
+                    class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-red-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-900 transition">
                 Save Weekly Dinners
             </button>
         </div>
@@ -78,25 +78,25 @@
             card.addEventListener('click', function () {
                 const recipeId = this.getAttribute('data-id');
                 let hiddenInput = document.getElementById('selected-' + recipeId);
-                const isSelected = this.classList.contains('border-blue-500');
+                const isSelected = this.classList.contains('border-red-800');
 
                 if (isSelected) {
                     // Unselect
-                    this.classList.remove('border-blue-500', 'bg-blue-50');
+                    this.classList.remove('border-red-800', 'bg-red-50');
                     toggleCheckIndicator(this, false);
 
                     if (hiddenInput) {
                         hiddenInput.remove();
                     }
                 } else {
-                    const currentSelected = document.querySelectorAll('.border-blue-500.js-selectable').length;
+                    const currentSelected = document.querySelectorAll('.border-red-800.js-selectable').length;
                     if (currentSelected >= maxSelections) {
                         showTempError(`You can select up to ${maxSelections} recipes.`);
                         return;
                     }
 
                     // Select
-                    this.classList.add('border-blue-500', 'bg-blue-50');
+                    this.classList.add('border-red-800', 'bg-red-50');
                     toggleCheckIndicator(this, true);
 
                     if (!hiddenInput) {
@@ -122,7 +122,7 @@
         }
 
         function updateSelectionState() {
-            const selectedCount = document.querySelectorAll('.border-blue-500.js-selectable').length;
+            const selectedCount = document.querySelectorAll('.border-red-800.js-selectable').length;
             selectionCount.textContent = `Selected recipes: ${selectedCount} / ${maxSelections}`;
 
             const isValid = selectedCount >= 1 && selectedCount <= maxSelections;

@@ -35,7 +35,7 @@
 
             <div class="flex items-center gap-2 flex-shrink-0">
                 <a asp-controller="Recipe" asp-action="CreateEditRecipe" asp-route-id="@Model.Id"
-                   class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-full bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition">
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-full bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
                     Edit
                 </a>
                 <form asp-controller="Recipe"
@@ -96,7 +96,7 @@
         <section>
             <h2 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 Instructions
-                <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 border border-blue-100">
+                <span class="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-800 border border-red-100">
                     @Model.Instructions.Count step@(Model.Instructions.Count == 1 ? "" : "s")
                 </span>
             </h2>
@@ -106,7 +106,7 @@
                 {
                     <li class="step-item flex gap-3 rounded-xl bg-gray-50 px-4 py-3 cursor-pointer select-none transition-colors min-w-0"
                         data-step="@i">
-                        <span class="step-number flex-shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-blue-600 text-white text-xs font-bold transition-colors">
+                        <span class="step-number flex-shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-red-800 text-white text-xs font-bold transition-colors">
                             @(i + 1)
                         </span>
                         <span class="text-gray-700 text-sm sm:text-base leading-relaxed break-words min-w-0">
@@ -133,19 +133,19 @@
 
                 // clear all
                 ol.querySelectorAll('.step-item.is-active').forEach(el => {
-                    el.classList.remove('is-active', 'bg-blue-50', 'ring-2', 'ring-blue-200');
+                    el.classList.remove('is-active', 'bg-red-50', 'ring-2', 'ring-red-200');
                     el.classList.add('bg-gray-50');
-                    el.querySelector('.step-number')?.classList.remove('bg-blue-700', 'scale-110');
-                    el.querySelector('.step-number')?.classList.add('bg-blue-600');
+                    el.querySelector('.step-number')?.classList.remove('bg-red-900', 'scale-110');
+                    el.querySelector('.step-number')?.classList.add('bg-red-800');
                 });
 
                 if (wasActive) return; // toggled off
 
                 // activate tapped step
-                li.classList.add('is-active', 'bg-blue-50', 'ring-2', 'ring-blue-200');
+                li.classList.add('is-active', 'bg-red-50', 'ring-2', 'ring-red-200');
                 li.classList.remove('bg-gray-50');
-                li.querySelector('.step-number')?.classList.add('bg-blue-700', 'scale-110');
-                li.querySelector('.step-number')?.classList.remove('bg-blue-600');
+                li.querySelector('.step-number')?.classList.add('bg-red-900', 'scale-110');
+                li.querySelector('.step-number')?.classList.remove('bg-red-800');
             });
         })();
     </script>

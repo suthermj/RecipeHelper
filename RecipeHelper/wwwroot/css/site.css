@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -21,6 +21,11 @@ html {
   min-height: 100%;
 }
 
-body {
-  margin-bottom: 60px;
+/* Safe-area handling for iOS PWA (notch / Dynamic Island / home indicator) */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }

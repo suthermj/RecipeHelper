@@ -17,11 +17,10 @@
             </p>
         </div>
 
-        <!-- Cleaner, compact nav bar -->
-        <div class="flex flex-nowrap overflow-x-auto gap-2 py-1">
+        <div class="flex flex-nowrap gap-2 py-1">
             <a asp-controller="Recipe" asp-action="CreateEditRecipe"
                class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
-                  bg-indigo-600 text-white hover:bg-indigo-700 transition">
+                  bg-red-800 text-white hover:bg-red-900 transition">
                 <span class="sm:hidden">Add</span>
                 <span class="hidden sm:inline">Add recipe</span>
             </a>
@@ -31,24 +30,6 @@
                   bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
                 <span class="sm:hidden">Import</span>
                 <span class="hidden sm:inline">Import recipe</span>
-            </a>
-
-            <a asp-controller="Dinner" asp-action="SelectWeeklyRecipes"
-               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
-                  bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
-                Dinners
-            </a>
-
-            <a asp-controller="Product" asp-action="Products"
-               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
-                  bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
-                Products
-            </a>
-
-            <a asp-controller="Cart" asp-action="ViewCart"
-               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
-                  bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
-                Cart
             </a>
         </div>
     </header>
@@ -65,12 +46,12 @@
             <div class="flex flex-wrap justify-center gap-2">
                 <a asp-controller="Recipe" asp-action="CreateEditRecipe"
                    class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full
-                              bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition">
+                              bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
                     Add your first recipe
                 </a>
                 <a asp-controller="Recipe" asp-action="ImportRecipe"
                    class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full
-                              bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition">
+                              bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
                     Import from a link
                 </a>
             </div>
@@ -88,7 +69,7 @@
 
                 <!-- Search -->
                 <div class="w-full sm:w-auto">
-                    <div class="flex w-full sm:min-w-[260px] items-center rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+                    <div class="flex w-full sm:min-w-[260px] items-center rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus-within:ring-2 focus-within:ring-red-700 focus-within:border-red-700">
                         <input type="text"
                                id="recipeSearch"
                                placeholder="Search recipes..."

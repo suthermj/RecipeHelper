@@ -30,10 +30,10 @@
                type="url"
                required
                placeholder="Paste a recipe URL (e.g., https://example.com/lasagna)"
-               class="flex-1 rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+               class="flex-1 rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-red-700 focus:border-red-700" />
 
         <button id="importBtn" type="submit"
-                class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md disabled:opacity-60 disabled:cursor-not-allowed">
+                class="inline-flex items-center gap-2 bg-red-800 hover:bg-red-900 text-white font-semibold px-4 py-2 rounded-md disabled:opacity-60 disabled:cursor-not-allowed">
             <svg id="importBtnSpinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
@@ -45,7 +45,7 @@
     <!-- Page-level loading overlay during GET navigation -->
     <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-white/60 backdrop-blur-sm flex items-center justify-center" aria-live="polite" aria-busy="true">
         <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white shadow">
-            <svg class="animate-spin h-5 w-5 text-indigo-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <svg class="animate-spin h-5 w-5 text-red-800" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
             </svg>
@@ -82,7 +82,7 @@
                     }
                     @if (!string.IsNullOrWhiteSpace(Model.Preview.SourceUrl))
                     {
-                        <div class="text-indigo-700">
+                        <div class="text-red-800">
                             <a href="@Model.Preview.SourceUrl" target="_blank" class="underline">Source</a>
                         </div>
                     }
@@ -104,7 +104,7 @@
                     }
                     @if (Model.Preview.DairyFree)
                     {
-                        <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Dairy-free</span>
+                        <span class="px-2 py-1 text-xs rounded-full bg-sky-100 text-sky-800">Dairy-free</span>
                     }
                 </div>
             </div>
@@ -198,7 +198,7 @@
                         }
 
                         <button type="submit"
-                                class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md">
+                                class="bg-red-800 hover:bg-red-900 text-white font-semibold px-4 py-2 rounded-md">
                             Review &amp; Save
                         </button>
                     </form>

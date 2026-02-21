@@ -41,106 +41,71 @@
         </div>
 
         <!-- Ingredients -->
-        <div class="bg-white rounded-2xl shadow p-6">
-            <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="bg-white rounded-2xl shadow p-4 sm:p-6">
+            <div class="flex items-center justify-between gap-3 mb-3">
                 <h2 class="text-lg font-semibold">Ingredients</h2>
 
                 <button type="button"
                         id="addIngredientBtn"
-                        class="inline-flex items-center rounded-lg bg-gray-900 text-white px-3 py-2 text-sm hover:bg-black">
-                    + Add ingredient
+                        class="inline-flex items-center rounded-lg bg-gray-900 text-white px-3 py-1.5 text-sm hover:bg-black">
+                    + Add
                 </button>
             </div>
 
-            <p class="text-sm text-gray-600 mb-6">
-                Add ingredient lines for your recipe. You can optionally link a Kroger product for shopping later.
-                <span class="block text-gray-500 mt-1">Tip: Choose a product by searching your DB (or your backend can fall back to live Kroger search).</span>
-            </p>
-
-            <div id="ingredientsContainer" class="space-y-4">
+            <div id="ingredientsContainer" class="space-y-3">
                 @for (int i = 0; i < Model.Ingredients.Count; i++)
                 {
-                    <div class="ingredient-row border border-gray-200 rounded-2xl p-4" data-index="@i">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3">
-
-                                <!-- Display name -->
-                                <div class="md:col-span-4">
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Ingredient</label>
-                                    <input name="Ingredients[@i].DisplayName"
-                                           value="@Model.Ingredients[i].DisplayName"
-                                           class="display-name w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                                           placeholder="e.g., Yellow onion, diced" />
-                                    <span class="text-sm text-red-600 field-validation-valid"
-                                          data-valmsg-for="Ingredients[@i].DisplayName"
-                                          data-valmsg-replace="true"></span>
-                                </div>
-
-                                <!-- Quantity -->
-                                <div class="md:col-span-2">
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Qty</label>
-                                    <input name="Ingredients[@i].Quantity"
-                                           value="@Model.Ingredients[i].Quantity"
-                                           type="number"
-                                           step="0.01"
-                                           min="0"
-                                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring" />
-                                    <span class="text-sm text-red-600 field-validation-valid"
-                                          data-valmsg-for="Ingredients[@i].Quantity"
-                                          data-valmsg-replace="true"></span>
-                                </div>
-
-                                <!-- Measurement -->
-                                <div class="md:col-span-2">
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Unit</label>
-                                    <select name="Ingredients[@i].MeasurementId"
-                                            class="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring">
-                                        <option value="">Count</option>
-                                        @foreach (var m in measurements)
-                                        {
-                                            var selected = (Model.Ingredients[i].MeasurementId?.ToString() == m.Value);
-                                            <option value="@m.Value" selected="@(selected ? "selected" : null)">@m.Text</option>
-                                        }
-                                    </select>
-                                </div>
-
-                                <!-- Product mapping -->
-                                <div class="md:col-span-12">
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Kroger product (optional)</label>
-
-                                    <!-- submitted UPC (hidden) -->
-                                    <input type="hidden"
-                                           name="Ingredients[@i].SelectedKrogerUpc"
-                                           value="@Model.Ingredients[i].SelectedKrogerUpc"
-                                           class="selected-upc" />
-
-                                    <div class="flex flex-col md:flex-row md:items-center gap-2">
-                                        <button type="button"
-                                                class="choose-product-btn rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                disabled>
-                                            Choose Kroger product
-                                        </button>
-
-                                        <div class="text-sm text-gray-700">
-                                            <span class="product-status text-gray-500">No product selected</span>
-                                            <span class="product-upc text-gray-400 ml-2"></span>
-                                        </div>
-
-                                        <button type="button"
-                                                class="clear-product-btn text-sm text-gray-600 hover:text-gray-900 underline underline-offset-2 hidden">
-                                            Clear
-                                        </button>
-                                    </div>
-
-                                    <p class="text-xs text-gray-500 mt-1">
-                                        This affects shopping/add-to-cart only. You can skip it for now.
-                                    </p>
-                                </div>
-                            </div>
-
+                    <div class="ingredient-row border border-gray-200 rounded-xl p-3" data-index="@i">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <input name="Ingredients[@i].DisplayName"
+                                   value="@Model.Ingredients[i].DisplayName"
+                                   class="display-name flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                                   placeholder="Ingredient name" />
                             <button type="button"
-                                    class="remove-ingredient text-sm text-red-600 hover:text-red-800 px-2 py-1">
+                                    class="remove-ingredient text-xs text-red-600 hover:text-red-800 px-2 py-2">
                                 Remove
+                            </button>
+                        </div>
+                        <span class="text-sm text-red-600 field-validation-valid"
+                              data-valmsg-for="Ingredients[@i].DisplayName"
+                              data-valmsg-replace="true"></span>
+
+                        <div class="flex gap-2 mb-2">
+                            <div class="w-20">
+                                <label class="block text-[0.65rem] text-gray-500 mb-0.5">Qty</label>
+                                <input name="Ingredients[@i].Quantity"
+                                       value="@Model.Ingredients[i].Quantity"
+                                       type="number" step="0.01" min="0"
+                                       class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring" />
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-[0.65rem] text-gray-500 mb-0.5">Unit</label>
+                                <select name="Ingredients[@i].MeasurementId"
+                                        class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring">
+                                    <option value="">Count</option>
+                                    @foreach (var m in measurements)
+                                    {
+                                        var selected = (Model.Ingredients[i].MeasurementId?.ToString() == m.Value);
+                                        <option value="@m.Value" selected="@(selected ? "selected" : null)">@m.Text</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Kroger product (compact) -->
+                        <input type="hidden" name="Ingredients[@i].SelectedKrogerUpc"
+                               value="@Model.Ingredients[i].SelectedKrogerUpc" class="selected-upc" />
+                        <div class="flex items-center gap-2 text-xs">
+                            <button type="button"
+                                    class="choose-product-btn text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline"
+                                    disabled>
+                                Link Kroger product
+                            </button>
+                            <span class="product-status text-gray-400">—</span>
+                            <span class="product-upc text-gray-400"></span>
+                            <button type="button"
+                                    class="clear-product-btn text-gray-500 hover:text-gray-700 hidden">
+                                &times;
                             </button>
                         </div>
                     </div>
@@ -170,7 +135,7 @@
                     @for (int i = 0; i < Model.Instructions.Count; i++)
                     {
                         <div class="step-row flex items-start gap-3" data-step-index="@i">
-                            <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white text-sm font-bold mt-1">@(i + 1)</span>
+                            <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">@(i + 1)</span>
                             <textarea name="Instructions[@i]"
                                       rows="2"
                                       class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
@@ -358,84 +323,62 @@
                 if (!status || !upcSpan || !clearBtn) return;
 
                 if (!upc) {
-                    status.textContent = "No product selected";
-                    status.classList.add("text-gray-500");
+                    status.textContent = "\u2014";
+                    status.classList.add("text-gray-400");
                     status.classList.remove("text-green-700");
                     upcSpan.textContent = "";
                     clearBtn.classList.add("hidden");
                 } else {
-                    status.textContent = "Product selected";
-                    status.classList.remove("text-gray-500");
+                    status.textContent = "Linked";
+                    status.classList.remove("text-gray-400");
                     status.classList.add("text-green-700");
-                    upcSpan.textContent = `UPC: ${upc}`;
+                    upcSpan.textContent = upc;
                     clearBtn.classList.remove("hidden");
                 }
             }
 
             const rowTemplate = (index) => `
-                <div class="ingredient-row border border-gray-200 rounded-2xl p-4" data-index="${index}">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3">
-
-                            <div class="md:col-span-4">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Ingredient</label>
-                                <input name="Ingredients[${index}].DisplayName"
-                                       value=""
-                                       class="display-name w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                                       placeholder="e.g., Yellow onion, diced" />
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Qty</label>
-                                <input name="Ingredients[${index}].Quantity"
-                                       value="1"
-                                       type="number"
-                                       step="0.01"
-                                       min="0"
-                                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring" />
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Unit</label>
-                                <select name="Ingredients[${index}].MeasurementId"
-                                        class="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring">
-                                    <option value="">Count</option>
-                                    ${buildMeasurementOptions()}
-                                </select>
-                            </div>
-
-                            <div class="md:col-span-12">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Kroger product (optional)</label>
-
-                                <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="" class="selected-upc" />
-
-                                <div class="flex flex-col md:flex-row md:items-center gap-2">
-                                    <button type="button"
-                                            class="choose-product-btn rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            disabled>
-                                        Choose Kroger product
-                                    </button>
-
-                                    <div class="text-sm text-gray-700">
-                                        <span class="product-status text-gray-500">No product selected</span>
-                                        <span class="product-upc text-gray-400 ml-2"></span>
-                                    </div>
-
-                                    <button type="button"
-                                            class="clear-product-btn text-sm text-gray-600 hover:text-gray-900 underline underline-offset-2 hidden">
-                                        Clear
-                                    </button>
-                                </div>
-
-                                <p class="text-xs text-gray-500 mt-1">
-                                    This affects shopping/add-to-cart only. You can skip it for now.
-                                </p>
-                            </div>
-                        </div>
-
+                <div class="ingredient-row border border-gray-200 rounded-xl p-3" data-index="${index}">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <input name="Ingredients[${index}].DisplayName"
+                               value=""
+                               class="display-name flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                               placeholder="Ingredient name" />
                         <button type="button"
-                                class="remove-ingredient text-sm text-red-600 hover:text-red-800 px-2 py-1">
+                                class="remove-ingredient text-xs text-red-600 hover:text-red-800 px-2 py-2">
                             Remove
+                        </button>
+                    </div>
+
+                    <div class="flex gap-2 mb-2">
+                        <div class="w-20">
+                            <label class="block text-[0.65rem] text-gray-500 mb-0.5">Qty</label>
+                            <input name="Ingredients[${index}].Quantity"
+                                   value="1" type="number" step="0.01" min="0"
+                                   class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring" />
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-[0.65rem] text-gray-500 mb-0.5">Unit</label>
+                            <select name="Ingredients[${index}].MeasurementId"
+                                    class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring">
+                                <option value="">Count</option>
+                                ${buildMeasurementOptions()}
+                            </select>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="" class="selected-upc" />
+                    <div class="flex items-center gap-2 text-xs">
+                        <button type="button"
+                                class="choose-product-btn text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline"
+                                disabled>
+                            Link Kroger product
+                        </button>
+                        <span class="product-status text-gray-400">\u2014</span>
+                        <span class="product-upc text-gray-400"></span>
+                        <button type="button"
+                                class="clear-product-btn text-gray-500 hover:text-gray-700 hidden">
+                            &times;
                         </button>
                     </div>
                 </div>
@@ -531,7 +474,7 @@
 
             const stepTemplate = (index) => `
                 <div class="step-row flex items-start gap-3" data-step-index="${index}">
-                    <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white text-sm font-bold mt-1">${index + 1}</span>
+                    <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">${index + 1}</span>
                     <textarea name="Instructions[${index}]"
                               rows="2"
                               class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"

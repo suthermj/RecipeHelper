@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
+using RecipeHelper.Models.RecipeModels;
 using RecipeHelper.Services;
 using RecipeHelper.Utility;
 using RecipeHelper.ViewModels;
@@ -18,14 +19,16 @@ namespace RecipeHelper.Controllers
         private StorageService _storageService;
         private SpoonacularService _spoonacularService;
         private RecipeService _recipeService;
+        private IngredientsService _ingredientsService;
 
-        public RecipeController(ILogger<RecipeController> logger, DatabaseContext context, StorageService storageService, SpoonacularService spoonacularService, RecipeService recipeService)
+        public RecipeController(ILogger<RecipeController> logger, DatabaseContext context, StorageService storageService, SpoonacularService spoonacularService, RecipeService recipeService, IngredientsService ingredientsService)
         {
             _logger = logger;
             _context = context;
             _storageService = storageService;
             _spoonacularService = spoonacularService;
             _recipeService = recipeService;
+            _ingredientsService = ingredientsService;
         }
 
         public ActionResult Recipe()
@@ -85,14 +88,9 @@ namespace RecipeHelper.Controllers
         }
 
         // Returns create recipe view or shows current recipe if id is not null
-        // VM Returned: CreateRecipeVM
         [HttpGet]
         public async Task<ActionResult> CreateEditRecipe(int? id)
         {
-            ViewBag.Measurements = _context.Measurements
-                    .Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Name })
-                    .ToList();
-
             if (id == null)
             {
                 return View("Create", new CreateRecipeVM());
@@ -105,14 +103,14 @@ namespace RecipeHelper.Controllers
                     r.Name,
                     r.ImageUri,
                     r.Instructions,
-                    Ingredients = r.Ingredients.Select(rp => new EditRecipeIngredientVM
+                    Ingredients = r.Ingredients.Select(rp => new
                     {
-                        Id = rp.Id,
-                        DisplayName = rp.DisplayName,
-                        Quantity = rp.Quantity,
-                        MeasurementId = rp.MeasurementId,
-                        SelectedKrogerUpc = rp.SelectedKrogerUpc,
-                        IngredientId = rp.IngredientId
+                        rp.Id,
+                        rp.DisplayName,
+                        rp.Quantity,
+                        MeasurementName = rp.Measurement.Name,
+                        rp.SelectedKrogerUpc,
+                        rp.IngredientId
                     }).ToList(),
                 }).FirstOrDefaultAsync();
 
@@ -123,7 +121,13 @@ namespace RecipeHelper.Controllers
                     RecipeId = data.Id,
                     Title = data.Name,
                     ImageUri = data.ImageUri,
-                    Ingredients = data.Ingredients,
+                    Ingredients = data.Ingredients.Select(rp => new EditRecipeIngredientVM
+                    {
+                        Id = rp.Id,
+                        RawText = FormatIngredientText(rp.Quantity, rp.MeasurementName, rp.DisplayName),
+                        SelectedKrogerUpc = rp.SelectedKrogerUpc,
+                        IngredientId = rp.IngredientId
+                    }).ToList(),
                     Instructions = string.IsNullOrEmpty(data.Instructions)
                         ? new()
                         : JsonSerializer.Deserialize<List<string>>(data.Instructions) ?? new()
@@ -133,19 +137,18 @@ namespace RecipeHelper.Controllers
             }
         }
 
+        private static string FormatIngredientText(decimal quantity, string measurementName, string displayName)
+        {
+            var qtyStr = quantity % 1 == 0 ? ((int)quantity).ToString() : quantity.ToString("0.##");
+            if (string.Equals(measurementName, "Unit", StringComparison.OrdinalIgnoreCase))
+                return $"{qtyStr} {displayName}".Trim();
+            return $"{qtyStr} {measurementName} {displayName}".Trim();
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> CreateRecipe(CreateRecipeVM vm)
         {
-            if (!ModelState.IsValid)
-            {
-                ViewBag.Measurements = _context.Measurements
-                    .Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Name })
-                    .ToList();
-                
-                return View("Create", vm);
-            }
-
             var normalizedTitle = vm.Title?.Trim();
 
             if (string.IsNullOrWhiteSpace(normalizedTitle))
@@ -162,32 +165,117 @@ namespace RecipeHelper.Controllers
                 return View("Create", vm);
             }
 
-            if (recipeExists) return View("Create", vm);
+            var rawLines = vm.Ingredients
+                .Where(i => !string.IsNullOrWhiteSpace(i.RawText))
+                .Select(i => i.RawText.Trim())
+                .ToList();
 
-            var recipe = await _recipeService.CreateRecipe(vm.ToRequest());
+            var krogerUpcs = vm.Ingredients
+                .Where(i => !string.IsNullOrWhiteSpace(i.RawText))
+                .Select(i => i.SelectedKrogerUpc)
+                .ToList();
 
+            var ingredientDtos = await ParseRawLinesToDtos(rawLines, krogerUpcs);
+
+            var request = new CreateRecipeRequest
+            {
+                Title = normalizedTitle,
+                ImageFile = vm.ImageFile,
+                Ingredients = ingredientDtos.Select(d => new CreateRecipeIngredientDto
+                {
+                    DisplayName = d.DisplayName,
+                    Quantity = d.Quantity,
+                    MeasurementId = d.MeasurementId,
+                    SelectedKrogerUpc = d.KrogerUpc
+                }).ToList(),
+                Instructions = vm.Instructions ?? new()
+            };
+
+            var recipe = await _recipeService.CreateRecipe(request);
 
             return RedirectToAction("ViewRecipe", new { Id = recipe.Id });
-
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> EditRecipe(EditRecipeVM vm)
         {
-            if (!ModelState.IsValid)
+            var rawLines = vm.Ingredients
+                .Where(i => !string.IsNullOrWhiteSpace(i.RawText))
+                .Select(i => i.RawText.Trim())
+                .ToList();
+
+            var krogerUpcs = vm.Ingredients
+                .Where(i => !string.IsNullOrWhiteSpace(i.RawText))
+                .Select(i => i.SelectedKrogerUpc)
+                .ToList();
+
+            var ingredientDtos = await ParseRawLinesToDtos(rawLines, krogerUpcs);
+
+            var request = new EditRecipeRequest
             {
-                ViewBag.Measurements = _context.Measurements
-                    .Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Name })
-                    .ToList();
+                Id = vm.RecipeId,
+                Title = (vm.Title ?? "").Trim(),
+                ImageFile = vm.ImageFile,
+                Ingredients = ingredientDtos.Select(d => new EditRecipeIngredientDto
+                {
+                    Id = 0, // re-resolved on save
+                    DisplayName = d.DisplayName,
+                    Quantity = d.Quantity,
+                    MeasurementId = d.MeasurementId,
+                    IngredientId = 0, // re-resolved on save
+                    SelectedKrogerUpc = d.KrogerUpc
+                }).ToList(),
+                Instructions = vm.Instructions ?? new()
+            };
 
-                return View("Edit", vm);
-            }
-
-            var update = await _recipeService.UpdateRecipeAsync(vm.ToRequest());
+            await _recipeService.UpdateRecipeAsync(request);
 
             return RedirectToAction("ViewRecipe", new { Id = vm.RecipeId });
+        }
 
+        private async Task<List<ParsedIngredientDto>> ParseRawLinesToDtos(List<string> rawLines, List<string?> krogerUpcs)
+        {
+            if (!rawLines.Any()) return new();
+
+            var measurements = await _context.Measurements.ToListAsync();
+            var parsed = await _ingredientsService.TransformRawIngredients(rawLines, CancellationToken.None);
+
+            var results = new List<ParsedIngredientDto>();
+
+            for (int i = 0; i < parsed.Items.Count; i++)
+            {
+                var item = parsed.Items[i];
+                var upc = i < krogerUpcs.Count ? krogerUpcs[i] : null;
+
+                // Resolve unit string → MeasurementId
+                var unit = UnitConverter.Parse(item.Unit ?? "unit");
+                var displayName = UnitConverter.ToDisplayName(unit);
+                var measurement = measurements.FirstOrDefault(m =>
+                    string.Equals(m.Name, displayName, StringComparison.OrdinalIgnoreCase));
+
+                // Fall back to "Unit" if not found in DB
+                measurement ??= measurements.First(m =>
+                    string.Equals(m.Name, "Unit", StringComparison.OrdinalIgnoreCase));
+
+                results.Add(new ParsedIngredientDto
+                {
+                    DisplayName = item.Name ?? "",
+                    Quantity = item.Quantity ?? 1m,
+                    MeasurementId = measurement.Id,
+                    KrogerUpc = upc
+                });
+            }
+
+            return results;
+        }
+
+        private class ParsedIngredientDto
+        {
+            public string DisplayName { get; set; } = "";
+            public decimal Quantity { get; set; }
+            public int MeasurementId { get; set; }
+            public string? KrogerUpc { get; set; }
         }
 
         [HttpPost("{id}")]

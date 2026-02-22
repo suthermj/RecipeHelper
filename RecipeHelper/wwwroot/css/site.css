@@ -29,3 +29,20 @@ html {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
+@supports (-webkit-touch-callout: none) {
+  @media screen and (max-width: 767px) {
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    input[type="url"],
+    input[type="tel"],
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}

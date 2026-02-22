@@ -26,7 +26,8 @@
                   asp-action="PreviewAddToCart"
                   method="post"
                   id="add-to-kroger-form"
-                  class="space-y-4">
+                  class="space-y-4 loading-form"
+                  data-loading-text="Building Kroger cart items...">
                 @Html.AntiForgeryToken()
 
                 <div class="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-200">

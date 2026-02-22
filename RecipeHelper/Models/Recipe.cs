@@ -44,20 +44,16 @@ namespace RecipeHelper.Models
 
     public class CreateRecipeIngredientVM
     {
-        public string DisplayName { get; set; } = "";   // required
-        public decimal Quantity { get; set; }           // required
-        public int? MeasurementId { get; set; }         // required-ish (or default “Count”)
-        public string? SelectedKrogerUpc { get; set; }  // optional
+        public string RawText { get; set; } = "";          // e.g. "2 cups flour"
+        public string? SelectedKrogerUpc { get; set; }     // optional Kroger link
     }
 
     public class EditRecipeIngredientVM
     {
-        public int Id { get; set; }                     // RecipeIngredient PK (0 = new row)
-        public string DisplayName { get; set; } = "";   // required
-        public decimal Quantity { get; set; }           // required
-        public int? MeasurementId { get; set; }         // required-ish (or default "Count")
-        public string? SelectedKrogerUpc { get; set; }  // optional
-        public int IngredientId { get; set; }           // FK to Ingredient table
+        public int Id { get; set; }                        // RecipeIngredient PK (0 = new)
+        public string RawText { get; set; } = "";          // e.g. "2 cups flour"
+        public string? SelectedKrogerUpc { get; set; }     // optional Kroger link
+        public int IngredientId { get; set; }              // FK (re-resolved on save)
     }
 
     public class IngredientVM

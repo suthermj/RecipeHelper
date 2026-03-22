@@ -79,42 +79,75 @@
 
                     if (emitHeader)
                     {
-                        <div class="entry-row flex items-center gap-2" data-type="header">
-                            <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none" title="Drag to reorder">&#x2630;</span>
-                            <select class="entry-type rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
+                        <div class="entry-row rounded-lg border border-gray-100 bg-gray-50 p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:flex sm:items-center sm:gap-2" data-type="header">
+                            <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none hidden sm:inline" title="Drag to reorder">&#x2630;</span>
+                            <select class="entry-type hidden sm:inline rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
                                 <option value="ingredient">Ingredient</option>
                                 <option value="header" selected>Section</option>
                             </select>
-                            <div class="entry-content flex-1 flex items-center gap-2">
-                                <input class="entry-text flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 focus:outline-none focus:ring"
-                                       placeholder="Section name..." value="@ing.Section" />
+                            <div class="entry-content sm:flex-1 sm:flex sm:items-center sm:gap-2">
+                                <div class="flex items-center gap-2">
+                                    <input class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base font-semibold text-gray-700 sm:border sm:border-gray-200 sm:bg-gray-50 sm:px-3 sm:py-2 sm:text-sm sm:rounded-lg focus:outline-none focus:ring-0 sm:focus:ring"
+                                           placeholder="Section name..." value="@ing.Section" />
+                                    <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
+                                        <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="detail-panel sm:hidden">
+                                    <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                        <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Ingredient</button>
+                                        <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                    </div>
+                                </div>
                             </div>
-                            <button type="button" class="remove-entry text-xs text-red-600 hover:text-red-800">&times;</button>
+                            <button type="button" class="remove-entry hidden sm:inline text-xs text-red-600 hover:text-red-800">&times;</button>
                         </div>
                     }
-                    <div class="entry-row flex items-center gap-2" data-type="ingredient">
-                        <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none" title="Drag to reorder">&#x2630;</span>
-                        <select class="entry-type rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
+                    <div class="entry-row rounded-lg border border-gray-100 bg-white p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:flex sm:items-center sm:gap-2" data-type="ingredient">
+                        <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none hidden sm:inline" title="Drag to reorder">&#x2630;</span>
+                        <select class="entry-type hidden sm:inline rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
                             <option value="ingredient" selected>Ingredient</option>
                             <option value="header">Section</option>
                         </select>
-                        <div class="entry-content flex-1 flex items-center gap-2">
-                            <input name="Ingredients[@thisIdx].RawText"
-                                   value="@ing.RawText"
-                                   class="entry-text flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                                   placeholder="e.g., 2 cups flour" />
-                            <input type="hidden" name="Ingredients[@thisIdx].SelectedKrogerUpc"
-                                   value="@ing.SelectedKrogerUpc" class="selected-upc" />
-                            <input type="hidden" name="Ingredients[@thisIdx].Section"
-                                   value="@ing.Section" class="ingredient-section" />
-                            <button type="button"
-                                    class="choose-product-btn text-xs text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline whitespace-nowrap"
-                                    disabled>Link</button>
-                            <span class="product-status text-xs text-gray-400 hidden"></span>
-                            <button type="button"
-                                    class="clear-product-btn text-gray-500 hover:text-gray-700 text-sm hidden">&times;</button>
+                        <div class="entry-content sm:flex-1 sm:flex sm:items-center sm:gap-2">
+                            <div class="flex items-center gap-2">
+                                <input name="Ingredients[@thisIdx].RawText"
+                                       value="@ing.RawText"
+                                       class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base sm:border sm:border-gray-300 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm focus:outline-none focus:ring-0 sm:focus:ring"
+                                       placeholder="e.g., 2 cups flour" />
+                                <input type="hidden" name="Ingredients[@thisIdx].SelectedKrogerUpc"
+                                       value="@ing.SelectedKrogerUpc" class="selected-upc" />
+                                <input type="hidden" name="Ingredients[@thisIdx].Section"
+                                       value="@ing.Section" class="ingredient-section" />
+                                <span class="product-badge text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 whitespace-nowrap sm:hidden @(string.IsNullOrEmpty(ing.SelectedKrogerUpc) ? "hidden" : "")">Linked</span>
+                                <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
+                                    <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div class="hidden sm:flex items-center gap-2">
+                                    <button type="button"
+                                            class="choose-product-btn text-xs text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline whitespace-nowrap"
+                                            disabled>Link</button>
+                                    <span class="product-status text-xs text-gray-400 hidden"></span>
+                                    <button type="button"
+                                            class="clear-product-btn text-gray-500 hover:text-gray-700 text-sm hidden">&times;</button>
+                                </div>
+                            </div>
+                            <div class="detail-panel sm:hidden">
+                                <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                    <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
+                                        <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
+                                        <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <button type="button" class="remove-entry text-xs text-red-600 hover:text-red-800">&times;</button>
+                        <button type="button" class="remove-entry hidden sm:inline text-xs text-red-600 hover:text-red-800">&times;</button>
                     </div>
                 }
             </div>
@@ -137,13 +170,19 @@
                 {
                     @for (int i = 0; i < Model.Instructions.Count; i++)
                     {
-                        <div class="step-row flex items-start gap-3" data-step-index="@i">
-                            <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">@(i + 1)</span>
-                            <textarea name="Instructions[@i]"
-                                      rows="2"
-                                      class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                                      placeholder="Describe this step...">@Model.Instructions[i]</textarea>
-                            <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1">Remove</button>
+                        <div class="step-row" data-step-index="@i">
+                            <div class="flex items-center justify-between mb-1 sm:hidden">
+                                <span class="step-label text-sm font-semibold text-gray-700">Step @(i + 1)</span>
+                                <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800">&times;</button>
+                            </div>
+                            <div class="sm:flex sm:items-start sm:gap-3">
+                                <span class="step-number hidden sm:flex flex-shrink-0 items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">@(i + 1)</span>
+                                <textarea name="Instructions[@i]"
+                                          rows="2"
+                                          class="w-full sm:flex-1 min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                                          placeholder="Describe this step...">@Model.Instructions[i]</textarea>
+                                <button type="button" class="remove-step hidden sm:inline text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1 shrink-0">&times;</button>
+                            </div>
                         </div>
                     }
                 }
@@ -252,7 +291,9 @@
             function updateProductButtonState(row) {
                 const text = getRawText(row);
                 const btn = row.querySelector('.choose-product-btn');
+                const mobileBtn = row.querySelector('.choose-product-btn-mobile');
                 if (btn) btn.disabled = text.length < 2;
+                if (mobileBtn) mobileBtn.disabled = text.length < 2;
             }
 
             function updateProductStatus(row) {
@@ -260,54 +301,100 @@
                 const btn = row.querySelector('.choose-product-btn');
                 const status = row.querySelector('.product-status');
                 const clearBtn = row.querySelector('.clear-product-btn');
+                const badge = row.querySelector('.product-badge');
+                const mobileBtn = row.querySelector('.choose-product-btn-mobile');
+                const mobileClearBtn = row.querySelector('.clear-product-btn-mobile');
 
                 if (!upc) {
                     if (btn) { btn.classList.remove("hidden"); btn.textContent = "Link"; }
                     if (status) { status.classList.add("hidden"); status.textContent = ""; }
                     if (clearBtn) clearBtn.classList.add("hidden");
+                    if (badge) badge.classList.add("hidden");
+                    if (mobileBtn) mobileBtn.textContent = "Link Product";
+                    if (mobileClearBtn) mobileClearBtn.classList.add("hidden");
                 } else {
                     if (btn) btn.classList.add("hidden");
                     if (status) { status.classList.remove("hidden"); status.textContent = "Linked"; status.className = "product-status text-xs text-green-700 font-medium"; }
                     if (clearBtn) clearBtn.classList.remove("hidden");
+                    if (badge) badge.classList.remove("hidden");
+                    if (mobileBtn) mobileBtn.textContent = "Change Link";
+                    if (mobileClearBtn) mobileClearBtn.classList.remove("hidden");
                 }
             }
 
             // --- Templates ---
-            function ingredientContentHtml(index, text, upc) {
-                return `
-                    <input name="Ingredients[${index}].RawText" value="${escapeAttr(text)}"
-                           class="entry-text flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                           placeholder="e.g., 2 cups flour" />
-                    <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="${escapeAttr(upc)}" class="selected-upc" />
-                    <input type="hidden" name="Ingredients[${index}].Section" value="" class="ingredient-section" />
-                    <button type="button" class="choose-product-btn text-xs text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline whitespace-nowrap" disabled>Link</button>
-                    <span class="product-status text-xs text-gray-400 hidden"></span>
-                    <button type="button" class="clear-product-btn text-gray-500 hover:text-gray-700 text-sm hidden">&times;</button>
-                `;
-            }
-
-            function headerContentHtml(text) {
-                return `
-                    <input class="entry-text flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 focus:outline-none focus:ring"
-                           placeholder="Section name..." value="${escapeAttr(text)}" />
-                `;
-            }
-
             function entryRowHtml(type, index, text, upc) {
                 const isHeader = type === 'header';
-                return `
-                    <div class="entry-row flex items-center gap-2" data-type="${type}">
-                        <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none" title="Drag to reorder">&#x2630;</span>
-                        <select class="entry-type rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
-                            <option value="ingredient" ${!isHeader ? 'selected' : ''}>Ingredient</option>
-                            <option value="header" ${isHeader ? 'selected' : ''}>Section</option>
+                const hasUpc = upc && upc.length > 0;
+
+                if (isHeader) {
+                    return `
+                    <div class="entry-row rounded-lg border border-gray-100 bg-gray-50 p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:flex sm:items-center sm:gap-2" data-type="header">
+                        <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none hidden sm:inline" title="Drag to reorder">&#x2630;</span>
+                        <select class="entry-type hidden sm:inline rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
+                            <option value="ingredient">Ingredient</option>
+                            <option value="header" selected>Section</option>
                         </select>
-                        <div class="entry-content flex-1 flex items-center gap-2">
-                            ${isHeader ? headerContentHtml(text) : ingredientContentHtml(index, text, upc)}
+                        <div class="entry-content sm:flex-1 sm:flex sm:items-center sm:gap-2">
+                            <div class="flex items-center gap-2">
+                                <input class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base font-semibold text-gray-700 sm:border sm:border-gray-200 sm:bg-gray-50 sm:px-3 sm:py-2 sm:text-sm sm:rounded-lg focus:outline-none focus:ring-0 sm:focus:ring"
+                                       placeholder="Section name..." value="${escapeAttr(text)}" />
+                                <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
+                                    <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="detail-panel sm:hidden">
+                                <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                    <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Ingredient</button>
+                                    <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                </div>
+                            </div>
                         </div>
-                        <button type="button" class="remove-entry text-xs text-red-600 hover:text-red-800">&times;</button>
+                        <button type="button" class="remove-entry hidden sm:inline text-xs text-red-600 hover:text-red-800">&times;</button>
+                    </div>`;
+                }
+
+                return `
+                <div class="entry-row rounded-lg border border-gray-100 bg-white p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:flex sm:items-center sm:gap-2" data-type="ingredient">
+                    <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none hidden sm:inline" title="Drag to reorder">&#x2630;</span>
+                    <select class="entry-type hidden sm:inline rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
+                        <option value="ingredient" selected>Ingredient</option>
+                        <option value="header">Section</option>
+                    </select>
+                    <div class="entry-content sm:flex-1 sm:flex sm:items-center sm:gap-2">
+                        <div class="flex items-center gap-2">
+                            <input name="Ingredients[${index}].RawText" value="${escapeAttr(text)}"
+                                   class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base sm:border sm:border-gray-300 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm focus:outline-none focus:ring-0 sm:focus:ring"
+                                   placeholder="e.g., 2 cups flour" />
+                            <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="${escapeAttr(upc)}" class="selected-upc" />
+                            <input type="hidden" name="Ingredients[${index}].Section" value="" class="ingredient-section" />
+                            <span class="product-badge text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 whitespace-nowrap sm:hidden ${hasUpc ? '' : 'hidden'}">Linked</span>
+                            <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
+                                <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div class="hidden sm:flex items-center gap-2">
+                                <button type="button" class="choose-product-btn text-xs text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline whitespace-nowrap" disabled>Link</button>
+                                <span class="product-status text-xs text-gray-400 hidden"></span>
+                                <button type="button" class="clear-product-btn text-gray-500 hover:text-gray-700 text-sm hidden">&times;</button>
+                            </div>
+                        </div>
+                        <div class="detail-panel sm:hidden">
+                            <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
+                                <div class="flex items-center gap-3">
+                                    <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
+                                    <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
+                                    <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                `;
+                    <button type="button" class="remove-entry hidden sm:inline text-xs text-red-600 hover:text-red-800">&times;</button>
+                </div>`;
             }
 
             // --- Reindex & auto-grow ---
@@ -333,32 +420,52 @@
             }
 
             // --- Type toggle ---
-            container.addEventListener('change', function (e) {
-                if (!e.target.classList.contains('entry-type')) return;
-                const row = e.target.closest('.entry-row');
-                const newType = e.target.value;
-                if (newType === row.getAttribute('data-type')) return;
-
-                const content = row.querySelector('.entry-content');
-                const currentText = content.querySelector('.entry-text')?.value ?? '';
-                const currentUpc = content.querySelector('.selected-upc')?.value ?? '';
-
-                row.setAttribute('data-type', newType);
-                if (newType === 'header') {
-                    content.innerHTML = headerContentHtml(currentText);
-                } else {
-                    content.innerHTML = ingredientContentHtml(0, currentText, currentUpc);
-                }
+            function handleTypeChange(row, newType) {
+                const currentText = row.querySelector('.entry-text')?.value ?? '';
+                const currentUpc = row.querySelector('.selected-upc')?.value ?? '';
+                const newHtml = entryRowHtml(newType, 0, currentText, currentUpc);
+                row.insertAdjacentHTML('afterend', newHtml);
+                const newRow = row.nextElementSibling;
+                row.remove();
                 reindexRows();
                 if (newType === 'ingredient') {
-                    updateProductButtonState(row);
-                    updateProductStatus(row);
+                    updateProductButtonState(newRow);
+                    updateProductStatus(newRow);
                 }
                 ensureEmptyRow();
+            }
+
+            container.addEventListener('change', function (e) {
+                if (e.target.classList.contains('entry-type')) {
+                    const row = e.target.closest('.entry-row');
+                    const newType = e.target.value;
+                    if (newType === row.getAttribute('data-type')) return;
+                    handleTypeChange(row, newType);
+                }
             });
 
             // --- Click handlers ---
             container.addEventListener('click', function (e) {
+                // Mobile type toggle
+                if (e.target.classList.contains('type-toggle-mobile')) {
+                    const row = e.target.closest('.entry-row');
+                    const currentType = row.getAttribute('data-type');
+                    const newType = currentType === 'header' ? 'ingredient' : 'header';
+                    handleTypeChange(row, newType);
+                    return;
+                }
+
+                // Expand/collapse mobile detail panel
+                const expandBtn = e.target.closest('.expand-btn');
+                if (expandBtn) {
+                    const row = expandBtn.closest('.entry-row');
+                    const panel = row.querySelector('.detail-panel');
+                    const chevron = expandBtn.querySelector('.expand-chevron');
+                    panel.classList.toggle('expanded');
+                    if (chevron) chevron.classList.toggle('rotate-180');
+                    return;
+                }
+
                 if (e.target.classList.contains('remove-entry')) {
                     e.target.closest('.entry-row').remove();
                     reindexRows();
@@ -377,7 +484,14 @@
                     return;
                 }
 
-                if (e.target.classList.contains('clear-product-btn')) {
+                if (e.target.classList.contains('choose-product-btn-mobile')) {
+                    if (e.target.disabled) return;
+                    activeRowForProduct = row;
+                    openProductModal(getRawText(row));
+                    return;
+                }
+
+                if (e.target.classList.contains('clear-product-btn') || e.target.classList.contains('clear-product-btn-mobile')) {
                     row.querySelector('.selected-upc').value = '';
                     updateProductStatus(row);
                     return;
@@ -400,15 +514,23 @@
             ensureEmptyRow();
 
             // --- Drag-and-drop reordering ---
-            Sortable.create(container, {
-                handle: '.drag-handle',
+            const isMobile = window.innerWidth < 640;
+            const sortableOpts = {
                 animation: 150,
                 ghostClass: 'bg-blue-50',
                 onEnd: function () {
                     reindexRows();
                     ensureEmptyRow();
                 }
-            });
+            };
+            if (isMobile) {
+                sortableOpts.delay = 300;
+                sortableOpts.delayOnTouchOnly = true;
+                sortableOpts.touchStartThreshold = 5;
+            } else {
+                sortableOpts.handle = '.drag-handle';
+            }
+            Sortable.create(container, sortableOpts);
 
             // --- Steps (instructions) ---
             const stepsContainer = document.getElementById('stepsContainer');
@@ -424,19 +546,27 @@
                     row.setAttribute('data-step-index', newIndex);
                     const num = row.querySelector('.step-number');
                     if (num) num.textContent = newIndex + 1;
+                    const label = row.querySelector('.step-label');
+                    if (label) label.textContent = `Step ${newIndex + 1}`;
                     const textarea = row.querySelector('textarea');
                     if (textarea) textarea.name = `Instructions[${newIndex}]`;
                 });
             }
 
             const stepTemplate = (index) => `
-                <div class="step-row flex items-start gap-3" data-step-index="${index}">
-                    <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">${index + 1}</span>
-                    <textarea name="Instructions[${index}]"
-                              rows="2"
-                              class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                              placeholder="Describe this step..."></textarea>
-                    <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1">Remove</button>
+                <div class="step-row" data-step-index="${index}">
+                    <div class="flex items-center justify-between mb-1 sm:hidden">
+                        <span class="step-label text-sm font-semibold text-gray-700">Step ${index + 1}</span>
+                        <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800">&times;</button>
+                    </div>
+                    <div class="sm:flex sm:items-start sm:gap-3">
+                        <span class="step-number hidden sm:flex flex-shrink-0 items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">${index + 1}</span>
+                        <textarea name="Instructions[${index}]"
+                                  rows="2"
+                                  class="w-full sm:flex-1 min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                                  placeholder="Describe this step..."></textarea>
+                        <button type="button" class="remove-step hidden sm:inline text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1 shrink-0">&times;</button>
+                    </div>
                 </div>
             `;
 

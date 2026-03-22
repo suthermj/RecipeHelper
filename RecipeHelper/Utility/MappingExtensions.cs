@@ -72,6 +72,7 @@ namespace RecipeHelper.Utility
             {
                 Title = (vm.Title ?? "").Trim(),
                 Image = vm.Image,
+                SourceUrl = vm.SourceUrl,
                 Ingredients = vm.Ingredients.Select(i => new PreviewImportedRecipeIngredient
                 {
                     Name = i.Name ?? "",
@@ -88,6 +89,7 @@ namespace RecipeHelper.Utility
             {
                 Title = dto.Title,
                 Image = dto.Image,
+                SourceUrl = dto.SourceUrl,
                 Ingredients = dto.Ingredients.Select(x => new IngredientPreviewVM
                 {
                     Name = x.Name,
@@ -118,6 +120,7 @@ namespace RecipeHelper.Utility
             {
                 Title = (vm.Title ?? "").Trim(),
                 Image = vm.Image,
+                SourceUrl = vm.SourceUrl,
                 Ingredients = vm.Ingredients.Select(i => new ImportedIngredient
                 {
                     Name = i.Name,

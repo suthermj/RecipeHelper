@@ -39,6 +39,7 @@ namespace RecipeHelper.Services
                 Instructions = request.Instructions.Count > 0
                     ? JsonSerializer.Serialize(request.Instructions)
                     : null,
+                DinnerCategory = request.DinnerCategory,
                 Ingredients = new List<RecipeIngredient>()
             };
 
@@ -48,8 +49,9 @@ namespace RecipeHelper.Services
                 newRecipe.ImageUri = blobResponse.BlobUri;
             }
 
-            foreach (var ingredient in request.Ingredients)
+            for (int index = 0; index < request.Ingredients.Count; index++)
             {
+                var ingredient = request.Ingredients[index];
                 var resolved = await ResolveIngredientAsync(ingredient.DisplayName, ingredient.SelectedKrogerUpc);
 
                 newRecipe.Ingredients.Add(new RecipeIngredient
@@ -58,7 +60,9 @@ namespace RecipeHelper.Services
                     Quantity = ingredient.Quantity,
                     MeasurementId = ingredient.MeasurementId,
                     SelectedKrogerUpc = ingredient.SelectedKrogerUpc,
-                    IngredientId = resolved.Id
+                    IngredientId = resolved.Id,
+                    Section = string.IsNullOrWhiteSpace(ingredient.Section) ? null : ingredient.Section,
+                    SortOrder = index
                 });
             }
 
@@ -138,6 +142,7 @@ namespace RecipeHelper.Services
             }
 
             recipe.Name = request.Title;
+            recipe.DinnerCategory = request.DinnerCategory;
             recipe.Instructions = request.Instructions.Count > 0
                 ? JsonSerializer.Serialize(request.Instructions)
                 : null;
@@ -160,8 +165,11 @@ namespace RecipeHelper.Services
             }
             _context.RecipeIngredients.RemoveRange(toRemove);
 
-            foreach (var dto in request.Ingredients)
+            for (int index = 0; index < request.Ingredients.Count; index++)
             {
+                var dto = request.Ingredients[index];
+                var section = string.IsNullOrWhiteSpace(dto.Section) ? null : dto.Section;
+
                 if (dto.Id > 0 && existingById.TryGetValue(dto.Id, out var existing))
                 {
                     _logger.LogInformation("[UpdateRecipe] Updating existing ingredient {IngredientRowId} [{DisplayName}]", existing.Id, dto.DisplayName);
@@ -170,6 +178,8 @@ namespace RecipeHelper.Services
                     existing.MeasurementId = dto.MeasurementId;
                     existing.SelectedKrogerUpc = dto.SelectedKrogerUpc;
                     existing.IngredientId = dto.IngredientId;
+                    existing.Section = section;
+                    existing.SortOrder = index;
                 }
                 else
                 {
@@ -183,7 +193,9 @@ namespace RecipeHelper.Services
                         Quantity = dto.Quantity,
                         MeasurementId = dto.MeasurementId,
                         SelectedKrogerUpc = dto.SelectedKrogerUpc,
-                        IngredientId = resolved.Id
+                        IngredientId = resolved.Id,
+                        Section = section,
+                        SortOrder = index
                     });
                 }
             }

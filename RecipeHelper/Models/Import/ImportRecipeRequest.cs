@@ -8,6 +8,7 @@ namespace RecipeHelper.Models.Import
         public string Title { get; set; } = "";
 
         public string? Image { get; set; }
+        public string? SourceUrl { get; set; }
 
         [MinLength(1)]
         public List<ImportedIngredient> Ingredients { get; set; } = new();

@@ -39,11 +39,13 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
-                Ingredients = r.Ingredients.Select(rp => new IngredientVM
+                DinnerCategory = r.DinnerCategory,
+                Ingredients = r.Ingredients.OrderBy(rp => rp.SortOrder).Select(rp => new IngredientVM
                 {
                     Name = rp.DisplayName,
                     Quantity = rp.Quantity,
                     Measurement = rp.Measurement.Name,
+                    Section = rp.Section,
                 }).ToList(),
             }).ToList();
 
@@ -58,11 +60,14 @@ namespace RecipeHelper.Controllers
                 r.Name,
                 r.ImageUri,
                 r.Instructions,
-                Ingredients = r.Ingredients.Select(rp => new IngredientVM
+                r.DinnerCategory,
+                r.SourceUrl,
+                Ingredients = r.Ingredients.OrderBy(rp => rp.SortOrder).Select(rp => new IngredientVM
                 {
                     Name = rp.DisplayName,
                     Quantity = rp.Quantity,
                     Measurement = rp.Measurement.Name,
+                    Section = rp.Section,
                 }).ToList(),
             }).FirstOrDefault();
 
@@ -73,6 +78,8 @@ namespace RecipeHelper.Controllers
                 Id = data.Id,
                 RecipeName = data.Name,
                 ImageUri = data.ImageUri,
+                DinnerCategory = data.DinnerCategory,
+                SourceUrl = data.SourceUrl,
                 Ingredients = data.Ingredients,
                 Instructions = string.IsNullOrEmpty(data.Instructions)
                     ? new()
@@ -103,14 +110,16 @@ namespace RecipeHelper.Controllers
                     r.Name,
                     r.ImageUri,
                     r.Instructions,
-                    Ingredients = r.Ingredients.Select(rp => new
+                    r.DinnerCategory,
+                    Ingredients = r.Ingredients.OrderBy(rp => rp.SortOrder).Select(rp => new
                     {
                         rp.Id,
                         rp.DisplayName,
                         rp.Quantity,
                         MeasurementName = rp.Measurement.Name,
                         rp.SelectedKrogerUpc,
-                        rp.IngredientId
+                        rp.IngredientId,
+                        rp.Section
                     }).ToList(),
                 }).FirstOrDefaultAsync();
 
@@ -120,13 +129,15 @@ namespace RecipeHelper.Controllers
                 {
                     RecipeId = data.Id,
                     Title = data.Name,
+                    DinnerCategory = data.DinnerCategory,
                     ImageUri = data.ImageUri,
                     Ingredients = data.Ingredients.Select(rp => new EditRecipeIngredientVM
                     {
                         Id = rp.Id,
                         RawText = FormatIngredientText(rp.Quantity, rp.MeasurementName, rp.DisplayName),
                         SelectedKrogerUpc = rp.SelectedKrogerUpc,
-                        IngredientId = rp.IngredientId
+                        IngredientId = rp.IngredientId,
+                        Section = rp.Section
                     }).ToList(),
                     Instructions = string.IsNullOrEmpty(data.Instructions)
                         ? new()
@@ -165,28 +176,26 @@ namespace RecipeHelper.Controllers
                 return View("Create", vm);
             }
 
-            var rawLines = vm.Ingredients
-                .Where(i => !string.IsNullOrWhiteSpace(i.RawText))
-                .Select(i => i.RawText.Trim())
-                .ToList();
+            var filteredCreate = vm.Ingredients.Where(i => !string.IsNullOrWhiteSpace(i.RawText)).ToList();
 
-            var krogerUpcs = vm.Ingredients
-                .Where(i => !string.IsNullOrWhiteSpace(i.RawText))
-                .Select(i => i.SelectedKrogerUpc)
-                .ToList();
+            var rawLines = filteredCreate.Select(i => i.RawText.Trim()).ToList();
+            var krogerUpcs = filteredCreate.Select(i => i.SelectedKrogerUpc).ToList();
+            var sectionNames = filteredCreate.Select(i => i.Section).ToList();
 
             var ingredientDtos = await ParseRawLinesToDtos(rawLines, krogerUpcs);
 
             var request = new CreateRecipeRequest
             {
                 Title = normalizedTitle,
+                DinnerCategory = string.IsNullOrWhiteSpace(vm.DinnerCategory) ? null : vm.DinnerCategory,
                 ImageFile = vm.ImageFile,
-                Ingredients = ingredientDtos.Select(d => new CreateRecipeIngredientDto
+                Ingredients = ingredientDtos.Select((d, i) => new CreateRecipeIngredientDto
                 {
                     DisplayName = d.DisplayName,
                     Quantity = d.Quantity,
                     MeasurementId = d.MeasurementId,
-                    SelectedKrogerUpc = d.KrogerUpc
+                    SelectedKrogerUpc = d.KrogerUpc,
+                    Section = i < sectionNames.Count ? sectionNames[i] : null
                 }).ToList(),
                 Instructions = vm.Instructions ?? new()
             };
@@ -200,32 +209,78 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> EditRecipe(EditRecipeVM vm)
         {
-            var rawLines = vm.Ingredients
-                .Where(i => !string.IsNullOrWhiteSpace(i.RawText))
-                .Select(i => i.RawText.Trim())
-                .ToList();
+            var filteredEdit = vm.Ingredients.Where(i => !string.IsNullOrWhiteSpace(i.RawText)).ToList();
 
-            var krogerUpcs = vm.Ingredients
-                .Where(i => !string.IsNullOrWhiteSpace(i.RawText))
-                .Select(i => i.SelectedKrogerUpc)
-                .ToList();
+            // Split into modified (need OpenAI parsing) vs unchanged (reuse DB data)
+            var modifiedItems = new List<(EditRecipeIngredientVM Item, int Index)>();
+            var unchangedIds = new List<int>();
+            for (int i = 0; i < filteredEdit.Count; i++)
+            {
+                var item = filteredEdit[i];
+                if (!item.IsModified && item.Id > 0)
+                    unchangedIds.Add(item.Id);
+                else
+                    modifiedItems.Add((item, i));
+            }
 
-            var ingredientDtos = await ParseRawLinesToDtos(rawLines, krogerUpcs);
+            // Load unchanged ingredients from DB
+            var existingById = unchangedIds.Count > 0
+                ? await _context.RecipeIngredients
+                    .Where(ri => unchangedIds.Contains(ri.Id))
+                    .ToDictionaryAsync(ri => ri.Id)
+                : new Dictionary<int, RecipeIngredient>();
+
+            // Only parse modified/new ingredients through OpenAI
+            var resultDtos = new EditRecipeIngredientDto[filteredEdit.Count];
+
+            if (modifiedItems.Count > 0)
+            {
+                var rawLines = modifiedItems.Select(c => c.Item.RawText.Trim()).ToList();
+                var krogerUpcs = modifiedItems.Select(c => c.Item.SelectedKrogerUpc).ToList();
+                var parsedDtos = await ParseRawLinesToDtos(rawLines, krogerUpcs);
+
+                for (int j = 0; j < modifiedItems.Count; j++)
+                {
+                    var (item, idx) = modifiedItems[j];
+                    var d = parsedDtos[j];
+                    resultDtos[idx] = new EditRecipeIngredientDto
+                    {
+                        Id = item.Id,
+                        DisplayName = d.DisplayName,
+                        Quantity = d.Quantity,
+                        MeasurementId = d.MeasurementId,
+                        IngredientId = item.IngredientId,
+                        SelectedKrogerUpc = d.KrogerUpc,
+                        Section = item.Section
+                    };
+                }
+            }
+
+            // Fill in unchanged ingredients from DB
+            for (int i = 0; i < filteredEdit.Count; i++)
+            {
+                if (resultDtos[i] != null) continue;
+                var item = filteredEdit[i];
+                var existing = existingById[item.Id];
+                resultDtos[i] = new EditRecipeIngredientDto
+                {
+                    Id = existing.Id,
+                    DisplayName = existing.DisplayName,
+                    Quantity = existing.Quantity,
+                    MeasurementId = existing.MeasurementId,
+                    IngredientId = existing.IngredientId,
+                    SelectedKrogerUpc = item.SelectedKrogerUpc,
+                    Section = item.Section
+                };
+            }
 
             var request = new EditRecipeRequest
             {
                 Id = vm.RecipeId,
                 Title = (vm.Title ?? "").Trim(),
+                DinnerCategory = string.IsNullOrWhiteSpace(vm.DinnerCategory) ? null : vm.DinnerCategory,
                 ImageFile = vm.ImageFile,
-                Ingredients = ingredientDtos.Select(d => new EditRecipeIngredientDto
-                {
-                    Id = 0, // re-resolved on save
-                    DisplayName = d.DisplayName,
-                    Quantity = d.Quantity,
-                    MeasurementId = d.MeasurementId,
-                    IngredientId = 0, // re-resolved on save
-                    SelectedKrogerUpc = d.KrogerUpc
-                }).ToList(),
+                Ingredients = resultDtos.ToList(),
                 Instructions = vm.Instructions ?? new()
             };
 

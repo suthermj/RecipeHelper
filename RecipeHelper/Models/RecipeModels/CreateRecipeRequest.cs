@@ -5,6 +5,7 @@ namespace RecipeHelper.Models.RecipeModels
     public class CreateRecipeRequest
     {
         public string Title { get; set; } = "";
+        public string? DinnerCategory { get; set; }
 
         public IFormFile? ImageFile { get; set; }
         public List<CreateRecipeIngredientDto> Ingredients { get; set; } = new();
@@ -20,5 +21,7 @@ namespace RecipeHelper.Models.RecipeModels
         public int? MeasurementId { get; set; }
 
         public string? SelectedKrogerUpc { get; set; }
+
+        public string? Section { get; set; }
     }
 }

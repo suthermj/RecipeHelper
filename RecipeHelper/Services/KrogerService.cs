@@ -198,6 +198,7 @@ namespace RecipeHelper.Services
                     _logger.LogError("Error adding item to cart.{statusCode}, {reason}", response.StatusCode, response.ReasonPhrase);
                     return false;
                 }
+                _logger.LogInformation("Successfully added items to Kroger cart.");
             }
             catch (Exception ex)
             {

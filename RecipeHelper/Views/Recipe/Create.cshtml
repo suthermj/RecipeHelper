@@ -1,15 +1,13 @@
-﻿@model CreateRecipeVM
-@using Microsoft.AspNetCore.Mvc.Rendering
+@model CreateRecipeVM
 
 @{
     ViewData["Title"] = "Create Recipe";
-    var measurements = ViewBag.Measurements as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
 
     if (Model.Ingredients == null)
         Model.Ingredients = new List<CreateRecipeIngredientVM>();
 
     if (!Model.Ingredients.Any())
-        Model.Ingredients.Add(new CreateRecipeIngredientVM { Quantity = 1 });
+        Model.Ingredients.Add(new CreateRecipeIngredientVM());
 }
 
 <div class="max-w-5xl mx-auto px-4 py-8">
@@ -19,7 +17,7 @@
 
     <div asp-validation-summary="ModelOnly" class="text-red-600 mb-4"></div>
     <span asp-validation-for="Title" class="text-red-600 text-sm"></span>
-    <form asp-action="CreateRecipe" asp-controller="Recipe" method="post" enctype="multipart/form-data" class="space-y-8">
+    <form asp-action="CreateRecipe" asp-controller="Recipe" method="post" enctype="multipart/form-data" class="space-y-8 loading-form" data-loading-text="Saving recipe...">
         @Html.AntiForgeryToken()
 
         <!-- Basic info -->
@@ -40,74 +38,116 @@
             </div>
         </div>
 
+        <!-- Category -->
+        <div class="bg-white rounded-2xl shadow p-6">
+            <h2 class="text-lg font-semibold mb-3">Category</h2>
+            <div class="flex flex-wrap gap-4">
+                @foreach (var cat in new[] { "Dinner", "Lunch", "Breakfast", "Side", "Dessert", "Snack", "Appetizer" })
+                {
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="radio" name="DinnerCategory" value="@cat"
+                               class="border-gray-300" />
+                        @cat
+                    </label>
+                }
+            </div>
+        </div>
+
         <!-- Ingredients -->
         <div class="bg-white rounded-2xl shadow p-4 sm:p-6">
-            <div class="flex items-center justify-between gap-3 mb-3">
-                <h2 class="text-lg font-semibold">Ingredients</h2>
+            <h2 class="text-lg font-semibold mb-1">Ingredients</h2>
+            <p class="text-sm text-gray-500 mb-3">
+                Type each ingredient with its amount. Use the dropdown to mark a row as a section header.
+            </p>
 
-                <button type="button"
-                        id="addIngredientBtn"
-                        class="inline-flex items-center rounded-lg bg-gray-900 text-white px-3 py-1.5 text-sm hover:bg-black">
-                    + Add
-                </button>
-            </div>
-
-            <div id="ingredientsContainer" class="space-y-3">
+            <div id="ingredientsContainer" class="space-y-2">
+                @{
+                    string? cPrevSec = "__NONE__";
+                    int cIdx = 0;
+                }
                 @for (int i = 0; i < Model.Ingredients.Count; i++)
                 {
-                    <div class="ingredient-row border border-gray-200 rounded-xl p-3" data-index="@i">
-                        <div class="flex items-start justify-between gap-2 mb-2">
-                            <input name="Ingredients[@i].DisplayName"
-                                   value="@Model.Ingredients[i].DisplayName"
-                                   class="display-name flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                                   placeholder="Ingredient name" />
-                            <button type="button"
-                                    class="remove-ingredient text-xs text-red-600 hover:text-red-800 px-2 py-2">
-                                Remove
-                            </button>
-                        </div>
-                        <span class="text-sm text-red-600 field-validation-valid"
-                              data-valmsg-for="Ingredients[@i].DisplayName"
-                              data-valmsg-replace="true"></span>
+                    var ing = Model.Ingredients[i];
+                    var emitHeader = false;
+                    if (ing.Section != cPrevSec)
+                    {
+                        cPrevSec = ing.Section;
+                        emitHeader = !string.IsNullOrEmpty(ing.Section);
+                    }
+                    var thisIdx = cIdx;
+                    cIdx++;
 
-                        <div class="flex gap-2 mb-2">
-                            <div class="w-20">
-                                <label class="block text-[0.65rem] text-gray-500 mb-0.5">Qty</label>
-                                <input name="Ingredients[@i].Quantity"
-                                       value="@Model.Ingredients[i].Quantity"
-                                       type="number" step="0.01" min="0"
-                                       class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring" />
+                    if (emitHeader)
+                    {
+                        <div class="entry-row rounded-lg border border-gray-100 bg-gray-50 p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:flex sm:items-center sm:gap-2" data-type="header">
+                            <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none hidden sm:inline" title="Drag to reorder">&#x2630;</span>
+                            <select class="entry-type hidden sm:inline rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
+                                <option value="ingredient">Ingredient</option>
+                                <option value="header" selected>Section</option>
+                            </select>
+                            <div class="entry-content sm:flex-1 sm:flex sm:items-center sm:gap-2">
+                                <div class="flex items-center gap-2">
+                                    <input class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base font-semibold text-gray-700 sm:border sm:border-gray-200 sm:bg-gray-50 sm:px-3 sm:py-2 sm:text-sm sm:rounded-lg focus:outline-none focus:ring-0 sm:focus:ring"
+                                           placeholder="Section name..." value="@ing.Section" />
+                                    <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
+                                        <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="detail-panel sm:hidden">
+                                    <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                        <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Ingredient</button>
+                                        <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="flex-1">
-                                <label class="block text-[0.65rem] text-gray-500 mb-0.5">Unit</label>
-                                <select name="Ingredients[@i].MeasurementId"
-                                        class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring">
-                                    <option value="">Count</option>
-                                    @foreach (var m in measurements)
-                                    {
-                                        var selected = (Model.Ingredients[i].MeasurementId?.ToString() == m.Value);
-                                        <option value="@m.Value" selected="@(selected ? "selected" : null)">@m.Text</option>
-                                    }
-                                </select>
+                            <button type="button" class="remove-entry hidden sm:inline text-xs text-red-600 hover:text-red-800">&times;</button>
+                        </div>
+                    }
+                    <div class="entry-row rounded-lg border border-gray-100 bg-white p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:flex sm:items-center sm:gap-2" data-type="ingredient">
+                        <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none hidden sm:inline" title="Drag to reorder">&#x2630;</span>
+                        <select class="entry-type hidden sm:inline rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
+                            <option value="ingredient" selected>Ingredient</option>
+                            <option value="header">Section</option>
+                        </select>
+                        <div class="entry-content sm:flex-1 sm:flex sm:items-center sm:gap-2">
+                            <div class="flex items-center gap-2">
+                                <input name="Ingredients[@thisIdx].RawText"
+                                       value="@ing.RawText"
+                                       class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base sm:border sm:border-gray-300 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm focus:outline-none focus:ring-0 sm:focus:ring"
+                                       placeholder="e.g., 2 cups flour" />
+                                <input type="hidden" name="Ingredients[@thisIdx].SelectedKrogerUpc"
+                                       value="@ing.SelectedKrogerUpc" class="selected-upc" />
+                                <input type="hidden" name="Ingredients[@thisIdx].Section"
+                                       value="@ing.Section" class="ingredient-section" />
+                                <span class="product-badge text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 whitespace-nowrap sm:hidden @(string.IsNullOrEmpty(ing.SelectedKrogerUpc) ? "hidden" : "")">Linked</span>
+                                <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
+                                    <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div class="hidden sm:flex items-center gap-2">
+                                    <button type="button"
+                                            class="choose-product-btn text-xs text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline whitespace-nowrap"
+                                            disabled>Link</button>
+                                    <span class="product-status text-xs text-gray-400 hidden"></span>
+                                    <button type="button"
+                                            class="clear-product-btn text-gray-500 hover:text-gray-700 text-sm hidden">&times;</button>
+                                </div>
+                            </div>
+                            <div class="detail-panel sm:hidden">
+                                <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                    <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
+                                        <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
+                                        <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <!-- Kroger product (compact) -->
-                        <input type="hidden" name="Ingredients[@i].SelectedKrogerUpc"
-                               value="@Model.Ingredients[i].SelectedKrogerUpc" class="selected-upc" />
-                        <div class="flex items-center gap-2 text-xs">
-                            <button type="button"
-                                    class="choose-product-btn text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline"
-                                    disabled>
-                                Link Kroger product
-                            </button>
-                            <span class="product-status text-gray-400">—</span>
-                            <span class="product-upc text-gray-400"></span>
-                            <button type="button"
-                                    class="clear-product-btn text-gray-500 hover:text-gray-700 hidden">
-                                &times;
-                            </button>
-                        </div>
+                        <button type="button" class="remove-entry hidden sm:inline text-xs text-red-600 hover:text-red-800">&times;</button>
                     </div>
                 }
             </div>
@@ -125,22 +165,24 @@
                 </button>
             </div>
 
-            <p class="text-sm text-gray-600 mb-6">
-                Add step-by-step cooking instructions. Drag to reorder if needed.
-            </p>
-
             <div id="stepsContainer" class="space-y-3">
                 @if (Model.Instructions != null)
                 {
                     @for (int i = 0; i < Model.Instructions.Count; i++)
                     {
-                        <div class="step-row flex items-start gap-3" data-step-index="@i">
-                            <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">@(i + 1)</span>
-                            <textarea name="Instructions[@i]"
-                                      rows="2"
-                                      class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                                      placeholder="Describe this step...">@Model.Instructions[i]</textarea>
-                            <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1">Remove</button>
+                        <div class="step-row" data-step-index="@i">
+                            <div class="flex items-center justify-between mb-1 sm:hidden">
+                                <span class="step-label text-sm font-semibold text-gray-700">Step @(i + 1)</span>
+                                <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800">&times;</button>
+                            </div>
+                            <div class="sm:flex sm:items-start sm:gap-3">
+                                <span class="step-number hidden sm:flex flex-shrink-0 items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">@(i + 1)</span>
+                                <textarea name="Instructions[@i]"
+                                          rows="2"
+                                          class="w-full sm:flex-1 min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                                          placeholder="Describe this step...">@Model.Instructions[i]</textarea>
+                                <button type="button" class="remove-step hidden sm:inline text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1 shrink-0">&times;</button>
+                            </div>
                         </div>
                     }
                 }
@@ -149,7 +191,7 @@
 
         <!-- Submit -->
         <div class="flex items-center justify-end gap-3">
-            <a asp-action="Index" asp-controller="Recipe"
+            <a asp-action="Recipe" asp-controller="Recipe"
                class="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
                 Cancel
             </a>
@@ -162,14 +204,11 @@
 </div>
 
 <!-- Product picker modal -->
-<!-- Product picker modal (improved) -->
 <div id="productModal" class="fixed inset-0 hidden items-center justify-center bg-black/50 p-4 z-50">
     <div class="w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden">
         <!-- Header -->
         <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div>
-                <h3 class="text-lg font-semibold text-gray-900">Choose Kroger product</h3>
-            </div>
+            <h3 class="text-lg font-semibold text-gray-900">Choose Kroger product</h3>
             <button type="button" id="closeProductModal"
                     class="h-9 w-9 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900">
                 <span class="text-2xl leading-none">&times;</span>
@@ -178,21 +217,17 @@
 
         <!-- Tabs + Search -->
         <div class="px-5 py-4">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <!-- Tabs -->
-                <div class="inline-flex rounded-xl bg-gray-100 p-1 self-start">
-                    <button type="button" id="tabExisting"
-                            class="tab-btn px-3 py-1.5 text-sm font-medium rounded-lg bg-white shadow-sm text-gray-900">
-                        Search existing
-                    </button>
-                    <button type="button" id="tabKroger"
-                            class="tab-btn px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900">
-                        Search Kroger
-                    </button>
-                </div>
+            <div class="inline-flex rounded-xl bg-gray-100 p-1">
+                <button type="button" id="tabExisting"
+                        class="tab-btn px-3 py-1.5 text-sm font-medium rounded-lg bg-white shadow-sm text-gray-900">
+                    Search existing
+                </button>
+                <button type="button" id="tabKroger"
+                        class="tab-btn px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900">
+                    Search Kroger
+                </button>
             </div>
 
-            <!-- Search row -->
             <div class="mt-4 flex gap-2">
                 <div class="relative flex-1">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -205,13 +240,11 @@
                            class="w-full rounded-xl border border-gray-200 pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring focus:ring-gray-200"
                            placeholder="Search products…" />
                 </div>
-
                 <button type="button" id="productSearchBtn"
                         class="rounded-xl bg-gray-900 text-white px-4 py-2 text-sm font-semibold hover:bg-black">
                     Search
                 </button>
             </div>
-
         </div>
 
         <!-- Results -->
@@ -226,14 +259,12 @@
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
     <script>
         (function () {
             const container = document.getElementById('ingredientsContainer');
-            const addBtn = document.getElementById('addIngredientBtn');
 
-            // Product modal state
+            // Product modal elements
             const productModal = document.getElementById('productModal');
             const closeProductModal = document.getElementById('closeProductModal');
             const productSearchInput = document.getElementById('productSearchInput');
@@ -242,216 +273,264 @@
             const productSearchBtn = document.getElementById('productSearchBtn');
             const productResults = document.getElementById('productResults');
 
-            let activeRowForProduct = null; // row currently choosing product for
+            let activeRowForProduct = null;
+            let searchMode = "existing";
 
-            // Measurements for new rows
-            const measurementOptions = [
-                @foreach (var m in measurements)
-                {
-                        <text>{ value: "@m.Value", text: "@m.Text" },</text>
-                }
-            ];
-            function buildMeasurementOptions() {
-                return measurementOptions.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
+            const ACTIVE_TAB = "tab-btn px-3 py-1.5 text-sm font-medium rounded-lg bg-white shadow-sm text-gray-900";
+            const INACTIVE_TAB = "tab-btn px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900";
+
+            // --- Helpers ---
+            function escapeAttr(s) {
+                return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             }
 
-            function nextIndex() {
-                return container.querySelectorAll('.ingredient-row').length;
-            }
-
-                    let searchMode = "existing"; // "existing" | "kroger"
-
-            const ACTIVE_TAB =
-              "tab-btn px-3 py-1.5 text-sm font-medium rounded-lg bg-white shadow-sm text-gray-900";
-            const INACTIVE_TAB =
-              "tab-btn px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900";
-
-            function setSearchMode(mode) {
-              searchMode = mode;
-
-              if (mode === "existing") {
-                tabExisting.className = ACTIVE_TAB;
-                tabKroger.className = INACTIVE_TAB;
-              } else {
-                tabExisting.className = INACTIVE_TAB;
-                tabKroger.className = ACTIVE_TAB;
-              }
-            }
-
-            tabExisting.addEventListener('click', async () => {
-              setSearchMode("existing");
-              // optional: auto-run search if text exists
-              if (productSearchInput.value.trim().length >= 2) {
-                await searchProducts(`/Product/SearchDb?term=${encodeURIComponent(productSearchInput.value.trim())}`);
-              }
-            });
-
-            tabKroger.addEventListener('click', async () => {
-              setSearchMode("kroger");
-              if (productSearchInput.value.trim().length >= 2) {
-                await searchProducts(`/Product/SearchKroger?term=${encodeURIComponent(productSearchInput.value.trim())}`);
-              }
-            });
-
-
-            function escapeHtml(str) {
-                return String(str ?? '')
-                    .replaceAll('&', '&amp;')
-                    .replaceAll('<', '&lt;')
-                    .replaceAll('>', '&gt;')
-                    .replaceAll('"', '&quot;')
-                    .replaceAll("'", '&#039;');
-            }
-
-            function getDisplayName(row) {
-                return row.querySelector('input[name^="Ingredients"][name$=".DisplayName"]')?.value?.trim() ?? "";
+            function getRawText(row) {
+                return row.querySelector('.entry-text')?.value?.trim() ?? "";
             }
 
             function updateProductButtonState(row) {
-                const display = getDisplayName(row);
+                const text = getRawText(row);
                 const btn = row.querySelector('.choose-product-btn');
-                if (!btn) return;
-                btn.disabled = display.length < 2;
+                const mobileBtn = row.querySelector('.choose-product-btn-mobile');
+                if (btn) btn.disabled = text.length < 2;
+                if (mobileBtn) mobileBtn.disabled = text.length < 2;
             }
 
             function updateProductStatus(row) {
                 const upc = row.querySelector('.selected-upc')?.value ?? "";
+                const btn = row.querySelector('.choose-product-btn');
                 const status = row.querySelector('.product-status');
-                const upcSpan = row.querySelector('.product-upc');
                 const clearBtn = row.querySelector('.clear-product-btn');
-
-                if (!status || !upcSpan || !clearBtn) return;
+                const badge = row.querySelector('.product-badge');
+                const mobileBtn = row.querySelector('.choose-product-btn-mobile');
+                const mobileClearBtn = row.querySelector('.clear-product-btn-mobile');
 
                 if (!upc) {
-                    status.textContent = "\u2014";
-                    status.classList.add("text-gray-400");
-                    status.classList.remove("text-green-700");
-                    upcSpan.textContent = "";
-                    clearBtn.classList.add("hidden");
+                    if (btn) { btn.classList.remove("hidden"); btn.textContent = "Link"; }
+                    if (status) { status.classList.add("hidden"); status.textContent = ""; }
+                    if (clearBtn) clearBtn.classList.add("hidden");
+                    if (badge) badge.classList.add("hidden");
+                    if (mobileBtn) mobileBtn.textContent = "Link Product";
+                    if (mobileClearBtn) mobileClearBtn.classList.add("hidden");
                 } else {
-                    status.textContent = "Linked";
-                    status.classList.remove("text-gray-400");
-                    status.classList.add("text-green-700");
-                    upcSpan.textContent = upc;
-                    clearBtn.classList.remove("hidden");
+                    if (btn) btn.classList.add("hidden");
+                    if (status) { status.classList.remove("hidden"); status.textContent = "Linked"; status.className = "product-status text-xs text-green-700 font-medium"; }
+                    if (clearBtn) clearBtn.classList.remove("hidden");
+                    if (badge) badge.classList.remove("hidden");
+                    if (mobileBtn) mobileBtn.textContent = "Change Link";
+                    if (mobileClearBtn) mobileClearBtn.classList.remove("hidden");
                 }
             }
 
-            const rowTemplate = (index) => `
-                <div class="ingredient-row border border-gray-200 rounded-xl p-3" data-index="${index}">
-                    <div class="flex items-start justify-between gap-2 mb-2">
-                        <input name="Ingredients[${index}].DisplayName"
-                               value=""
-                               class="display-name flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                               placeholder="Ingredient name" />
-                        <button type="button"
-                                class="remove-ingredient text-xs text-red-600 hover:text-red-800 px-2 py-2">
-                            Remove
-                        </button>
-                    </div>
+            // --- Templates ---
+            function entryRowHtml(type, index, text, upc) {
+                const isHeader = type === 'header';
+                const hasUpc = upc && upc.length > 0;
 
-                    <div class="flex gap-2 mb-2">
-                        <div class="w-20">
-                            <label class="block text-[0.65rem] text-gray-500 mb-0.5">Qty</label>
-                            <input name="Ingredients[${index}].Quantity"
-                                   value="1" type="number" step="0.01" min="0"
-                                   class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring" />
+                if (isHeader) {
+                    return `
+                    <div class="entry-row rounded-lg border border-gray-100 bg-gray-50 p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:flex sm:items-center sm:gap-2" data-type="header">
+                        <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none hidden sm:inline" title="Drag to reorder">&#x2630;</span>
+                        <select class="entry-type hidden sm:inline rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
+                            <option value="ingredient">Ingredient</option>
+                            <option value="header" selected>Section</option>
+                        </select>
+                        <div class="entry-content sm:flex-1 sm:flex sm:items-center sm:gap-2">
+                            <div class="flex items-center gap-2">
+                                <input class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base font-semibold text-gray-700 sm:border sm:border-gray-200 sm:bg-gray-50 sm:px-3 sm:py-2 sm:text-sm sm:rounded-lg focus:outline-none focus:ring-0 sm:focus:ring"
+                                       placeholder="Section name..." value="${escapeAttr(text)}" />
+                                <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
+                                    <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="detail-panel sm:hidden">
+                                <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                    <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Ingredient</button>
+                                    <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex-1">
-                            <label class="block text-[0.65rem] text-gray-500 mb-0.5">Unit</label>
-                            <select name="Ingredients[${index}].MeasurementId"
-                                    class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring">
-                                <option value="">Count</option>
-                                ${buildMeasurementOptions()}
-                            </select>
+                        <button type="button" class="remove-entry hidden sm:inline text-xs text-red-600 hover:text-red-800">&times;</button>
+                    </div>`;
+                }
+
+                return `
+                <div class="entry-row rounded-lg border border-gray-100 bg-white p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:flex sm:items-center sm:gap-2" data-type="ingredient">
+                    <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 shrink-0 select-none hidden sm:inline" title="Drag to reorder">&#x2630;</span>
+                    <select class="entry-type hidden sm:inline rounded border border-gray-200 text-xs py-1.5 px-1 text-gray-500 bg-white shrink-0">
+                        <option value="ingredient" selected>Ingredient</option>
+                        <option value="header">Section</option>
+                    </select>
+                    <div class="entry-content sm:flex-1 sm:flex sm:items-center sm:gap-2">
+                        <div class="flex items-center gap-2">
+                            <input name="Ingredients[${index}].RawText" value="${escapeAttr(text)}"
+                                   class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base sm:border sm:border-gray-300 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm focus:outline-none focus:ring-0 sm:focus:ring"
+                                   placeholder="e.g., 2 cups flour" />
+                            <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="${escapeAttr(upc)}" class="selected-upc" />
+                            <input type="hidden" name="Ingredients[${index}].Section" value="" class="ingredient-section" />
+                            <span class="product-badge text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 whitespace-nowrap sm:hidden ${hasUpc ? '' : 'hidden'}">Linked</span>
+                            <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
+                                <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div class="hidden sm:flex items-center gap-2">
+                                <button type="button" class="choose-product-btn text-xs text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline whitespace-nowrap" disabled>Link</button>
+                                <span class="product-status text-xs text-gray-400 hidden"></span>
+                                <button type="button" class="clear-product-btn text-gray-500 hover:text-gray-700 text-sm hidden">&times;</button>
+                            </div>
+                        </div>
+                        <div class="detail-panel sm:hidden">
+                            <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
+                                <div class="flex items-center gap-3">
+                                    <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
+                                    <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
+                                    <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-
-                    <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="" class="selected-upc" />
-                    <div class="flex items-center gap-2 text-xs">
-                        <button type="button"
-                                class="choose-product-btn text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline"
-                                disabled>
-                            Link Kroger product
-                        </button>
-                        <span class="product-status text-gray-400">\u2014</span>
-                        <span class="product-upc text-gray-400"></span>
-                        <button type="button"
-                                class="clear-product-btn text-gray-500 hover:text-gray-700 hidden">
-                            &times;
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            function reindexRows() {
-                const rows = Array.from(container.querySelectorAll('.ingredient-row'));
-                rows.forEach((row, newIndex) => {
-                    row.setAttribute('data-index', newIndex);
-
-                    row.querySelectorAll('[name]').forEach(el => {
-                        el.name = el.name.replace(/Ingredients\[\d+\]/g, `Ingredients[${newIndex}]`);
-                    });
-
-                    row.querySelectorAll('[data-valmsg-for]').forEach(el => {
-                        el.setAttribute('data-valmsg-for', el.getAttribute('data-valmsg-for').replace(/Ingredients\[\d+\]/g, `Ingredients[${newIndex}]`));
-                    });
-                });
+                    <button type="button" class="remove-entry hidden sm:inline text-xs text-red-600 hover:text-red-800">&times;</button>
+                </div>`;
             }
 
-            addBtn.addEventListener('click', function () {
-                const idx = nextIndex();
-                container.insertAdjacentHTML('beforeend', rowTemplate(idx));
+            // --- Reindex & auto-grow ---
+            function reindexRows() {
+                let idx = 0;
+                for (const row of container.querySelectorAll('.entry-row[data-type="ingredient"]')) {
+                    row.querySelector('.entry-content').querySelectorAll('[name]').forEach(el => {
+                        el.name = el.name.replace(/Ingredients\[\d+\]/g, `Ingredients[${idx}]`);
+                    });
+                    idx++;
+                }
+            }
 
-                const newRow = container.querySelector(`.ingredient-row[data-index="${idx}"]`);
-                if (newRow) {
+            function ensureEmptyRow() {
+                const rows = Array.from(container.querySelectorAll('.entry-row'));
+                const last = rows[rows.length - 1];
+                const lastText = last?.querySelector('.entry-text')?.value?.trim() ?? '';
+                const lastType = last?.getAttribute('data-type');
+                if (!last || lastText !== '' || lastType === 'header') {
+                    const idx = container.querySelectorAll('.entry-row[data-type="ingredient"]').length;
+                    container.insertAdjacentHTML('beforeend', entryRowHtml('ingredient', idx, '', ''));
+                }
+            }
+
+            // --- Type toggle ---
+            function handleTypeChange(row, newType) {
+                const currentText = row.querySelector('.entry-text')?.value ?? '';
+                const currentUpc = row.querySelector('.selected-upc')?.value ?? '';
+                const newHtml = entryRowHtml(newType, 0, currentText, currentUpc);
+                row.insertAdjacentHTML('afterend', newHtml);
+                const newRow = row.nextElementSibling;
+                row.remove();
+                reindexRows();
+                if (newType === 'ingredient') {
                     updateProductButtonState(newRow);
                     updateProductStatus(newRow);
                 }
+                ensureEmptyRow();
+            }
+
+            container.addEventListener('change', function (e) {
+                if (e.target.classList.contains('entry-type')) {
+                    const row = e.target.closest('.entry-row');
+                    const newType = e.target.value;
+                    if (newType === row.getAttribute('data-type')) return;
+                    handleTypeChange(row, newType);
+                }
             });
 
-            // Global click handler for row actions
+            // --- Click handlers ---
             container.addEventListener('click', function (e) {
-                const row = e.target.closest('.ingredient-row');
-                if (!row) return;
-
-                if (e.target.classList.contains('remove-ingredient')) {
-                    row.remove();
-                    reindexRows();
+                // Mobile type toggle
+                if (e.target.classList.contains('type-toggle-mobile')) {
+                    const row = e.target.closest('.entry-row');
+                    const currentType = row.getAttribute('data-type');
+                    const newType = currentType === 'header' ? 'ingredient' : 'header';
+                    handleTypeChange(row, newType);
                     return;
                 }
+
+                // Expand/collapse mobile detail panel
+                const expandBtn = e.target.closest('.expand-btn');
+                if (expandBtn) {
+                    const row = expandBtn.closest('.entry-row');
+                    const panel = row.querySelector('.detail-panel');
+                    const chevron = expandBtn.querySelector('.expand-chevron');
+                    panel.classList.toggle('expanded');
+                    if (chevron) chevron.classList.toggle('rotate-180');
+                    return;
+                }
+
+                if (e.target.classList.contains('remove-entry')) {
+                    e.target.closest('.entry-row').remove();
+                    reindexRows();
+                    ensureEmptyRow();
+                    return;
+                }
+
+                const row = e.target.closest('.entry-row[data-type="ingredient"]');
+                if (!row) return;
 
                 if (e.target.classList.contains('choose-product-btn')) {
                     if (e.target.disabled) return;
-
                     activeRowForProduct = row;
                     e.target.blur();
-
-                    const prefill = getDisplayName(row);
-                    openProductModal(prefill);
+                    openProductModal(getRawText(row));
                     return;
                 }
 
-                if (e.target.classList.contains('clear-product-btn')) {
+                if (e.target.classList.contains('choose-product-btn-mobile')) {
+                    if (e.target.disabled) return;
+                    activeRowForProduct = row;
+                    openProductModal(getRawText(row));
+                    return;
+                }
+
+                if (e.target.classList.contains('clear-product-btn') || e.target.classList.contains('clear-product-btn-mobile')) {
                     row.querySelector('.selected-upc').value = '';
                     updateProductStatus(row);
                     return;
                 }
             });
 
-            // Enable/disable "Choose Kroger product" based on DisplayName
+            // --- Input: update product button + auto-grow ---
             container.addEventListener('input', function (e) {
-                if (!e.target.matches('input[name^="Ingredients"][name$=".DisplayName"]')) return;
-                const row = e.target.closest('.ingredient-row');
-                if (!row) return;
-                updateProductButtonState(row);
+                if (!e.target.classList.contains('entry-text')) return;
+                const row = e.target.closest('.entry-row');
+                if (row?.getAttribute('data-type') === 'ingredient') updateProductButtonState(row);
+                ensureEmptyRow();
             });
 
-            // Initialize existing rows on page load
-            Array.from(container.querySelectorAll('.ingredient-row')).forEach(row => {
+            // --- Init existing rows ---
+            for (const row of container.querySelectorAll('.entry-row[data-type="ingredient"]')) {
                 updateProductButtonState(row);
                 updateProductStatus(row);
-            });
+            }
+            ensureEmptyRow();
+
+            // --- Drag-and-drop reordering ---
+            const isMobile = window.innerWidth < 640;
+            const sortableOpts = {
+                animation: 150,
+                ghostClass: 'bg-blue-50',
+                onEnd: function () {
+                    reindexRows();
+                    ensureEmptyRow();
+                }
+            };
+            if (isMobile) {
+                sortableOpts.delay = 300;
+                sortableOpts.delayOnTouchOnly = true;
+                sortableOpts.touchStartThreshold = 5;
+            } else {
+                sortableOpts.handle = '.drag-handle';
+            }
+            Sortable.create(container, sortableOpts);
 
             // --- Steps (instructions) ---
             const stepsContainer = document.getElementById('stepsContainer');
@@ -467,19 +546,27 @@
                     row.setAttribute('data-step-index', newIndex);
                     const num = row.querySelector('.step-number');
                     if (num) num.textContent = newIndex + 1;
+                    const label = row.querySelector('.step-label');
+                    if (label) label.textContent = `Step ${newIndex + 1}`;
                     const textarea = row.querySelector('textarea');
                     if (textarea) textarea.name = `Instructions[${newIndex}]`;
                 });
             }
 
             const stepTemplate = (index) => `
-                <div class="step-row flex items-start gap-3" data-step-index="${index}">
-                    <span class="step-number flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">${index + 1}</span>
-                    <textarea name="Instructions[${index}]"
-                              rows="2"
-                              class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
-                              placeholder="Describe this step..."></textarea>
-                    <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1">Remove</button>
+                <div class="step-row" data-step-index="${index}">
+                    <div class="flex items-center justify-between mb-1 sm:hidden">
+                        <span class="step-label text-sm font-semibold text-gray-700">Step ${index + 1}</span>
+                        <button type="button" class="remove-step text-sm text-red-600 hover:text-red-800">&times;</button>
+                    </div>
+                    <div class="sm:flex sm:items-start sm:gap-3">
+                        <span class="step-number hidden sm:flex flex-shrink-0 items-center justify-center h-8 w-8 rounded-full bg-red-800 text-white text-sm font-bold mt-1">${index + 1}</span>
+                        <textarea name="Instructions[${index}]"
+                                  rows="2"
+                                  class="w-full sm:flex-1 min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring"
+                                  placeholder="Describe this step..."></textarea>
+                        <button type="button" class="remove-step hidden sm:inline text-sm text-red-600 hover:text-red-800 px-2 py-1 mt-1 shrink-0">&times;</button>
+                    </div>
                 </div>
             `;
 
@@ -496,6 +583,34 @@
             });
 
             // --- Product modal ---
+            function setSearchMode(mode) {
+                searchMode = mode;
+                tabExisting.className = mode === "existing" ? ACTIVE_TAB : INACTIVE_TAB;
+                tabKroger.className = mode === "kroger" ? ACTIVE_TAB : INACTIVE_TAB;
+            }
+
+            tabExisting.addEventListener('click', async () => {
+                setSearchMode("existing");
+                if (productSearchInput.value.trim().length >= 2) {
+                    await searchProducts(`/Product/SearchDb?term=${encodeURIComponent(productSearchInput.value.trim())}`);
+                }
+            });
+
+            tabKroger.addEventListener('click', async () => {
+                setSearchMode("kroger");
+                if (productSearchInput.value.trim().length >= 2) {
+                    await searchProducts(`/Product/SearchKroger?term=${encodeURIComponent(productSearchInput.value.trim())}`);
+                }
+            });
+
+            function escapeHtml(str) {
+                return String(str ?? '')
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+            }
 
             function openProductModal(prefill = '') {
                 setSearchMode("existing");
@@ -543,16 +658,11 @@
                                 class="product-result-item w-full text-left px-3 py-3 border-b border-gray-100 hover:bg-gray-50"
                                 data-upc="${upc}"
                                 data-name="${name}">
-
                             <div class="flex items-center gap-3">
                                 <div class="h-12 w-12 rounded-lg border border-gray-200 bg-white overflow-hidden flex items-center justify-center shrink-0">
-                                    <img src="${img}"
-                                         alt=""
-                                         class="h-full w-full object-cover"
-                                         loading="lazy"
-                                         onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/><path d=%22M16 30l6-6 4 4 6-6 4 8H16z%22 fill=%22%239ca3af%22/><circle cx=%2220%22 cy=%2220%22 r=%223%22 fill=%22%239ca3af%22/></svg>';" />
+                                    <img src="${img}" alt="" class="h-full w-full object-cover" loading="lazy"
+                                         onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
                                 </div>
-
                                 <div class="min-w-0 flex-1">
                                     <div class="text-sm font-medium text-gray-900 truncate">${name}</div>
                                     <div class="text-xs text-gray-500 mt-1 flex items-center justify-between gap-3">
@@ -569,49 +679,51 @@
             async function searchProducts(url) {
                 const q = productSearchInput.value.trim();
                 if (!q) return;
-
                 productResults.innerHTML = `<div class="px-3 py-3 text-sm text-gray-600">Searching…</div>`;
-
                 try {
                     const res = await fetch(url);
                     if (!res.ok) throw new Error('Search failed');
                     const data = await res.json();
                     renderProducts(data);
                 } catch {
-                    productResults.innerHTML = `<div class="px-3 py-3 text-sm text-red-600">Search error (wire your backend)</div>`;
+                    productResults.innerHTML = `<div class="px-3 py-3 text-sm text-red-600">Search error</div>`;
                 }
             }
 
-            // Default search button (you decide what it hits)
             productSearchBtn.addEventListener('click', async () => {
                 const term = productSearchInput.value.trim();
                 if (term.length < 2) return;
-
                 const url = (searchMode === "existing")
-                  ? `/Product/SearchDb?term=${encodeURIComponent(term)}`
-                  : `/Product/SearchKroger?term=${encodeURIComponent(term)}`;
-
+                    ? `/Product/SearchDb?term=${encodeURIComponent(term)}`
+                    : `/Product/SearchKroger?term=${encodeURIComponent(term)}`;
                 await searchProducts(url);
             });
 
-            // Enter key triggers search
             productSearchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    productSearchBtn.click();
-                }
+                if (e.key === 'Enter') { e.preventDefault(); productSearchBtn.click(); }
             });
 
-            // Selecting a product from modal
             productResults.addEventListener('click', (e) => {
                 const btn = e.target.closest('.product-result-item');
                 if (!btn || !activeRowForProduct) return;
-
                 const upc = btn.getAttribute('data-upc') ?? '';
                 activeRowForProduct.querySelector('.selected-upc').value = upc;
-
                 updateProductStatus(activeRowForProduct);
                 closeModal();
+            });
+
+            // --- Submit: assign sections from headers to ingredient rows ---
+            document.querySelector('form').addEventListener('submit', function () {
+                let currentSection = '';
+                for (const row of container.querySelectorAll('.entry-row')) {
+                    if (row.getAttribute('data-type') === 'header') {
+                        currentSection = row.querySelector('.entry-text')?.value?.trim() ?? '';
+                    } else if (row.getAttribute('data-type') === 'ingredient') {
+                        const sectionInput = row.querySelector('.ingredient-section');
+                        if (sectionInput) sectionInput.value = currentSection;
+                    }
+                }
+                reindexRows();
             });
         })();
     </script>

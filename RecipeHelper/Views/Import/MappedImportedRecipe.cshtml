@@ -39,7 +39,7 @@
         }
     </header>
 
-    <form asp-action="SaveImportedRecipe" method="post" class="space-y-5">
+    <form asp-action="SaveImportedRecipe" method="post" class="space-y-5 loading-form" data-loading-text="Saving recipe...">
         @Html.AntiForgeryToken()
 
         @* Recipe summary *@
@@ -68,6 +68,7 @@
         </section>
 
         <input type="hidden" name="Image" value="@Model.Image" />
+        <input type="hidden" name="SourceUrl" value="@Model.SourceUrl" />
 
         @* Steps (hidden) *@
         @if (Model.Steps != null)
@@ -80,6 +81,14 @@
 
         @* Ingredient cards *@
         <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-gray-800">Ingredients</h2>
+                <button type="button"
+                        id="addIngredientBtn"
+                        class="inline-flex items-center rounded-lg bg-gray-900 text-white px-3 py-1.5 text-xs font-medium hover:bg-black">
+                    + Add ingredient
+                </button>
+            </div>
             @for (var i = 0; i < Model.Ingredients.Count; i++)
             {
                 var ing = Model.Ingredients[i];
@@ -345,6 +354,19 @@
         const dbSearchUrl = '@Url.Action("SearchDb", "Product")';
         const krogerSearchUrl = '@Url.Action("SearchKroger", "Product")';
         const debounceMs = 200;
+
+        // Measurement options for dynamically added rows
+        const measurementOptions = [
+            @foreach (var m in Model.AvailableMeasurements)
+            {
+                <text>{ value: "@m.Value", text: "@m.Text" },</text>
+            }
+        ];
+        function buildMeasurementOptions(selectedValue) {
+            return measurementOptions.map(o =>
+                `<option value="${o.value}" ${o.value === selectedValue ? 'selected' : ''}>${o.text}</option>`
+            ).join('');
+        }
 
         const placeholderProductImg = '@Url.Content("~/images/default-product.png")';
         const krogerImgBase = 'https://www.kroger.com/product/images/large/front/';
@@ -758,6 +780,119 @@
             btn.setAttribute('aria-pressed', nextExcluded ? 'true' : 'false');
 
             applyExcludedState(idx, nextExcluded, { updateHidden: true });
+        });
+
+        // Add new ingredient row
+        const ingredientSection = document.querySelector('section.space-y-4');
+        const addIngredientBtn = document.getElementById('addIngredientBtn');
+
+        function getNextIngredientIndex() {
+            return document.querySelectorAll('.js-row').length;
+        }
+
+        function newIngredientRowHtml(idx) {
+            return `
+                <div class="js-row rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm transition" data-idx="${idx}">
+                    <input type="hidden" name="Ingredients[${idx}].Include" value="true" class="js-include" data-idx="${idx}" />
+                    <input type="hidden" name="Ingredients[${idx}].IngredientId" value="0" />
+                    <input type="hidden" name="Ingredients[${idx}].CanonicalName" value="" />
+                    <input type="hidden" name="Ingredients[${idx}].IngredientMatchKind" value="" />
+                    <input type="hidden" name="Ingredients[${idx}].SuggestedUpc" value="" />
+                    <input type="hidden" name="Ingredients[${idx}].SuggestedName" value="" />
+                    <input type="hidden" name="Ingredients[${idx}].SelectedUpc" value="" class="js-selected-upc" data-idx="${idx}" />
+                    <input type="hidden" name="Ingredients[${idx}].SelectedName" value="" class="js-selected-name" data-idx="${idx}" />
+                    <input type="hidden" name="Ingredients[${idx}].SelectedSource" value="" class="js-selected-source" data-idx="${idx}" />
+                    <input type="hidden" name="Ingredients[${idx}].Kroger.Upc" value="" />
+                    <input type="hidden" name="Ingredients[${idx}].Kroger.Name" value="" />
+                    <input type="hidden" name="Ingredients[${idx}].Kroger.ImageUrl" value="" />
+
+                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <label class="block text-[0.7rem] font-semibold uppercase tracking-wide text-gray-500">Ingredient</label>
+                            <input type="text"
+                                   name="Ingredients[${idx}].Name"
+                                   value=""
+                                   class="js-ingredient-name mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                                   data-idx="${idx}"
+                                   maxlength="120"
+                                   autocomplete="off"
+                                   placeholder="e.g., diced tomatoes" />
+
+                            <div class="js-collapsible" data-idx="${idx}">
+                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                    <span class="text-[0.7rem] font-semibold uppercase tracking-wide text-gray-500">Quantity</span>
+                                    <input type="number" step="0.01" min="0"
+                                           name="Ingredients[${idx}].Amount" value="1"
+                                           class="js-amount w-24 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                                           data-idx="${idx}" />
+                                    <select name="Ingredients[${idx}].Unit"
+                                            class="js-unit w-32 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                                            data-idx="${idx}">
+                                        ${buildMeasurementOptions('')}
+                                    </select>
+                                    <span class="ml-2 text-[0.7rem] text-gray-500">(Mapping optional)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    class="js-open-map inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 text-xs font-semibold hover:bg-red-100"
+                                    data-idx="${idx}">
+                                Map item
+                            </button>
+                            <button type="button"
+                                    class="js-remove-btn inline-flex items-center rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                                    data-idx="${idx}">
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="js-collapsible mt-4 rounded-2xl border border-gray-200 bg-white p-4 flex items-center gap-3" data-idx="${idx}">
+                        <div id="currentImgWrap-${idx}" class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center">
+                            ${placeholderSvg}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Selection</span>
+                                <span id="currentBadge-${idx}" class="px-2 py-0.5 text-[0.65rem] rounded-full border bg-gray-50 text-gray-600 border-gray-200">Unselected</span>
+                            </div>
+                            <div id="currentName-${idx}" class="mt-1 text-sm font-semibold text-gray-900 truncate">No item selected</div>
+                            <div id="currentMeta-${idx}" class="text-xs text-gray-500 truncate">No UPC selected</div>
+                        </div>
+                        <button type="button"
+                                class="js-clear-selection inline-flex items-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                data-idx="${idx}" disabled
+                                title="Clear selection">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (addIngredientBtn) {
+            addIngredientBtn.addEventListener('click', () => {
+                const idx = getNextIngredientIndex();
+                const lastRow = ingredientSection.querySelector('.js-row:last-of-type');
+                if (lastRow) {
+                    lastRow.insertAdjacentHTML('afterend', newIngredientRowHtml(idx));
+                } else {
+                    ingredientSection.insertAdjacentHTML('beforeend', newIngredientRowHtml(idx));
+                }
+                const newName = document.querySelector(`input.js-ingredient-name[data-idx="${idx}"]`);
+                if (newName) newName.focus();
+            });
+        }
+
+        // Remove ingredient row (only for dynamically added ones)
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.js-remove-btn');
+            if (!btn) return;
+            const idx = btn.dataset.idx;
+            const row = document.querySelector(`.js-row[data-idx="${idx}"]`);
+            if (row) row.remove();
         });
 
         // Init row current selection on load (and disable Clear if none selected)

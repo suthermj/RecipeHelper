@@ -27,5 +27,8 @@ namespace RecipeHelper.Models
         // The chosen “buy this” product (optional)
         public string? SelectedKrogerUpc { get; set; }
         public KrogerProduct? SelectedKrogerProduct { get; set; }
+
+        public string? Section { get; set; }
+        public int SortOrder { get; set; }
     }
 }

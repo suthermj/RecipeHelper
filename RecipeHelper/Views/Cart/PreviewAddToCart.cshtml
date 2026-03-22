@@ -26,7 +26,7 @@
     else
     {
         <section class="space-y-4">
-            <form asp-action="BeginAddToCart" asp-controller="Cart" method="post">
+            <form asp-action="BeginAddToCart" asp-controller="Cart" method="post" class="loading-form" data-loading-text="Adding items to Kroger cart...">
                 @Html.AntiForgeryToken()
 
                 <div class="flex items-center gap-3 rounded-t-2xl border border-gray-200 bg-gray-50 px-4 py-2">

@@ -72,6 +72,7 @@ namespace RecipeHelper.Utility
             {
                 Title = (vm.Title ?? "").Trim(),
                 Image = vm.Image,
+                SourceUrl = vm.SourceUrl,
                 Ingredients = vm.Ingredients.Select(i => new PreviewImportedRecipeIngredient
                 {
                     Name = i.Name ?? "",
@@ -88,6 +89,7 @@ namespace RecipeHelper.Utility
             {
                 Title = dto.Title,
                 Image = dto.Image,
+                SourceUrl = dto.SourceUrl,
                 Ingredients = dto.Ingredients.Select(x => new IngredientPreviewVM
                 {
                     Name = x.Name,
@@ -118,6 +120,7 @@ namespace RecipeHelper.Utility
             {
                 Title = (vm.Title ?? "").Trim(),
                 Image = vm.Image,
+                SourceUrl = vm.SourceUrl,
                 Ingredients = vm.Ingredients.Select(i => new ImportedIngredient
                 {
                     Name = i.Name,
@@ -133,42 +136,7 @@ namespace RecipeHelper.Utility
             };
         }
 
-        public static EditRecipeRequest ToRequest(this EditRecipeVM vm)
-        {
-            return new EditRecipeRequest
-            {
-                Id = vm.RecipeId,
-                Title = (vm.Title ?? "").Trim(),
-                ImageFile = vm.ImageFile,
-                Ingredients = vm.Ingredients.Select(i => new EditRecipeIngredientDto
-                {
-                    Id = i.Id,
-                    DisplayName = i.DisplayName ?? "",
-                    Quantity = i.Quantity,
-                    MeasurementId = i.MeasurementId,
-                    IngredientId = i.IngredientId,
-                    SelectedKrogerUpc = i.SelectedKrogerUpc,
-                }).ToList(),
-                Instructions = vm.Instructions ?? new()
-            };
-        }
-
-        public static CreateRecipeRequest ToRequest(this CreateRecipeVM vm)
-        {
-            return new CreateRecipeRequest
-            {
-                Title = (vm.Title ?? "").Trim(),
-                ImageFile = vm.ImageFile,
-                Ingredients = vm.Ingredients.Select(i => new CreateRecipeIngredientDto
-                {
-                    DisplayName = i.DisplayName ?? "",
-                    Quantity = i.Quantity, //?? 0m,
-                    MeasurementId = i.MeasurementId,
-                    SelectedKrogerUpc = i.SelectedKrogerUpc,
-                }).ToList(),
-                Instructions = vm.Instructions ?? new()
-            };
-        }
+        // ToRequest for Edit/Create moved to RecipeController (needs async ingredient parsing)
 
         public static ViewRecipeVM ToVM(this Recipe recipe)
         {

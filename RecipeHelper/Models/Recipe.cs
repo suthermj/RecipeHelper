@@ -12,6 +12,8 @@ namespace RecipeHelper.Models
         public required string Name { get; set; }
         public string? ImageUri { get; set; } = string.Empty;
         public string? Instructions { get; set; }
+        public string? DinnerCategory { get; set; }
+        public string? SourceUrl { get; set; }
         public List<RecipeIngredient> Ingredients { get; set; } = [];
     }
 
@@ -20,6 +22,8 @@ namespace RecipeHelper.Models
         public int Id { get; set; }
         public required string RecipeName { get; set; }
         public string ImageUri { get; set; } = string.Empty;
+        public string? DinnerCategory { get; set; }
+        public string? SourceUrl { get; set; }
         public List<IngredientVM> Ingredients { get; set; } = [];
         public List<string> Instructions { get; set; } = new();
     }
@@ -27,6 +31,7 @@ namespace RecipeHelper.Models
     public class CreateRecipeVM
     {
         public string Title { get; set; }
+        public string? DinnerCategory { get; set; }
         public IFormFile? ImageFile { get; set; }
         public List<CreateRecipeIngredientVM> Ingredients { get; set; } = new();
         public List<string> Instructions { get; set; } = new();
@@ -36,6 +41,7 @@ namespace RecipeHelper.Models
     {
         public int RecipeId { get; set; }
         public string Title { get; set; }
+        public string? DinnerCategory { get; set; }
         public string? ImageUri { get; set; }
         public IFormFile? ImageFile { get; set; }
         public List<EditRecipeIngredientVM> Ingredients { get; set; } = new();
@@ -44,26 +50,26 @@ namespace RecipeHelper.Models
 
     public class CreateRecipeIngredientVM
     {
-        public string DisplayName { get; set; } = "";   // required
-        public decimal Quantity { get; set; }           // required
-        public int? MeasurementId { get; set; }         // required-ish (or default “Count”)
-        public string? SelectedKrogerUpc { get; set; }  // optional
+        public string RawText { get; set; } = "";          // e.g. "2 cups flour"
+        public string? SelectedKrogerUpc { get; set; }     // optional Kroger link
+        public string? Section { get; set; }
     }
 
     public class EditRecipeIngredientVM
     {
-        public int Id { get; set; }                     // RecipeIngredient PK (0 = new row)
-        public string DisplayName { get; set; } = "";   // required
-        public decimal Quantity { get; set; }           // required
-        public int? MeasurementId { get; set; }         // required-ish (or default "Count")
-        public string? SelectedKrogerUpc { get; set; }  // optional
-        public int IngredientId { get; set; }           // FK to Ingredient table
+        public int Id { get; set; }                        // RecipeIngredient PK (0 = new)
+        public string RawText { get; set; } = "";          // e.g. "2 cups flour"
+        public string? SelectedKrogerUpc { get; set; }     // optional Kroger link
+        public int IngredientId { get; set; }              // FK (re-resolved on save)
+        public string? Section { get; set; }
+        public bool IsModified { get; set; }
     }
 
     public class IngredientVM
     {
         public int Id { get; set; }
         public string Name { get; set; }
+        public string? Section { get; set; }
         public decimal Quantity { get; set; }
         public string Measurement { get; set; }
         public string Upc { get; set; }

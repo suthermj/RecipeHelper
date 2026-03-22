@@ -29,9 +29,30 @@
         </a>
 
         <div class="flex items-start justify-between gap-4">
-            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
-                @Model.RecipeName
-            </h1>
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
+                    @Model.RecipeName
+                </h1>
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                    @if (!string.IsNullOrEmpty(Model.DinnerCategory))
+                    {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            @Model.DinnerCategory
+                        </span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.SourceUrl))
+                    {
+                        <a href="@Model.SourceUrl" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-800 transition">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.102 1.101" />
+                            </svg>
+                            Original recipe
+                        </a>
+                    }
+                </div>
+            </div>
 
             <div class="flex items-center gap-2 flex-shrink-0">
                 <a asp-controller="Recipe" asp-action="CreateEditRecipe" asp-route-id="@Model.Id"
@@ -69,8 +90,19 @@
         @if (hasIngredients)
         {
             <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                @{
+                    string? lastIngSection = null;
+                }
                 @foreach (var ingredient in Model.Ingredients)
                 {
+                    if (ingredient.Section != lastIngSection)
+                    {
+                        lastIngSection = ingredient.Section;
+                        if (!string.IsNullOrEmpty(lastIngSection))
+                        {
+                            <li class="col-span-full text-sm font-semibold text-gray-700 mt-3 mb-1 border-b border-gray-200 pb-1">@lastIngSection</li>
+                        }
+                    }
                     <li class="flex items-baseline gap-2 rounded-lg bg-gray-50 px-3 py-2.5 text-sm min-w-0">
                         <span class="font-semibold text-gray-900 whitespace-nowrap flex-shrink-0">
                             @ingredient.DisplayQuantity @ingredient.DisplayMeasurement

@@ -42,6 +42,20 @@
         </button>
     </form>
 
+    <!-- Clipboard paste banner -->
+    <div id="clipboardBanner" class="hidden flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+        <span class="text-gray-700">Have a recipe URL copied? Paste it from your clipboard.</span>
+        <div class="flex items-center gap-2 shrink-0">
+            <button type="button" class="clip-paste-btn inline-flex items-center gap-1.5 rounded-md bg-red-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-red-900 transition">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Paste
+            </button>
+            <button type="button" class="clip-dismiss-btn text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+        </div>
+    </div>
+
     <!-- Page-level loading overlay during GET navigation -->
     <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-white/60 backdrop-blur-sm flex items-center justify-center" aria-live="polite" aria-busy="true">
         <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white shadow">
@@ -170,7 +184,7 @@
 
                 <!-- Review & Save (editable) -->
                 <section class="pt-2">
-                    <form asp-action="GetImportedRecipePreview" method="post" class="space-y-4">
+                    <form asp-action="GetImportedRecipePreview" method="post" class="space-y-4 loading-form" data-loading-text="Preparing recipe preview...">
                         @Html.AntiForgeryToken()
 
                         <!-- core fields -->
@@ -226,6 +240,25 @@
         // Auto-hide error banner
         const err = document.getElementById('errorMessage');
         if (err) setTimeout(() => err.remove(), 7000);
+
+        // Clipboard paste banner — only show when the URL input is empty
+        const clipBanner = document.getElementById('clipboardBanner');
+        if (clipBanner && !urlInput.value.trim()) {
+            clipBanner.querySelector('.clip-paste-btn').addEventListener('click', async function () {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text && /^https?:\/\//i.test(text.trim())) {
+                        urlInput.value = text.trim();
+                        urlInput.focus();
+                    }
+                } catch { }
+                clipBanner.remove();
+            });
+            clipBanner.querySelector('.clip-dismiss-btn').addEventListener('click', function () {
+                clipBanner.remove();
+            });
+            clipBanner.classList.remove('hidden');
+        }
 
         form.addEventListener('submit', function () {
             if (!form.checkValidity()) return;

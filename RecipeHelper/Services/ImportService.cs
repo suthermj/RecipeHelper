@@ -40,7 +40,8 @@ namespace RecipeHelper.Services
             ImportPreview importPreview = new ImportPreview
             {
                 Title = title,
-                Image = imageUri
+                Image = imageUri,
+                SourceUrl = importedRecipe.SourceUrl
             };
 
             var ingredientList = new List<ImportPreviewIngredient>();
@@ -130,6 +131,7 @@ namespace RecipeHelper.Services
             {
                 Name = recipe.Title,
                 ImageUri = recipe.Image,
+                SourceUrl = recipe.SourceUrl,
                 Instructions = recipe.Steps.Count > 0
                     ? System.Text.Json.JsonSerializer.Serialize(recipe.Steps)
                     : null,

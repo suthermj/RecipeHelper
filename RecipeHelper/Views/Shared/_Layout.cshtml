@@ -2,7 +2,7 @@
 <html lang="en" class="h-full bg-gray-50">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <title>@ViewData["Title"] - RecipeHelper</title>
 
     <!-- App styles -->
@@ -93,6 +93,17 @@
             </a>
         </div>
     </nav>
+
+    <!-- Loading overlay (shown on form submit via .loading-form class) -->
+    <div id="loadingOverlay" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40">
+        <div class="bg-white rounded-2xl shadow-xl px-8 py-6 flex flex-col items-center gap-3">
+            <svg class="animate-spin h-8 w-8 text-red-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span id="loadingText" class="text-sm font-medium text-gray-700">Loading...</span>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="~/js/site.js" asp-append-version="true"></script>

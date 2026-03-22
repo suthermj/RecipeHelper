@@ -29,3 +29,35 @@ html {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Expand/collapse animation for mobile detail panels */
+.detail-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+}
+.detail-panel.expanded {
+  max-height: 80px;
+}
+
+/* Rotate chevron when expanded */
+.expand-chevron.rotate-180 {
+  transform: rotate(180deg);
+}
+
+/* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
+@supports (-webkit-touch-callout: none) {
+  @media screen and (max-width: 767px) {
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    input[type="url"],
+    input[type="tel"],
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}

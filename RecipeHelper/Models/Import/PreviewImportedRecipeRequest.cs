@@ -6,6 +6,7 @@ namespace RecipeHelper.Models.Import
     {
         public string Title { get; set; } = "";
         public string? Image { get; set; }
+        public string? SourceUrl { get; set; }
 
         public List<PreviewImportedRecipeIngredient> Ingredients { get; set; } = new();
     }
@@ -25,6 +26,7 @@ namespace RecipeHelper.Models.Import
         public string Title { get; set; } = "";
 
         public string? Image { get; set; }
+        public string? SourceUrl { get; set; }
 
         // Each imported ingredient with suggestions + Kroger fallback
         [MinLength(1)]

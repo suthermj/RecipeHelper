@@ -288,6 +288,15 @@
                 return row.querySelector('.entry-text')?.value?.trim() ?? "";
             }
 
+            function stripQuantityAndUnit(text) {
+                // Remove leading quantity (e.g. "2", "1.5", "1/2") and common unit words, plus "of"
+                return text
+                    .replace(/^[\d\s./]+/, '')
+                    .replace(/^(cups?|tablespoons?|teaspoons?|tbsp|tsp|ounces?|oz|pounds?|lbs?|grams?|g|gallons?|quarts?|pints?|liters?|milliliters?|ml|fluid\s+ounces?|fl\s+oz|pinch(es)?|dash(es)?|cloves?|cans?|packages?|bags?|bunch(es)?|heads?|stalks?|sprigs?|slices?|pieces?)\b\s*/i, '')
+                    .replace(/^of\s+/i, '')
+                    .trim();
+            }
+
             function updateProductButtonState(row) {
                 const text = getRawText(row);
                 const btn = row.querySelector('.choose-product-btn');
@@ -480,14 +489,14 @@
                     if (e.target.disabled) return;
                     activeRowForProduct = row;
                     e.target.blur();
-                    openProductModal(getRawText(row));
+                    openProductModal(stripQuantityAndUnit(getRawText(row)));
                     return;
                 }
 
                 if (e.target.classList.contains('choose-product-btn-mobile')) {
                     if (e.target.disabled) return;
                     activeRowForProduct = row;
-                    openProductModal(getRawText(row));
+                    openProductModal(stripQuantityAndUnit(getRawText(row)));
                     return;
                 }
 

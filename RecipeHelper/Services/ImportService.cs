@@ -294,7 +294,7 @@ namespace RecipeHelper.Services
                 await throttle.WaitAsync();     // ✅ wait until a slot is available
                 try
                 {
-                    var results = await _krogerService.SearchProductByFilter(ing.Name);
+                    var results = await _krogerService.SearchProductByFilter(ing.CleanName);
                     return (ing.Name, results);
                 }
                 finally

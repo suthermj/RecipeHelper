@@ -94,7 +94,14 @@ namespace RecipeHelper.Models
             {
                 if (Quantity == 1 && Measurement?.Equals("Unit", StringComparison.OrdinalIgnoreCase) == false)
                 {
-                    return Measurement.Substring(0, Measurement.Length - 1);
+                    // Handle compound units like "Fluid Ounces" → "Fluid Ounce"
+                    if (Measurement.Contains(' '))
+                    {
+                        var lastSpace = Measurement.LastIndexOf(' ');
+                        var lastWord = Measurement[(lastSpace + 1)..];
+                        return Measurement[..lastSpace] + " " + lastWord[..^1];
+                    }
+                    return Measurement[..^1];
                 }
                 else if (Measurement?.Equals("Unit", StringComparison.OrdinalIgnoreCase) == true)
                 {

@@ -1,0 +1,138 @@
+@model RecipeHelper.Models.Lists.ShoppingList
+
+@{
+    ViewData["Title"] = Model.Name;
+    var pending = Model.Items.Where(i => !i.IsCompleted).ToList();
+    var completed = Model.Items.Where(i => i.IsCompleted).ToList();
+}
+
+<div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <!-- Header -->
+    <div>
+        <a asp-action="Index"
+           class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3 transition">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            All Lists
+        </a>
+        <div class="flex items-center justify-between gap-3">
+            <form asp-action="Rename" method="post" class="flex-1 flex items-center gap-2" id="renameForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input name="name" type="text" value="@Model.Name"
+                       class="text-2xl font-bold text-gray-900 bg-transparent border-0 border-b-2 border-transparent focus:border-red-700 focus:ring-0 p-0 w-full"
+                       id="listNameInput" />
+                <button type="submit" id="renameBtn"
+                        class="hidden text-sm text-red-800 font-semibold hover:text-red-900 whitespace-nowrap">Save</button>
+            </form>
+            <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this list?');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
+            </form>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">@Model.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</p>
+    </div>
+
+    <!-- Add item -->
+    <form asp-action="AddItem" method="post" class="flex gap-2">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="listId" value="@Model.Id" />
+        <input name="name" type="text" required placeholder="Add an item..."
+               class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:ring-2 focus:ring-red-700" />
+        <input name="quantity" type="number" value="1" min="1"
+               class="w-16 rounded-lg border border-gray-300 px-2 py-2 text-sm text-center focus:border-red-700 focus:ring-2 focus:ring-red-700" />
+        <button type="submit"
+                class="px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">Add</button>
+    </form>
+
+    <!-- Pending items -->
+    @if (pending.Count == 0 && completed.Count == 0)
+    {
+        <div class="text-center py-12">
+            <p class="text-sm text-gray-500">This list is empty. Add items above.</p>
+        </div>
+    }
+    else
+    {
+        <div class="space-y-1">
+            @foreach (var item in pending)
+            {
+                <div class="flex items-center gap-3 rounded-lg bg-white border border-gray-200 px-4 py-3">
+                    <form asp-action="UpdateItem" method="post" class="flex items-center">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="itemId" value="@item.Id" />
+                        <input type="hidden" name="listId" value="@Model.Id" />
+                        <input type="hidden" name="isCompleted" value="true" />
+                        <button type="submit" class="h-5 w-5 rounded border-2 border-gray-300 hover:border-green-500 transition flex-shrink-0"
+                                title="Mark complete"></button>
+                    </form>
+                    <span class="flex-1 text-sm text-gray-900">@item.Name</span>
+                    <span class="text-sm text-gray-500 font-medium">x@(item.Quantity)</span>
+                    <form asp-action="RemoveItem" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="itemId" value="@item.Id" />
+                        <input type="hidden" name="listId" value="@Model.Id" />
+                        <button type="submit" class="text-gray-400 hover:text-red-600 transition" title="Remove">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+            }
+        </div>
+
+        @if (completed.Count > 0)
+        {
+            <div class="pt-4">
+                <h2 class="text-sm font-medium text-gray-500 mb-2">Completed (@completed.Count)</h2>
+                <div class="space-y-1">
+                    @foreach (var item in completed)
+                    {
+                        <div class="flex items-center gap-3 rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
+                            <form asp-action="UpdateItem" method="post" class="flex items-center">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="itemId" value="@item.Id" />
+                                <input type="hidden" name="listId" value="@Model.Id" />
+                                <input type="hidden" name="isCompleted" value="false" />
+                                <button type="submit" class="h-5 w-5 rounded border-2 border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center"
+                                        title="Mark incomplete">
+                                    <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                </button>
+                            </form>
+                            <span class="flex-1 text-sm text-gray-400 line-through">@item.Name</span>
+                            <span class="text-sm text-gray-400 font-medium">x@(item.Quantity)</span>
+                            <form asp-action="RemoveItem" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="itemId" value="@item.Id" />
+                                <input type="hidden" name="listId" value="@Model.Id" />
+                                <button type="submit" class="text-gray-300 hover:text-red-600 transition" title="Remove">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@section Scripts {
+<script>
+    const nameInput = document.getElementById('listNameInput');
+    const renameBtn = document.getElementById('renameBtn');
+    const originalName = nameInput.value;
+
+    nameInput.addEventListener('input', () => {
+        const changed = nameInput.value.trim() !== originalName && nameInput.value.trim().length > 0;
+        renameBtn.classList.toggle('hidden', !changed);
+    });
+</script>
+}

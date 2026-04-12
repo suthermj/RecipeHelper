@@ -26,5 +26,5 @@
 
 ## Bug Fixes / Improvements
 
-- [ ] Fix plural logic — "1 teaspoons of sugar" should display as "1 teaspoon of sugar"
-- [ ] Improve Kroger product search when linking ingredients — strip quantity/unit prefix so "1 tsp of sugar" searches as "sugar" instead of the full string
+- [x] Fix plural logic — "1 teaspoons of sugar" should display as "1 teaspoon of sugar"
+- [x] Improve Kroger product search when linking ingredients — strip quantity/unit prefix so "1 tsp of sugar" searches as "sugar" instead of the full string

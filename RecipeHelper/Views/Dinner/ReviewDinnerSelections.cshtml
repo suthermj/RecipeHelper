@@ -71,22 +71,26 @@
                                 </tr>
 
                                 @* Hidden inputs that will populate AddToCartVM.Items[i] *@
+                                <input type="hidden" name="Items[@i].Name" value="@item.Name" />
                                 <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
                                 <input type="hidden" name="Items[@i].Quantity" value="@item.Quantity" />
                                 <input type="hidden" name="Items[@i].Modality" value="PICKUP" />
                                 <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
-                                @* optional: send name/measurement if you ever want them in the VM *@
-                                @* <input type="hidden" name="Items[@i].Name" value="@item.Name" /> *@
                             }
                         </tbody>
                     </table>
                 </div>
 
-                <div class="flex justify-end pt-3">
+                <div class="flex justify-end gap-3 pt-3">
+                    <button type="button"
+                            id="add-to-list-button"
+                            class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition">
+                        Add to Shopping List
+                    </button>
                     <button type="submit"
                             id="add-to-kroger-button"
                             class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
-                        Add selected ingredients to Kroger cart
+                        Add to Kroger Cart
                     </button>
                 </div>
             </form>
@@ -99,19 +103,27 @@
         var form = document.getElementById('add-to-kroger-form');
         if (!form) return;
 
-        var button = document.getElementById('add-to-kroger-button');
-        if (!button) return;
+        var krogerBtn = document.getElementById('add-to-kroger-button');
+        var listBtn = document.getElementById('add-to-list-button');
 
-        form.addEventListener('submit', function () {
-            // Prevent double clicks
-            button.disabled = true;
+        var originalAction = form.action;
 
-            // Optional: light visual change
-            button.classList.add('opacity-70', 'cursor-not-allowed');
+        if (krogerBtn) {
+            form.addEventListener('submit', function () {
+                krogerBtn.disabled = true;
+                krogerBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                krogerBtn.textContent = 'Adding to Kroger...';
+            });
+        }
 
-            // Change text to show progress
-            button.dataset.originalText = button.textContent;
-            button.textContent = 'Adding to Kroger...';
-        });
+        if (listBtn) {
+            listBtn.addEventListener('click', function () {
+                form.action = '@Url.Action("CreateFromMealPlan", "ShoppingList")';
+                listBtn.disabled = true;
+                listBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                listBtn.textContent = 'Creating list...';
+                form.submit();
+            });
+        }
     });
 </script>

@@ -17,6 +17,7 @@ namespace RecipeHelper.Services
         public async Task<List<ShoppingList>> GetAllAsync()
         {
             return await _context.ShoppingLists
+                .Include(l => l.Items)
                 .OrderByDescending(l => l.CreatedDate)
                 .ToListAsync();
         }
@@ -28,13 +29,14 @@ namespace RecipeHelper.Services
                 .FirstOrDefaultAsync(l => l.Id == id);
         }
 
-        public async Task<ShoppingList> CreateAsync(string name, List<ShoppingListItem>? items = null)
+        public async Task<ShoppingList> CreateAsync(string name, List<ShoppingListItem>? items = null, string? storeId = null)
         {
             var list = new ShoppingList
             {
                 Name = name,
                 CreatedDate = DateTime.UtcNow,
-                Items = items ?? new()
+                Items = items ?? new(),
+                StoreId = storeId
             };
 
             _context.ShoppingLists.Add(list);

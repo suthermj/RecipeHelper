@@ -208,6 +208,51 @@ namespace RecipeHelper.Services
             return null;
         }
 
+        /// <summary>
+        /// Fetches product data (including aisle locations) for a batch of UPCs using the search endpoint,
+        /// which returns aisle data far more reliably than the product details endpoint.
+        /// Returns a map of UPC → KrogerProductDto.
+        /// </summary>
+        public async Task<Dictionary<string, KrogerProductDto>> GetProductsByUpcBatch(IEnumerable<string> upcs, string locationId)
+        {
+            var result = new Dictionary<string, KrogerProductDto>(StringComparer.OrdinalIgnoreCase);
+            var upcList = upcs.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().ToList();
+            if (!upcList.Any()) return result;
+
+            var token = await GetKrogerClientCredentialsToken();
+            if (token == null) return result;
+
+            // Use the details endpoint per-UPC with locationId for store-specific aisle data.
+            // filter.productId on the search endpoint silently ignores filter.locationId,
+            // so the details endpoint is the only way to get store-specific aisle locations.
+            var throttle = new SemaphoreSlim(5, 5);
+            var tasks = upcList.Select(async upc =>
+            {
+                await throttle.WaitAsync();
+                try
+                {
+                    var client = _httpClientFactory.CreateClient();
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    var url = $"{_baseUri}/products/{upc}?filter.locationId={locationId}";
+                    var response = await client.GetAsync(url);
+                    if (!response.IsSuccessStatusCode) return (upc, dto: (KrogerProductDto?)null);
+
+                    var content = await response.Content.ReadAsStringAsync();
+                    var detailsResponse = JsonConvert.DeserializeObject<KrogerProductDetailsResponse>(content);
+                    var dto = detailsResponse?.data != null ? (KrogerProductDto?)detailsResponse.data.ToKrogerProduct() : null;
+                    return (upc, dto);
+                }
+                finally { throttle.Release(); }
+            });
+
+            foreach (var (upc, dto) in await Task.WhenAll(tasks))
+            {
+                if (dto != null) result[upc] = dto;
+            }
+
+            return result;
+        }
+
         public async Task<KrogerProductDto?> GetProductDetails(string productId)
         {
             var client = _httpClientFactory.CreateClient();

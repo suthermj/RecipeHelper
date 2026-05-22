@@ -51,7 +51,8 @@ namespace RecipeHelper.Utility
                 promoPrice = source.items.FirstOrDefault()?.price?.promo ?? 0,
                 stockLevel = source.items.FirstOrDefault()?.inventory?.stockLevel ?? "N/A",
                 brand = source.brand,
-                aisleLocation = source.aisleLocations.FirstOrDefault()?.number ?? "N/A",
+                aisleLocation = source.aisleLocations?.FirstOrDefault()?.number ?? "N/A",
+                aisleDescription = source.aisleLocations?.FirstOrDefault()?.description,
                 categories = source.categories?.ToList() ?? new List<string>(),
                 soldBy = source.items.FirstOrDefault()?.soldBy ?? "N/A", // Assuming the first item is representative
                 size = source.items?.FirstOrDefault()?.size ?? "N/A",

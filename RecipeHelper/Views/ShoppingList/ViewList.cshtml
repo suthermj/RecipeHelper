@@ -2,11 +2,41 @@
 
 @{
     ViewData["Title"] = Model.Name;
+
+    var krogerBrands = new[] { "kroger", "simple truth", "private selection", "hemisfares" };
+    bool IsKrogerBrand(string? brand) =>
+        brand != null && krogerBrands.Any(b => brand.Contains(b, StringComparison.OrdinalIgnoreCase));
+
+    decimal GetDisplayPrice(RecipeHelper.Models.Lists.ShoppingListItem item)
+    {
+        var basePrice = (item.PromoPrice > 0 ? item.PromoPrice : item.Price) ?? 0;
+        return IsKrogerBrand(item.Brand) ? Math.Round(basePrice * 0.9m, 2) : basePrice;
+    }
+
     var pending = Model.Items.Where(i => !i.IsCompleted).ToList();
     var completed = Model.Items.Where(i => i.IsCompleted).ToList();
+
+    // Special sections pulled out first
+    var produce = pending.Where(i => i.AisleDescription?.Contains("PRODUCE", StringComparison.OrdinalIgnoreCase) == true).ToList();
+    var meat    = pending.Where(i => i.AisleDescription?.Contains("MEAT", StringComparison.OrdinalIgnoreCase) == true).ToList();
+    var dairy   = pending.Where(i => i.AisleDescription?.Contains("DAIRY", StringComparison.OrdinalIgnoreCase) == true).ToList();
+    var special = produce.Concat(meat).Concat(dairy).Select(i => i.Id).ToHashSet();
+
+    // Remaining items grouped by aisle number, sorted numerically
+    var byAisle = pending
+        .Where(i => !special.Contains(i.Id) && i.AisleNumber != null)
+        .GroupBy(i => i.AisleNumber!)
+        .OrderBy(g => int.TryParse(g.Key, out var n) ? n : 999)
+        .ToList();
+
+    var noAisle = pending.Where(i => !special.Contains(i.Id) && i.AisleNumber == null).ToList();
+
+    // Estimated subtotal (pending items only)
+    var subtotal = pending.Where(i => i.Price.HasValue || i.PromoPrice.HasValue)
+                          .Sum(i => GetDisplayPrice(i) * i.Quantity);
 }
 
-<div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+<div class="max-w-3xl mx-auto px-4 py-6 space-y-4 pb-32">
     <!-- Header -->
     <div>
         <a asp-action="Index"
@@ -47,7 +77,6 @@
                 class="px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">Add</button>
     </form>
 
-    <!-- Pending items -->
     @if (pending.Count == 0 && completed.Count == 0)
     {
         <div class="text-center py-12">
@@ -56,61 +85,89 @@
     }
     else
     {
-        <div class="space-y-1">
-            @foreach (var item in pending)
-            {
-                <div class="flex items-center gap-3 rounded-lg bg-white border border-gray-200 px-4 py-3">
-                    <form asp-action="UpdateItem" method="post" class="flex items-center">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="itemId" value="@item.Id" />
-                        <input type="hidden" name="listId" value="@Model.Id" />
-                        <input type="hidden" name="isCompleted" value="true" />
-                        <button type="submit" class="h-5 w-5 rounded border-2 border-gray-300 hover:border-green-500 transition flex-shrink-0"
-                                title="Mark complete"></button>
-                    </form>
-                    <span class="flex-1 text-sm text-gray-900">@item.Name</span>
-                    <span class="text-sm text-gray-500 font-medium">x@(item.Quantity)</span>
-                    <form asp-action="RemoveItem" method="post">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="itemId" value="@item.Id" />
-                        <input type="hidden" name="listId" value="@Model.Id" />
-                        <button type="submit" class="text-gray-400 hover:text-red-600 transition" title="Remove">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </form>
+        <!-- Numbered aisle sections -->
+        @foreach (var aisleGroup in byAisle)
+        {
+            <div>
+                <div class="bg-blue-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                    Aisle @aisleGroup.Key
                 </div>
-            }
-        </div>
+                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                    @foreach (var item in aisleGroup)
+                    {
+                        @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
+                    }
+                </div>
+            </div>
+        }
 
+        <!-- Special sections -->
+        @foreach (var (label, items) in new[] {
+            ("Produce", produce),
+            ("Meat & Seafood", meat),
+            ("Dairy", dairy),
+        }.Where(s => s.Item2.Count > 0))
+        {
+            <div>
+                <div class="bg-blue-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                    @label
+                </div>
+                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                    @foreach (var item in items)
+                    {
+                        @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- No aisle info -->
+        @if (noAisle.Count > 0)
+        {
+            <div>
+                <div class="bg-gray-400 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                    Other
+                </div>
+                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                    @foreach (var item in noAisle)
+                    {
+                        @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Completed -->
         @if (completed.Count > 0)
         {
-            <div class="pt-4">
-                <h2 class="text-sm font-medium text-gray-500 mb-2">Completed (@completed.Count)</h2>
-                <div class="space-y-1">
+            <div>
+                <div class="bg-gray-200 text-gray-600 font-bold text-base px-4 py-2 rounded-t-lg">
+                    Completed (@completed.Count)
+                </div>
+                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
                     @foreach (var item in completed)
                     {
-                        <div class="flex items-center gap-3 rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
+                        <div class="flex items-center gap-3 bg-gray-50 px-4 py-3">
                             <form asp-action="UpdateItem" method="post" class="flex items-center">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="itemId" value="@item.Id" />
                                 <input type="hidden" name="listId" value="@Model.Id" />
                                 <input type="hidden" name="isCompleted" value="false" />
-                                <button type="submit" class="h-5 w-5 rounded border-2 border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center"
-                                        title="Mark incomplete">
+                                <button type="submit" class="h-5 w-5 rounded border-2 border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center">
                                     <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                                     </svg>
                                 </button>
                             </form>
-                            <span class="flex-1 text-sm text-gray-400 line-through">@item.Name</span>
-                            <span class="text-sm text-gray-400 font-medium">x@(item.Quantity)</span>
+                            <div class="flex-1">
+                                <span class="text-sm text-gray-400 line-through">@item.Name</span>
+                                <p class="text-xs text-gray-400">QTY @item.Quantity</p>
+                            </div>
                             <form asp-action="RemoveItem" method="post">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="itemId" value="@item.Id" />
                                 <input type="hidden" name="listId" value="@Model.Id" />
-                                <button type="submit" class="text-gray-300 hover:text-red-600 transition" title="Remove">
+                                <button type="submit" class="text-gray-300 hover:text-red-600 transition">
                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                                     </svg>
@@ -123,6 +180,17 @@
         }
     }
 </div>
+
+<!-- Estimated Subtotal bar -->
+@if (subtotal > 0)
+{
+    <div class="fixed bottom-16 inset-x-0 bg-white border-t border-gray-200 px-4 py-3 z-30">
+        <div class="max-w-3xl mx-auto flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700">Estimated Subtotal</span>
+            <span class="text-sm font-bold text-gray-900">$@subtotal.ToString("0.00")</span>
+        </div>
+    </div>
+}
 
 @section Scripts {
 <script>

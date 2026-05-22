@@ -10,6 +10,7 @@ namespace RecipeHelper.Models.Lists
         public int Id { get; set; }
         public string Name { get; set; } = "";
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public string? StoreId { get; set; }  // Kroger location ID at time of creation
 
         public List<ShoppingListItem> Items { get; set; } = new();
     }
@@ -21,6 +22,13 @@ namespace RecipeHelper.Models.Lists
         public string Name { get; set; } = "";
         public int Quantity { get; set; } = 1;
         public bool IsCompleted { get; set; }
+
+        // Aisle/price data populated from Kroger API at list creation time
+        public string? AisleNumber { get; set; }       // e.g. "100" — for sort ordering
+        public string? AisleDescription { get; set; }  // e.g. "DAIRY" — for section grouping
+        public string? Brand { get; set; }
+        public decimal? Price { get; set; }
+        public decimal? PromoPrice { get; set; }
 
         // Kroger product link (optional)
         public string? Upc { get; set; }

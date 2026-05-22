@@ -32,6 +32,7 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
+                DinnerCategory = r.DinnerCategory,
                 Ingredients = r.Ingredients.Select(rp => new IngredientVM
                 {
                     Name = rp.DisplayName,
@@ -60,6 +61,7 @@ namespace RecipeHelper.Controllers
                 {
                     Id = rp.IngredientId,
                     Name = rp.DisplayName,
+                    Section = rp.Section,
                     Quantity = rp.Quantity,
                     Upc = rp.SelectedKrogerUpc,
                     Measurement = rp.Measurement.Name == null ? "Count" : rp.Measurement.Name
@@ -88,6 +90,7 @@ namespace RecipeHelper.Controllers
                             {
                                 Id = ingredient.Id,
                                 Name = ingredient.Name,
+                                Section = ingredient.Section,
                                 Quantity = ingredient.Quantity,
                                 Upc = ingredient.Upc,
                                 Measurement = ingredient.Measurement
@@ -101,6 +104,7 @@ namespace RecipeHelper.Controllers
                                 {
                                     Id = ingredient.Id,
                                     Name = ingredient.Name,
+                                    Section = ingredient.Section,
                                     Quantity = ingredient.Quantity,
                                     Upc = ingredient.Upc,
                                     Measurement = ingredient.Measurement
@@ -124,6 +128,7 @@ namespace RecipeHelper.Controllers
                     {
                         Id = ingredient.Key,
                         Name = ingredient.Value[0].Name,
+                        Section = ingredient.Value[0].Section,
                         Quantity = totalQuantity,
                         Upc = ingredient.Value[0].Upc,
                         Measurement = ingredient.Value[0].Measurement
@@ -167,6 +172,7 @@ namespace RecipeHelper.Controllers
                         {
                             Id = ingredient.Key,
                             Name = ingredient.Value[0].Name,
+                            Section = ingredient.Value[0].Section,
                             Quantity = displayQty,
                             Upc = ingredient.Value[0].Upc,
                             Measurement = displayName
@@ -180,6 +186,7 @@ namespace RecipeHelper.Controllers
                         {
                             Id = ingredient.Key,
                             Name = ingredient.Value[0].Name,
+                            Section = ingredient.Value[0].Section,
                             Quantity = displayQty,
                             Upc = ingredient.Value[0].Upc,
                             Measurement = displayName
@@ -192,6 +199,7 @@ namespace RecipeHelper.Controllers
                         {
                             Id = ingredient.Key,
                             Name = ingredient.Value[0].Name,
+                            Section = ingredient.Value[0].Section,
                             Quantity = totalUnits,
                             Upc = ingredient.Value[0].Upc,
                             Measurement = "Unit"

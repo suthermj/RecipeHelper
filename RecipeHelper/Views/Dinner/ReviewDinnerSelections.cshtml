@@ -2,14 +2,26 @@
 @using RecipeHelper.Models.Dinner
 @model ReviewDinnerSelectionsVM
 
+@{
+    var sectionOrder = new[] { "Produce", "Meat", "Dairy", "Pantry", "Bakery", "Frozen" };
+
+    var grouped = Model.Ingredients
+        .GroupBy(i => string.IsNullOrWhiteSpace(i.Section) ? "Other" : i.Section.Trim())
+        .OrderBy(g => {
+            var idx = Array.IndexOf(sectionOrder, g.Key);
+            return idx >= 0 ? idx : (g.Key == "Other" ? 999 : 100);
+        })
+        .ThenBy(g => g.Key)
+        .ToList();
+}
+
 <div class="max-w-6xl mx-auto px-4 py-8 space-y-8">
-    <!-- existing header + selected recipes stuff above... -->
     <!-- Ingredients -->
     <section class="space-y-4">
         <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-900">Combined ingredients</h2>
-            <p class="text-xs text-gray-500">
-                Uncheck items you already have at home. Only checked ingredients will be added to your Kroger cart.
+            <p class="text-xs text-gray-500 hidden sm:block">
+                Uncheck items you already have at home.
             </p>
         </div>
 
@@ -21,7 +33,6 @@
         }
         else
         {
-            <!-- Start form -->
             <form asp-controller="Cart"
                   asp-action="PreviewAddToCart"
                   method="post"
@@ -30,55 +41,59 @@
                   data-loading-text="Building Kroger cart items...">
                 @Html.AntiForgeryToken()
 
-                <div class="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-200">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left font-medium text-gray-600">
-                                    Ingredient
-                                </th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-600">
-                                    Quantity needed
-                                </th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-600 text-center">
-                                    Include in cart
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @for (var i = 0; i < Model.Ingredients.Count; i++)
+                <!-- Search + bulk toggles -->
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="text"
+                           id="ingredientSearch"
+                           placeholder="Search ingredients..."
+                           class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-700" />
+                    <div class="flex gap-2 shrink-0">
+                        <button type="button" id="selectAllBtn"
+                                class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
+                            Select all
+                        </button>
+                        <button type="button" id="clearAllBtn"
+                                class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
+                            Clear all
+                        </button>
+                        <button type="button" id="pantryBtn"
+                                class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
+                            Uncheck pantry
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Ingredient list grouped by section -->
+                <div id="ingredientList" class="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                    @{var i = 0;}
+                    @foreach (var group in grouped)
+                    {
+                        <div class="section-group" data-section="@group.Key">
+                            <div class="section-header bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-200">
+                                @group.Key
+                            </div>
+                            @foreach (var item in group)
                             {
-                                var item = Model.Ingredients[i];
+                                <div class="ingredient-row flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0"
+                                     data-name="@item.Name.ToLowerInvariant()">
+                                    <input type="checkbox"
+                                           name="Items[@i].Include"
+                                           value="true"
+                                           checked
+                                           class="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0 ingredient-checkbox" />
+                                    <span class="flex-1 text-sm font-medium text-gray-900">@item.Name</span>
+                                    <span class="text-sm text-gray-500">@item.DisplayQuantity @item.DisplayMeasurement</span>
 
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-4 py-3 align-top">
-                                        <span class="font-medium text-gray-900">
-                                            @item.Name
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <span class="text-gray-800 font-medium">
-                                            @item.DisplayQuantity @item.DisplayMeasurement
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 align-top text-center">
-                                        <input type="checkbox"
-                                               name="Items[@i].Include"
-                                               value="true"
-                                               checked
-                                               class="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
-                                    </td>
-                                </tr>
-
-                                @* Hidden inputs that will populate AddToCartVM.Items[i] *@
-                                <input type="hidden" name="Items[@i].Name" value="@item.Name" />
-                                <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
-                                <input type="hidden" name="Items[@i].Quantity" value="@item.Quantity" />
-                                <input type="hidden" name="Items[@i].Modality" value="PICKUP" />
-                                <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
+                                    <input type="hidden" name="Items[@i].Name" value="@item.Name" />
+                                    <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
+                                    <input type="hidden" name="Items[@i].Quantity" value="@item.Quantity" />
+                                    <input type="hidden" name="Items[@i].Modality" value="PICKUP" />
+                                    <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
+                                </div>
+                                i++;
                             }
-                        </tbody>
-                    </table>
+                        </div>
+                    }
                 </div>
 
                 <div class="flex justify-end gap-3 pt-3">
@@ -103,10 +118,9 @@
         var form = document.getElementById('add-to-kroger-form');
         if (!form) return;
 
+        // Add to Kroger / Add to List buttons
         var krogerBtn = document.getElementById('add-to-kroger-button');
         var listBtn = document.getElementById('add-to-list-button');
-
-        var originalAction = form.action;
 
         if (krogerBtn) {
             form.addEventListener('submit', function () {
@@ -125,5 +139,51 @@
                 form.submit();
             });
         }
+
+        // Search
+        var searchInput = document.getElementById('ingredientSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                var term = this.value.toLowerCase().trim();
+                document.querySelectorAll('.section-group').forEach(function (group) {
+                    var visibleCount = 0;
+                    group.querySelectorAll('.ingredient-row').forEach(function (row) {
+                        var matches = !term || row.dataset.name.includes(term);
+                        row.classList.toggle('hidden', !matches);
+                        if (matches) visibleCount++;
+                    });
+                    group.classList.toggle('hidden', visibleCount === 0);
+                });
+            });
+        }
+
+        // Bulk toggles
+        var pantryKeywords = [
+            'olive oil', 'vegetable oil', 'canola oil', 'cooking oil',
+            'salt', 'pepper', 'black pepper',
+            'garlic powder', 'onion powder', 'baking powder', 'baking soda',
+            'brown sugar', 'sugar', 'flour', 'cornstarch',
+            'vinegar', 'soy sauce', 'butter', 'water',
+            'paprika', 'cumin', 'oregano', 'basil', 'thyme', 'cinnamon', 'oil'
+        ];
+
+        document.getElementById('selectAllBtn')?.addEventListener('click', function () {
+            document.querySelectorAll('.ingredient-checkbox').forEach(function (cb) { cb.checked = true; });
+        });
+
+        document.getElementById('clearAllBtn')?.addEventListener('click', function () {
+            document.querySelectorAll('.ingredient-checkbox').forEach(function (cb) { cb.checked = false; });
+        });
+
+        document.getElementById('pantryBtn')?.addEventListener('click', function () {
+            document.querySelectorAll('.ingredient-row').forEach(function (row) {
+                var name = row.dataset.name;
+                var isPantry = pantryKeywords.some(function (kw) { return name.includes(kw); });
+                if (isPantry) {
+                    var cb = row.querySelector('.ingredient-checkbox');
+                    if (cb) cb.checked = false;
+                }
+            });
+        });
     });
 </script>

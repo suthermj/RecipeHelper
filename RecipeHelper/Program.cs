@@ -21,6 +21,7 @@ builder.Services.AddScoped<KrogerAuthService, KrogerAuthService>();
 builder.Services.AddScoped<ImportService, ImportService>();
 builder.Services.AddScoped<MeasurementService, MeasurementService>();
 builder.Services.AddScoped<IngredientsService, IngredientsService>();
+builder.Services.AddScoped<ShoppingListService, ShoppingListService>();
 
 builder.Services.AddSingleton(new OpenAIClient(
     apiKey: builder.Configuration["OpenAI:ApiKey"]

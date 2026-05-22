@@ -1,0 +1,170 @@
+@model RecipeHelper.Models.Settings.SettingsVM
+
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+
+    <!-- Current Store -->
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Kroger Store</h2>
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="font-semibold text-gray-900">@Model.CurrentStoreName</p>
+                <p class="text-xs text-gray-400 mt-0.5">Location ID: @Model.CurrentLocationId</p>
+            </div>
+            <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+            </svg>
+        </div>
+    </div>
+
+    <!-- Store Search -->
+    <div class="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Change Store</h2>
+        <div class="flex gap-2">
+            <input id="zipInput" type="text" placeholder="Enter zip code..."
+                   inputmode="numeric" maxlength="5"
+                   class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:outline-none focus:ring-2 focus:ring-red-700" />
+            <button id="searchBtn"
+                    class="px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">
+                Search
+            </button>
+        </div>
+        <button id="locationBtn"
+                class="inline-flex items-center gap-2 text-sm text-red-800 hover:text-red-900 font-medium transition">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+            </svg>
+            Use my location
+        </button>
+        <p id="locationError" class="text-xs text-red-600 hidden">Unable to get your location. Please enter a zip code.</p>
+
+        <!-- Results -->
+        <div id="searchResults" class="space-y-2 hidden"></div>
+        <p id="searchEmpty" class="text-sm text-gray-400 hidden">No stores found for that zip code.</p>
+        <p id="searchError" class="text-sm text-red-600 hidden">Something went wrong. Please try again.</p>
+    </div>
+</div>
+
+<!-- Hidden form for store selection POST -->
+<form id="selectStoreForm" asp-action="SelectStore" method="post" class="hidden">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="locationId" id="selectLocationId" />
+    <input type="hidden" name="storeName" id="selectStoreName" />
+    <input type="hidden" name="latitude" id="selectLatitude" />
+    <input type="hidden" name="longitude" id="selectLongitude" />
+</form>
+
+@section Scripts {
+<script>
+    const searchBtn = document.getElementById('searchBtn');
+    const zipInput = document.getElementById('zipInput');
+    const locationBtn = document.getElementById('locationBtn');
+    const locationError = document.getElementById('locationError');
+    const resultsContainer = document.getElementById('searchResults');
+    const emptyMsg = document.getElementById('searchEmpty');
+    const errorMsg = document.getElementById('searchError');
+    const selectForm = document.getElementById('selectStoreForm');
+
+    function resetResults() {
+        resultsContainer.classList.add('hidden');
+        resultsContainer.innerHTML = '';
+        emptyMsg.classList.add('hidden');
+        errorMsg.classList.add('hidden');
+        locationError.classList.add('hidden');
+    }
+
+    function selectStore(locationId, storeName, latitude, longitude) {
+        document.getElementById('selectLocationId').value = locationId;
+        document.getElementById('selectStoreName').value = storeName;
+        document.getElementById('selectLatitude').value = latitude ?? '';
+        document.getElementById('selectLongitude').value = longitude ?? '';
+        selectForm.submit();
+    }
+
+    function renderStores(stores) {
+        if (stores.length === 0) {
+            emptyMsg.classList.remove('hidden');
+            return;
+        }
+        stores.forEach(store => {
+            const card = document.createElement('div');
+            card.className = 'flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:border-gray-300 hover:shadow-sm transition';
+            card.innerHTML = `
+                <div>
+                    <p class="font-medium text-gray-900 text-sm">${store.name}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">${store.address}</p>
+                    ${store.phone ? `<p class="text-xs text-gray-400">${store.phone}</p>` : ''}
+                </div>
+                <button type="button"
+                        class="ml-3 shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-600 text-white hover:bg-green-700 transition select-btn">
+                    Select
+                </button>
+            `;
+            card.querySelector('.select-btn').addEventListener('click', () =>
+                selectStore(store.locationId, store.name, store.latitude, store.longitude));
+            resultsContainer.appendChild(card);
+        });
+        resultsContainer.classList.remove('hidden');
+    }
+
+    async function searchStores() {
+        const zip = zipInput.value.trim();
+        if (!zip || zip.length < 5) return;
+
+        resetResults();
+        searchBtn.disabled = true;
+        searchBtn.textContent = 'Searching...';
+
+        try {
+            const response = await fetch(`/Settings/SearchStores?zipCode=${encodeURIComponent(zip)}`);
+            if (!response.ok) throw new Error();
+            renderStores(await response.json());
+        } catch {
+            errorMsg.classList.remove('hidden');
+        } finally {
+            searchBtn.disabled = false;
+            searchBtn.textContent = 'Search';
+        }
+    }
+
+    locationBtn.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            locationError.classList.remove('hidden');
+            return;
+        }
+
+        resetResults();
+        locationBtn.textContent = 'Detecting location...';
+        locationBtn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                try {
+                    const { latitude, longitude } = position.coords;
+                    const response = await fetch(`/Settings/SearchStoresByLocation?latitude=${latitude}&longitude=${longitude}`);
+                    if (!response.ok) throw new Error();
+                    renderStores(await response.json());
+                } catch {
+                    errorMsg.classList.remove('hidden');
+                } finally {
+                    locationBtn.innerHTML = `<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg> Use my location`;
+                    locationBtn.disabled = false;
+                }
+            },
+            () => {
+                locationError.classList.remove('hidden');
+                locationBtn.innerHTML = `<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg> Use my location`;
+                locationBtn.disabled = false;
+            }
+        );
+    });
+
+    searchBtn.addEventListener('click', searchStores);
+    zipInput.addEventListener('keydown', e => { if (e.key === 'Enter') searchStores(); });
+</script>
+}

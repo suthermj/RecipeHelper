@@ -1,0 +1,206 @@
+@model RecipeHelper.Models.Lists.ShoppingList
+
+@{
+    ViewData["Title"] = Model.Name;
+
+    var krogerBrands = new[] { "kroger", "simple truth", "private selection", "hemisfares" };
+    bool IsKrogerBrand(string? brand) =>
+        brand != null && krogerBrands.Any(b => brand.Contains(b, StringComparison.OrdinalIgnoreCase));
+
+    decimal GetDisplayPrice(RecipeHelper.Models.Lists.ShoppingListItem item)
+    {
+        var basePrice = (item.PromoPrice > 0 ? item.PromoPrice : item.Price) ?? 0;
+        return IsKrogerBrand(item.Brand) ? Math.Round(basePrice * 0.9m, 2) : basePrice;
+    }
+
+    var pending = Model.Items.Where(i => !i.IsCompleted).ToList();
+    var completed = Model.Items.Where(i => i.IsCompleted).ToList();
+
+    // Special sections pulled out first
+    var produce = pending.Where(i => i.AisleDescription?.Contains("PRODUCE", StringComparison.OrdinalIgnoreCase) == true).ToList();
+    var meat    = pending.Where(i => i.AisleDescription?.Contains("MEAT", StringComparison.OrdinalIgnoreCase) == true).ToList();
+    var dairy   = pending.Where(i => i.AisleDescription?.Contains("DAIRY", StringComparison.OrdinalIgnoreCase) == true).ToList();
+    var special = produce.Concat(meat).Concat(dairy).Select(i => i.Id).ToHashSet();
+
+    // Remaining items grouped by aisle number, sorted numerically
+    var byAisle = pending
+        .Where(i => !special.Contains(i.Id) && i.AisleNumber != null)
+        .GroupBy(i => i.AisleNumber!)
+        .OrderBy(g => int.TryParse(g.Key, out var n) ? n : 999)
+        .ToList();
+
+    var noAisle = pending.Where(i => !special.Contains(i.Id) && i.AisleNumber == null).ToList();
+
+    // Estimated subtotal (pending items only)
+    var subtotal = pending.Where(i => i.Price.HasValue || i.PromoPrice.HasValue)
+                          .Sum(i => GetDisplayPrice(i) * i.Quantity);
+}
+
+<div class="max-w-3xl mx-auto px-4 py-6 space-y-4 pb-32">
+    <!-- Header -->
+    <div>
+        <a asp-action="Index"
+           class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3 transition">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            All Lists
+        </a>
+        <div class="flex items-center justify-between gap-3">
+            <form asp-action="Rename" method="post" class="flex-1 flex items-center gap-2" id="renameForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input name="name" type="text" value="@Model.Name"
+                       class="text-2xl font-bold text-gray-900 bg-transparent border-0 border-b-2 border-transparent focus:border-red-700 focus:ring-0 p-0 w-full"
+                       id="listNameInput" />
+                <button type="submit" id="renameBtn"
+                        class="hidden text-sm text-red-800 font-semibold hover:text-red-900 whitespace-nowrap">Save</button>
+            </form>
+            <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this list?');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
+            </form>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">@Model.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</p>
+    </div>
+
+    <!-- Add item -->
+    <form asp-action="AddItem" method="post" class="flex gap-2">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="listId" value="@Model.Id" />
+        <input name="name" type="text" required placeholder="Add an item..."
+               class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:ring-2 focus:ring-red-700" />
+        <input name="quantity" type="number" value="1" min="1"
+               class="w-16 rounded-lg border border-gray-300 px-2 py-2 text-sm text-center focus:border-red-700 focus:ring-2 focus:ring-red-700" />
+        <button type="submit"
+                class="px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">Add</button>
+    </form>
+
+    @if (pending.Count == 0 && completed.Count == 0)
+    {
+        <div class="text-center py-12">
+            <p class="text-sm text-gray-500">This list is empty. Add items above.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Numbered aisle sections -->
+        @foreach (var aisleGroup in byAisle)
+        {
+            <div>
+                <div class="bg-blue-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                    Aisle @aisleGroup.Key
+                </div>
+                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                    @foreach (var item in aisleGroup)
+                    {
+                        @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Special sections -->
+        @foreach (var (label, items) in new[] {
+            ("Produce", produce),
+            ("Meat & Seafood", meat),
+            ("Dairy", dairy),
+        }.Where(s => s.Item2.Count > 0))
+        {
+            <div>
+                <div class="bg-blue-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                    @label
+                </div>
+                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                    @foreach (var item in items)
+                    {
+                        @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- No aisle info -->
+        @if (noAisle.Count > 0)
+        {
+            <div>
+                <div class="bg-gray-400 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                    Other
+                </div>
+                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                    @foreach (var item in noAisle)
+                    {
+                        @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Completed -->
+        @if (completed.Count > 0)
+        {
+            <div>
+                <div class="bg-gray-200 text-gray-600 font-bold text-base px-4 py-2 rounded-t-lg">
+                    Completed (@completed.Count)
+                </div>
+                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                    @foreach (var item in completed)
+                    {
+                        <div class="flex items-center gap-3 bg-gray-50 px-4 py-3">
+                            <form asp-action="UpdateItem" method="post" class="flex items-center">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="itemId" value="@item.Id" />
+                                <input type="hidden" name="listId" value="@Model.Id" />
+                                <input type="hidden" name="isCompleted" value="false" />
+                                <button type="submit" class="h-5 w-5 rounded border-2 border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center">
+                                    <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                </button>
+                            </form>
+                            <div class="flex-1">
+                                <span class="text-sm text-gray-400 line-through">@item.Name</span>
+                                <p class="text-xs text-gray-400">QTY @item.Quantity</p>
+                            </div>
+                            <form asp-action="RemoveItem" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="itemId" value="@item.Id" />
+                                <input type="hidden" name="listId" value="@Model.Id" />
+                                <button type="submit" class="text-gray-300 hover:text-red-600 transition">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Estimated Subtotal bar -->
+@if (subtotal > 0)
+{
+    <div class="fixed bottom-16 inset-x-0 bg-white border-t border-gray-200 px-4 py-3 z-30">
+        <div class="max-w-3xl mx-auto flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700">Estimated Subtotal</span>
+            <span class="text-sm font-bold text-gray-900">$@subtotal.ToString("0.00")</span>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+    const nameInput = document.getElementById('listNameInput');
+    const renameBtn = document.getElementById('renameBtn');
+    const originalName = nameInput.value;
+
+    nameInput.addEventListener('input', () => {
+        const changed = nameInput.value.trim() !== originalName && nameInput.value.trim().length > 0;
+        renameBtn.classList.toggle('hidden', !changed);
+    });
+</script>
+}

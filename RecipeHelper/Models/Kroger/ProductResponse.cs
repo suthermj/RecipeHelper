@@ -7,6 +7,7 @@ namespace RecipeHelper.Models.Kroger
         public List<string> categories { get; set; }
         public string name { get; set; }
         public string aisleLocation { get; set; }
+        public string? aisleDescription { get; set; }
         public string brand { get; set; }
 
         public string soldBy { get; set; }

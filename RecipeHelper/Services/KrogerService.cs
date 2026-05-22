@@ -19,12 +19,13 @@ namespace RecipeHelper.Services
         private readonly string _clientId;
         private readonly string _clientSecret;
         private readonly IMemoryCache _cache;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private static readonly SemaphoreSlim _tokenLock = new(1, 1); // static => shared across scopes
         private const string TokenCacheKey = "kroger:client-credentials-token";
         private static readonly TimeSpan RefreshSkew = TimeSpan.FromSeconds(60);
 
 
-        public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService, IMemoryCache memoryCache)
+        public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
@@ -34,6 +35,15 @@ namespace RecipeHelper.Services
             _clientSecret = _configuration["Kroger:clientSecret"];
             _krogerAuthService = krogerAuthService;
             _cache = memoryCache;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        private string GetLocationId()
+        {
+            var locationId = _httpContextAccessor.HttpContext?.Request.Cookies["KrogerLocationId"];
+            return string.IsNullOrWhiteSpace(locationId)
+                ? _configuration["Kroger:mariemontLocationId"] ?? "01400421"
+                : locationId;
         }
 
         public async Task<string?> GetKrogerClientCredentialsToken()
@@ -102,6 +112,70 @@ namespace RecipeHelper.Services
             }
         }
 
+        public async Task<List<KrogerLocationDto>?> SearchLocations(string zipCode, int limit = 10)
+        {
+            var client = _httpClientFactory.CreateClient();
+            var token = await GetKrogerClientCredentialsToken();
+
+            if (token == null) return null;
+
+            var url = $"{_baseUri}/locations?filter.zipCode.near={zipCode}&filter.limit={limit}&filter.chain=Kroger";
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await client.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var locationsResponse = JsonConvert.DeserializeObject<KrogerLocationsResponse>(content);
+
+                return locationsResponse?.Data.Select(l => new KrogerLocationDto
+                {
+                    LocationId = l.LocationId,
+                    Name = l.Name,
+                    Address = $"{l.Address.AddressLine1}, {l.Address.City}, {l.Address.State} {l.Address.ZipCode}",
+                    Phone = l.Phone,
+                    Chain = l.Chain,
+                    Latitude = l.Geolocation?.Latitude,
+                    Longitude = l.Geolocation?.Longitude
+                }).ToList();
+            }
+
+            _logger.LogError("Error searching for Kroger locations near {ZipCode}", zipCode);
+            return null;
+        }
+
+        public async Task<List<KrogerLocationDto>?> SearchLocationsByLatLong(double latitude, double longitude, int limit = 10)
+        {
+            var client = _httpClientFactory.CreateClient();
+            var token = await GetKrogerClientCredentialsToken();
+
+            if (token == null) return null;
+
+            var url = $"{_baseUri}/locations?filter.latLong.near={latitude},{longitude}&filter.limit={limit}&filter.chain=Kroger";
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await client.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var locationsResponse = JsonConvert.DeserializeObject<KrogerLocationsResponse>(content);
+
+                return locationsResponse?.Data.Select(l => new KrogerLocationDto
+                {
+                    LocationId = l.LocationId,
+                    Name = l.Name,
+                    Address = $"{l.Address.AddressLine1}, {l.Address.City}, {l.Address.State} {l.Address.ZipCode}",
+                    Phone = l.Phone,
+                    Chain = l.Chain,
+                    Latitude = l.Geolocation?.Latitude,
+                    Longitude = l.Geolocation?.Longitude
+                }).ToList();
+            }
+
+            _logger.LogError("Error searching for Kroger locations near {Latitude},{Longitude}", latitude, longitude);
+            return null;
+        }
+
         public async Task<List<KrogerProductDto>?> SearchProductByFilter(string filterTerm)
         {
             var client = _httpClientFactory.CreateClient();
@@ -109,7 +183,7 @@ namespace RecipeHelper.Services
 
             if (token != null)
             {
-                var url = $"{_baseUri}/products?filter.term={filterTerm}&filter.locationId=01400421";
+                var url = $"{_baseUri}/products?filter.term={filterTerm}&filter.locationId={GetLocationId()}";
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 var response = await client.GetAsync(url);
 
@@ -134,11 +208,56 @@ namespace RecipeHelper.Services
             return null;
         }
 
+        /// <summary>
+        /// Fetches product data (including aisle locations) for a batch of UPCs using the search endpoint,
+        /// which returns aisle data far more reliably than the product details endpoint.
+        /// Returns a map of UPC → KrogerProductDto.
+        /// </summary>
+        public async Task<Dictionary<string, KrogerProductDto>> GetProductsByUpcBatch(IEnumerable<string> upcs, string locationId)
+        {
+            var result = new Dictionary<string, KrogerProductDto>(StringComparer.OrdinalIgnoreCase);
+            var upcList = upcs.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().ToList();
+            if (!upcList.Any()) return result;
+
+            var token = await GetKrogerClientCredentialsToken();
+            if (token == null) return result;
+
+            // Use the details endpoint per-UPC with locationId for store-specific aisle data.
+            // filter.productId on the search endpoint silently ignores filter.locationId,
+            // so the details endpoint is the only way to get store-specific aisle locations.
+            var throttle = new SemaphoreSlim(5, 5);
+            var tasks = upcList.Select(async upc =>
+            {
+                await throttle.WaitAsync();
+                try
+                {
+                    var client = _httpClientFactory.CreateClient();
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    var url = $"{_baseUri}/products/{upc}?filter.locationId={locationId}";
+                    var response = await client.GetAsync(url);
+                    if (!response.IsSuccessStatusCode) return (upc, dto: (KrogerProductDto?)null);
+
+                    var content = await response.Content.ReadAsStringAsync();
+                    var detailsResponse = JsonConvert.DeserializeObject<KrogerProductDetailsResponse>(content);
+                    var dto = detailsResponse?.data != null ? (KrogerProductDto?)detailsResponse.data.ToKrogerProduct() : null;
+                    return (upc, dto);
+                }
+                finally { throttle.Release(); }
+            });
+
+            foreach (var (upc, dto) in await Task.WhenAll(tasks))
+            {
+                if (dto != null) result[upc] = dto;
+            }
+
+            return result;
+        }
+
         public async Task<KrogerProductDto?> GetProductDetails(string productId)
         {
             var client = _httpClientFactory.CreateClient();
             var token = await GetKrogerClientCredentialsToken();
-            var url = $"{_baseUri}/products/{productId}?filter.locationId=01400421";
+            var url = $"{_baseUri}/products/{productId}?filter.locationId={GetLocationId()}";
 
             if (token != null)
             {

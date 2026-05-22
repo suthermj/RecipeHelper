@@ -2,6 +2,7 @@
 using RecipeHelper.Models;
 using RecipeHelper.Models.IngredientModels;
 using RecipeHelper.Models.Kroger;
+using RecipeHelper.Models.Lists;
 
 namespace RecipeHelper
 {
@@ -50,5 +51,7 @@ namespace RecipeHelper
 
         public DbSet<Measurement> Measurements { get; set; }
         public DbSet<KrogerCustomerToken> KrogerCustomerTokens { get; set; }
+        public DbSet<ShoppingList> ShoppingLists { get; set; }
+        public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
     }
 }

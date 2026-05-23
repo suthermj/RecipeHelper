@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RecipeHelper.Models.Kroger;
 using RecipeHelper.Models.Lists;
 using RecipeHelper.Services;
 
@@ -84,29 +85,39 @@ namespace RecipeHelper.Controllers
                 ?? _configuration["Kroger:mariemontLocationId"]
                 ?? "01400421";
 
-            var upcs = includedItems.Where(i => !string.IsNullOrWhiteSpace(i.Upc)).Select(i => i.Upc!);
-            var productMap = await _krogerService.GetProductsByUpcBatch(upcs, storeId);
+            var withUpc = includedItems.Where(i => !string.IsNullOrWhiteSpace(i.Upc)).ToList();
+            var withoutUpc = includedItems.Where(i => string.IsNullOrWhiteSpace(i.Upc)).ToList();
 
-            var items = includedItems.Select(i =>
+            var addToCartVm = new AddToCartVM
             {
-                var item = new ShoppingListItem
+                Items = withUpc.Select(i => new CartItemVM
                 {
-                    Name = i.Name,
-                    Quantity = (int)Math.Ceiling(i.Quantity),
-                    Upc = i.Upc
-                };
+                    Upc = i.Upc!,
+                    Quantity = i.Quantity,
+                    Measurement = i.Measurement ?? "",
+                    Include = true
+                }).ToList()
+            };
 
-                if (i.Upc != null && productMap.TryGetValue(i.Upc, out var dto))
-                {
-                    item.AisleNumber = dto.aisleLocation != "N/A" ? dto.aisleLocation : null;
-                    item.AisleDescription = dto.aisleDescription ?? InferSectionFromCategories(dto.categories);
-                    item.Brand = dto.brand;
-                    item.Price = dto.regularPrice > 0 ? (decimal?)dto.regularPrice : null;
-                    item.PromoPrice = dto.promoPrice > 0 ? (decimal?)dto.promoPrice : null;
-                }
+            var cartItems = await _krogerService.ConvertIngredientsToCartItems(addToCartVm);
 
-                return item;
+            var items = cartItems.Select(c => new ShoppingListItem
+            {
+                Name = c.Name,
+                Quantity = c.Quantity,
+                Upc = c.Upc,
+                AisleNumber = c.Aisle != "N/A" ? c.Aisle : null,
+                AisleDescription = InferSectionFromCategories(c.Categories),
+                Brand = c.Brand,
+                Price = c.RegularPrice > 0 ? (decimal?)c.RegularPrice : null,
+                PromoPrice = c.PromoPrice > 0 ? (decimal?)c.PromoPrice : null,
             }).ToList();
+
+            items.AddRange(withoutUpc.Select(i => new ShoppingListItem
+            {
+                Name = i.Name,
+                Quantity = (int)Math.Ceiling(i.Quantity),
+            }));
 
             var name = $"Meal Plan – {DateTime.Now:MMM d, yyyy}";
             var list = await _shoppingListService.CreateAsync(name, items, storeId);
@@ -128,6 +139,14 @@ namespace RecipeHelper.Controllers
         {
             foreach (var id in ids)
                 await _shoppingListService.DeleteAsync(id);
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteAll()
+        {
+            await _shoppingListService.DeleteAllAsync();
             return RedirectToAction(nameof(Index));
         }
 

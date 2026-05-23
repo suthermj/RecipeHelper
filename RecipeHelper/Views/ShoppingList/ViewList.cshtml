@@ -88,7 +88,7 @@
         <!-- Numbered aisle sections -->
         @foreach (var aisleGroup in byAisle)
         {
-            <div>
+            <div data-section-wrapper>
                 <div class="bg-blue-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
                     Aisle @aisleGroup.Key
                 </div>
@@ -108,7 +108,7 @@
             ("Dairy", dairy),
         }.Where(s => s.Item2.Count > 0))
         {
-            <div>
+            <div data-section-wrapper>
                 <div class="bg-blue-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
                     @label
                 </div>
@@ -124,7 +124,7 @@
         <!-- No aisle info -->
         @if (noAisle.Count > 0)
         {
-            <div>
+            <div data-section-wrapper>
                 <div class="bg-gray-400 text-white font-bold text-base px-4 py-2 rounded-t-lg">
                     Other
                 </div>
@@ -148,7 +148,7 @@
                     @foreach (var item in completed)
                     {
                         <div class="flex items-center gap-3 bg-gray-50 px-4 py-3">
-                            <form asp-action="UpdateItem" method="post" class="flex items-center">
+                            <form asp-action="UpdateItem" method="post" class="flex items-center" data-complete-form>
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="itemId" value="@item.Id" />
                                 <input type="hidden" name="listId" value="@Model.Id" />
@@ -201,6 +201,63 @@
     nameInput.addEventListener('input', () => {
         const changed = nameInput.value.trim() !== originalName && nameInput.value.trim().length > 0;
         renameBtn.classList.toggle('hidden', !changed);
+    });
+
+    // Restore scroll position after complete-toggle reload
+    const savedScroll = sessionStorage.getItem('shoppingScrollY');
+    if (savedScroll) { window.scrollTo(0, +savedScroll); sessionStorage.removeItem('shoppingScrollY'); }
+
+    // Save scroll before complete-toggle (full page reload)
+    document.querySelectorAll('[data-complete-form]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            sessionStorage.setItem('shoppingScrollY', window.scrollY);
+        });
+    });
+
+    // AJAX: quantity +/-
+    document.querySelectorAll('[data-qty-form]').forEach(function (form) {
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const fd = new FormData(this);
+            const itemId = fd.get('itemId');
+            const newQty = parseInt(fd.get('quantity'));
+            try {
+                const res = await fetch(this.action, { method: 'POST', body: fd });
+                if (!res.ok) throw new Error();
+            } catch { location.reload(); return; }
+
+            const row = document.getElementById('item-' + itemId);
+            if (!row) return;
+            row.querySelector('[data-qty-display]').textContent = newQty;
+            const dec = row.querySelector('[data-dec-btn]');
+            const inc = row.querySelector('[data-inc-btn]');
+            dec.value = newQty - 1;
+            inc.value = newQty + 1;
+            dec.disabled = newQty <= 1;
+            dec.classList.toggle('opacity-30', newQty <= 1);
+            dec.classList.toggle('pointer-events-none', newQty <= 1);
+        });
+    });
+
+    // AJAX: remove item
+    document.querySelectorAll('[data-remove-form]').forEach(function (form) {
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const fd = new FormData(this);
+            const itemId = fd.get('itemId');
+            try {
+                const res = await fetch(this.action, { method: 'POST', body: fd });
+                if (!res.ok) throw new Error();
+            } catch { location.reload(); return; }
+
+            const row = document.getElementById('item-' + itemId);
+            if (!row) return;
+            const section = row.closest('[data-section-wrapper]');
+            row.remove();
+            if (section && section.querySelectorAll('[id^="item-"]').length === 0) {
+                section.remove();
+            }
+        });
     });
 </script>
 }

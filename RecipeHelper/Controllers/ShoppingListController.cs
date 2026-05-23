@@ -32,6 +32,8 @@ namespace RecipeHelper.Controllers
         {
             var list = await _shoppingListService.GetByIdAsync(id);
             if (list == null) return NotFound();
+            ViewData["CurrentStoreId"]   = Request.Cookies["KrogerLocationId"] ?? _configuration["Kroger:mariemontLocationId"] ?? "01400421";
+            ViewData["CurrentStoreName"] = Request.Cookies["KrogerLocationName"] ?? "Mariemont (Default)";
             return View(list);
         }
 
@@ -123,6 +125,34 @@ namespace RecipeHelper.Controllers
             var list = await _shoppingListService.CreateAsync(name, items, storeId);
 
             return RedirectToAction(nameof(ViewList), new { id = list.Id });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RefreshAisles(int id, string storeId)
+        {
+            var list = await _shoppingListService.GetByIdAsync(id);
+            if (list == null) return NotFound();
+
+            var upcItems = list.Items.Where(i => !string.IsNullOrWhiteSpace(i.Upc)).ToList();
+            if (!upcItems.Any())
+                return Ok();
+
+            var products = await _krogerService.GetProductsByUpcBatch(upcItems.Select(i => i.Upc!), storeId);
+
+            var updates = new Dictionary<int, (string? aisleNumber, string? aisleDescription)>();
+            foreach (var item in upcItems)
+            {
+                if (products.TryGetValue(item.Upc!, out var product))
+                {
+                    updates[item.Id] = (
+                        product.aisleLocation != "N/A" ? product.aisleLocation : null,
+                        product.aisleDescription
+                    );
+                }
+            }
+
+            await _shoppingListService.UpdateItemAislesAsync(id, storeId, updates);
+            return Ok();
         }
 
         [HttpPost]

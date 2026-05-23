@@ -112,5 +112,27 @@ namespace RecipeHelper.Services
             _context.ShoppingLists.RemoveRange(lists);
             await _context.SaveChangesAsync();
         }
+
+        public async Task UpdateItemAislesAsync(int listId, string? newStoreId, Dictionary<int, (string? aisleNumber, string? aisleDescription)> updates)
+        {
+            var list = await _context.ShoppingLists.FindAsync(listId);
+            if (list != null && newStoreId != null)
+                list.StoreId = newStoreId;
+
+            var items = await _context.ShoppingListItems
+                .Where(i => i.ShoppingListId == listId && updates.Keys.Contains(i.Id))
+                .ToListAsync();
+
+            foreach (var item in items)
+            {
+                if (updates.TryGetValue(item.Id, out var aisle))
+                {
+                    item.AisleNumber = aisle.aisleNumber;
+                    item.AisleDescription = aisle.aisleDescription;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

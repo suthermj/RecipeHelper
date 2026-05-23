@@ -8,6 +8,13 @@
     <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-gray-900">Shopping Lists</h1>
         <div class="flex items-center gap-2">
+            <form asp-action="DeleteAll" method="post" id="deleteAllForm" class="@(Model.Count == 0 ? "hidden" : "")">
+                @Html.AntiForgeryToken()
+                <button type="submit"
+                        class="text-sm font-medium text-red-600 hover:text-red-800 transition">
+                    Delete all
+                </button>
+            </form>
             <button type="button" id="selectBtn"
                     class="text-sm font-medium text-gray-500 hover:text-gray-700 transition @(Model.Count == 0 ? "hidden" : "")">
                 Select
@@ -106,6 +113,11 @@
 
 @section Scripts {
 <script>
+    // Delete all confirmation
+    document.getElementById('deleteAllForm')?.addEventListener('submit', (e) => {
+        if (!confirm('Delete all shopping lists?')) e.preventDefault();
+    });
+
     // New list modal
     const modal = document.getElementById('newListModal');
     document.getElementById('newListBtn')?.addEventListener('click', () => {

@@ -105,5 +105,12 @@ namespace RecipeHelper.Services
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task DeleteAllAsync()
+        {
+            var lists = await _context.ShoppingLists.Include(l => l.Items).ToListAsync();
+            _context.ShoppingLists.RemoveRange(lists);
+            await _context.SaveChangesAsync();
+        }
     }
 }

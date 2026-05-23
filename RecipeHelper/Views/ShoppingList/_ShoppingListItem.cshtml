@@ -61,7 +61,7 @@
     </div>
 
     <!-- Quantity +/- -->
-    <div class="flex items-center gap-1 shrink-0">
+    <div class="flex items-center gap-1 shrink-0" data-shopping-mode-hide>
         <form asp-action="UpdateItem" method="post" class="flex items-center" data-qty-form>
             @Html.AntiForgeryToken()
             <input type="hidden" name="itemId" value="@Model.Id" />
@@ -81,7 +81,7 @@
     </div>
 
     <!-- Remove -->
-    <form asp-action="RemoveItem" method="post" data-remove-form>
+    <form asp-action="RemoveItem" method="post" data-remove-form data-shopping-mode-hide>
         @Html.AntiForgeryToken()
         <input type="hidden" name="itemId" value="@Model.Id" />
         <input type="hidden" name="listId" value="@listId" />

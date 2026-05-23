@@ -5,29 +5,34 @@
 }
 
 <div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <!-- Title row: title + primary action only -->
     <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-gray-900">Shopping Lists</h1>
-        <div class="flex items-center gap-2">
-            <form asp-action="DeleteAll" method="post" id="deleteAllForm" class="@(Model.Count == 0 ? "hidden" : "")">
+        <button type="button" id="newListBtn"
+                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            New List
+        </button>
+    </div>
+    <!-- Secondary actions row (only when lists exist) -->
+    @if (Model.Count > 0)
+    {
+        <div class="flex items-center gap-4">
+            <button type="button" id="selectBtn"
+                    class="text-sm font-medium text-gray-500 hover:text-gray-700 transition">
+                Select
+            </button>
+            <form asp-action="DeleteAll" method="post" id="deleteAllForm">
                 @Html.AntiForgeryToken()
                 <button type="submit"
                         class="text-sm font-medium text-red-600 hover:text-red-800 transition">
                     Delete all
                 </button>
             </form>
-            <button type="button" id="selectBtn"
-                    class="text-sm font-medium text-gray-500 hover:text-gray-700 transition @(Model.Count == 0 ? "hidden" : "")">
-                Select
-            </button>
-            <button type="button" id="newListBtn"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                New List
-            </button>
         </div>
-    </div>
+    }
 
     @if (Model.Count == 0)
     {
@@ -158,8 +163,12 @@
         deleteBar?.classList.toggle('hidden', !selectMode);
         // Disable card links in select mode
         listCards.forEach(a => {
-            if (selectMode) a.setAttribute('href', 'javascript:void(0)');
-            else a.setAttribute('href', a.dataset.href || a.getAttribute('href'));
+            if (selectMode) {
+                if (!a.dataset.href) a.dataset.href = a.getAttribute('href');
+                a.setAttribute('href', 'javascript:void(0)');
+            } else {
+                if (a.dataset.href) a.setAttribute('href', a.dataset.href);
+            }
         });
         if (!selectMode) checkboxes.forEach(c => c.checked = false);
         updateDeleteBtn();

@@ -36,6 +36,10 @@
                           .Sum(i => GetDisplayPrice(i) * i.Quantity);
 }
 
+<style>
+  body.shopping-mode [data-shopping-mode-hide] { display: none !important; }
+</style>
+
 <div class="max-w-3xl mx-auto px-4 py-6 space-y-4 pb-32">
     <!-- Header -->
     <div>
@@ -46,7 +50,7 @@
             </svg>
             All Lists
         </a>
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-3" data-shopping-mode-hide>
             <form asp-action="Rename" method="post" class="flex-1 flex items-center gap-2" id="renameForm">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
@@ -56,17 +60,37 @@
                 <button type="submit" id="renameBtn"
                         class="hidden text-sm text-red-800 font-semibold hover:text-red-900 whitespace-nowrap">Save</button>
             </form>
-            <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this list?');">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="id" value="@Model.Id" />
-                <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
-            </form>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this list?');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
+                </form>
+                <button id="startShoppingBtn"
+                        data-current-store-id="@ViewData["CurrentStoreId"]"
+                        class="px-4 py-2 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
+                    Shop mode
+                </button>
+            </div>
         </div>
-        <p class="text-xs text-gray-500 mt-1">@Model.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</p>
+        <p class="text-xs text-gray-500 mt-1" data-shopping-mode-hide>@Model.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</p>
+
+        <!-- Shopping mode header (shown only when in shopping mode) -->
+        <div id="shoppingModeHeader" class="hidden">
+            <h1 class="text-2xl font-bold text-gray-900">@Model.Name</h1>
+            <div class="flex items-center gap-2 mt-0.5">
+                <p class="text-sm text-gray-500" id="shopModeStoreName">@ViewData["CurrentStoreName"]</p>
+                <button id="changeStoreBtn" class="text-xs text-blue-600 hover:text-blue-800 font-medium transition">Change store</button>
+            </div>
+            <button id="exitShoppingBtn"
+                    class="mt-3 px-4 py-2 rounded-full text-sm font-semibold bg-gray-700 text-white hover:bg-gray-800 transition">
+                Exit shopping
+            </button>
+        </div>
     </div>
 
     <!-- Add item -->
-    <form asp-action="AddItem" method="post" class="flex gap-2">
+    <form asp-action="AddItem" method="post" class="flex gap-2" data-shopping-mode-hide>
         @Html.AntiForgeryToken()
         <input type="hidden" name="listId" value="@Model.Id" />
         <input name="name" type="text" required placeholder="Add an item..."
@@ -184,13 +208,70 @@
 <!-- Estimated Subtotal bar -->
 @if (subtotal > 0)
 {
-    <div class="fixed bottom-16 inset-x-0 bg-white border-t border-gray-200 px-4 py-3 z-30">
+    <div class="fixed bottom-16 inset-x-0 bg-white border-t border-gray-200 px-4 py-3 z-30" data-shopping-mode-hide>
         <div class="max-w-3xl mx-auto flex items-center justify-between">
             <span class="text-sm font-semibold text-gray-700">Estimated Subtotal</span>
             <span class="text-sm font-bold text-gray-900">$@subtotal.ToString("0.00")</span>
         </div>
     </div>
 }
+
+<!-- Store mismatch modal -->
+<div id="storeMismatchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+        <h2 class="text-lg font-bold text-gray-900">Closer store found</h2>
+        <div class="text-sm space-y-2">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Current store</p>
+                <p class="text-gray-700 font-medium">@ViewData["CurrentStoreName"]</p>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Closer store</p>
+                <p class="text-gray-700 font-semibold" id="nearbyStoreName"></p>
+                <p class="text-gray-500 text-xs" id="nearbyStoreAddress"></p>
+            </div>
+        </div>
+        <p class="text-sm text-gray-600">Switch stores so aisle locations stay accurate?</p>
+        <div class="flex gap-3 pt-1">
+            <button id="switchStoreBtn"
+                    class="flex-1 py-2 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
+                Switch to this store
+            </button>
+            <button id="keepStoreBtn"
+                    class="flex-1 py-2 rounded-full text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition">
+                Keep current store
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Change store modal (shop mode) -->
+<div id="changeStoreModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-gray-900">Change store</h2>
+            <button id="closeChangeStoreBtn" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        <div class="flex gap-2">
+            <input id="storeZipInput" type="text" placeholder="ZIP code"
+                   class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500" />
+            <button id="storeZipSearchBtn"
+                    class="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition">
+                Search
+            </button>
+        </div>
+        <button id="storeUseLocationBtn"
+                class="w-full py-2 rounded-lg text-sm text-blue-600 hover:text-blue-800 font-medium transition flex items-center justify-center gap-1">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Use my location
+        </button>
+        <p id="changeStoreLoading" class="hidden text-sm text-gray-500 text-center">Searching…</p>
+        <div id="changeStoreResults" class="space-y-2 max-h-52 overflow-y-auto"></div>
+    </div>
+</div>
 
 @section Scripts {
 <script>
@@ -258,6 +339,173 @@
                 section.remove();
             }
         });
+    });
+
+    // Shopping mode
+    const startShoppingBtn = document.getElementById('startShoppingBtn');
+    const exitShoppingBtn  = document.getElementById('exitShoppingBtn');
+    const shoppingModeHeader = document.getElementById('shoppingModeHeader');
+    const storeModal = document.getElementById('storeMismatchModal');
+    const nearbyStoreNameEl    = document.getElementById('nearbyStoreName');
+    const nearbyStoreAddressEl = document.getElementById('nearbyStoreAddress');
+    const switchStoreBtn = document.getElementById('switchStoreBtn');
+    const keepStoreBtn   = document.getElementById('keepStoreBtn');
+    const currentStoreId = startShoppingBtn.dataset.currentStoreId;
+    let pendingNearbyStore = null;
+
+    function enterShoppingMode() {
+        document.body.classList.add('shopping-mode');
+        shoppingModeHeader.classList.remove('hidden');
+    }
+
+    function exitShoppingMode() {
+        document.body.classList.remove('shopping-mode');
+        shoppingModeHeader.classList.add('hidden');
+    }
+
+    startShoppingBtn.addEventListener('click', function () {
+        if (!navigator.geolocation) { enterShoppingMode(); return; }
+        navigator.geolocation.getCurrentPosition(
+            async function (position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                try {
+                    const res = await fetch('/Settings/SearchStoresByLocation?latitude=' + lat + '&longitude=' + lng);
+                    if (!res.ok) throw new Error();
+                    const results = await res.json();
+                    if (results && results.length > 0 && results[0].locationId !== currentStoreId) {
+                        pendingNearbyStore = results[0];
+                        nearbyStoreNameEl.textContent    = results[0].name ?? '';
+                        nearbyStoreAddressEl.textContent = results[0].address ?? '';
+                        storeModal.classList.remove('hidden');
+                    } else {
+                        enterShoppingMode();
+                    }
+                } catch {
+                    enterShoppingMode();
+                }
+            },
+            function () { enterShoppingMode(); }
+        );
+    });
+
+    exitShoppingBtn.addEventListener('click', exitShoppingMode);
+
+    // Change store (manual, inside shop mode)
+    const changeStoreBtn     = document.getElementById('changeStoreBtn');
+    const changeStoreModal   = document.getElementById('changeStoreModal');
+    const closeChangeStoreBtn = document.getElementById('closeChangeStoreBtn');
+    const storeZipInput      = document.getElementById('storeZipInput');
+    const storeZipSearchBtn  = document.getElementById('storeZipSearchBtn');
+    const storeUseLocationBtn = document.getElementById('storeUseLocationBtn');
+    const changeStoreLoading = document.getElementById('changeStoreLoading');
+    const changeStoreResults = document.getElementById('changeStoreResults');
+
+    changeStoreBtn.addEventListener('click', function () {
+        changeStoreModal.classList.remove('hidden');
+        changeStoreResults.innerHTML = '';
+        storeZipInput.value = '';
+    });
+
+    closeChangeStoreBtn.addEventListener('click', function () {
+        changeStoreModal.classList.add('hidden');
+    });
+
+    async function selectStoreAndRefresh(store) {
+        const fd = new FormData();
+        fd.append('locationId', store.locationId);
+        fd.append('storeName', store.name);
+        if (store.latitude  != null) fd.append('latitude',  store.latitude);
+        if (store.longitude != null) fd.append('longitude', store.longitude);
+        try { await fetch('/Settings/SelectStore', { method: 'POST', body: fd }); } catch {}
+        try {
+            await fetch('/ShoppingList/RefreshAisles?id=@Model.Id&storeId=' + encodeURIComponent(store.locationId), { method: 'POST' });
+        } catch {}
+        location.reload();
+    }
+
+    function renderChangeStoreResults(stores) {
+        changeStoreLoading.classList.add('hidden');
+        changeStoreResults.innerHTML = '';
+        if (!stores || stores.length === 0) {
+            changeStoreResults.innerHTML = '<p class="text-sm text-gray-500 text-center">No stores found.</p>';
+            return;
+        }
+        stores.forEach(function (store) {
+            const btn = document.createElement('button');
+            btn.className = 'w-full text-left px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition text-sm';
+            btn.innerHTML = '<span class="font-semibold text-gray-800">' + store.name + '</span>' +
+                (store.address ? '<br><span class="text-xs text-gray-500">' + store.address + '</span>' : '');
+            btn.addEventListener('click', async function () {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="text-gray-400">Switching & updating aisles…</span>';
+                await selectStoreAndRefresh(store);
+            });
+            changeStoreResults.appendChild(btn);
+        });
+    }
+
+    storeZipSearchBtn.addEventListener('click', async function () {
+        const zip = storeZipInput.value.trim();
+        if (!zip) return;
+        changeStoreResults.innerHTML = '';
+        changeStoreLoading.classList.remove('hidden');
+        try {
+            const res = await fetch('/Settings/SearchStores?zipCode=' + encodeURIComponent(zip));
+            renderChangeStoreResults(await res.json());
+        } catch {
+            changeStoreLoading.classList.add('hidden');
+            changeStoreResults.innerHTML = '<p class="text-sm text-red-500 text-center">Error searching. Try again.</p>';
+        }
+    });
+
+    storeZipInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') storeZipSearchBtn.click();
+    });
+
+    storeUseLocationBtn.addEventListener('click', function () {
+        if (!navigator.geolocation) return;
+        changeStoreResults.innerHTML = '';
+        changeStoreLoading.classList.remove('hidden');
+        navigator.geolocation.getCurrentPosition(
+            async function (position) {
+                try {
+                    const res = await fetch('/Settings/SearchStoresByLocation?latitude=' + position.coords.latitude + '&longitude=' + position.coords.longitude);
+                    renderChangeStoreResults(await res.json());
+                } catch {
+                    changeStoreLoading.classList.add('hidden');
+                    changeStoreResults.innerHTML = '<p class="text-sm text-red-500 text-center">Error searching. Try again.</p>';
+                }
+            },
+            function () {
+                changeStoreLoading.classList.add('hidden');
+                changeStoreResults.innerHTML = '<p class="text-sm text-red-500 text-center">Location access denied.</p>';
+            }
+        );
+    });
+
+    keepStoreBtn.addEventListener('click', function () {
+        storeModal.classList.add('hidden');
+        enterShoppingMode();
+    });
+
+    switchStoreBtn.addEventListener('click', async function () {
+        if (!pendingNearbyStore) return;
+        switchStoreBtn.disabled = true;
+        switchStoreBtn.textContent = 'Updating aisle locations…';
+
+        const fd = new FormData();
+        fd.append('locationId', pendingNearbyStore.locationId);
+        fd.append('storeName',  pendingNearbyStore.name);
+        if (pendingNearbyStore.latitude  != null) fd.append('latitude',  pendingNearbyStore.latitude);
+        if (pendingNearbyStore.longitude != null) fd.append('longitude', pendingNearbyStore.longitude);
+        try { await fetch('/Settings/SelectStore', { method: 'POST', body: fd }); } catch {}
+
+        try {
+            await fetch('/ShoppingList/RefreshAisles?id=@Model.Id&storeId=' + encodeURIComponent(pendingNearbyStore.locationId), { method: 'POST' });
+        } catch {}
+
+        location.reload();
     });
 </script>
 }

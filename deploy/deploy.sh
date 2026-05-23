@@ -1,11 +1,11 @@
 #!/bin/bash
-# Deploys RecipeHelper to the Oracle Cloud VM
+# Deploys RecipeHelper to the Hetzner VM
 # Run from the RecipeHelper repo root on your local Windows machine (git bash)
 set -e
 
-VM_USER="ubuntu"
-VM_HOST="170.9.247.161"
-SSH_KEY="~/Downloads/lrecipehelper101.key"
+VM_USER="root"
+VM_HOST="178.105.73.57"
+SSH_KEY="~/.ssh/hetzner"
 REMOTE_APP_DIR="/var/www/recipehelper"
 
 echo "=== RecipeHelper Deploy ==="
@@ -27,10 +27,10 @@ scp -i "$SSH_KEY" -r ./publish/* "$VM_USER@$VM_HOST:/tmp/recipehelper/"
 echo "[4/4] Deploying on VM..."
 ssh -i "$SSH_KEY" "$VM_USER@$VM_HOST" bash -s <<'REMOTE'
 set -e
-sudo systemctl stop recipehelper
-sudo cp -r /tmp/recipehelper/* /var/www/recipehelper/
-sudo chown -R www-data:www-data /var/www/recipehelper
-sudo systemctl start recipehelper
+systemctl stop recipehelper
+cp -r /tmp/recipehelper/* /var/www/recipehelper/
+chown -R www-data:www-data /var/www/recipehelper
+systemctl start recipehelper
 sleep 3
 echo ""
 sudo systemctl status recipehelper --no-pager

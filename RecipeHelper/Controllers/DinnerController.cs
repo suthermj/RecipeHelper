@@ -1,30 +1,98 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Dinner;
+using RecipeHelper.Services;
 using RecipeHelper.Utility;
 
 namespace RecipeHelper.Controllers
 {
     public class DinnerController : Controller
     {
-
-        private DatabaseContext _context;
-
+        private readonly DatabaseContext _context;
+        private readonly MealPlanService _mealPlanService;
         private readonly ILogger<RecipeController> _logger;
 
-        public DinnerController(ILogger<RecipeController> logger, DatabaseContext context)
+        public DinnerController(ILogger<RecipeController> logger, DatabaseContext context, MealPlanService mealPlanService)
         {
             _logger = logger;
             _context = context;
+            _mealPlanService = mealPlanService;
         }
 
-
-        // GET: Dinner
-        public ActionResult Index()
+        // GET: Dinner — current week's plan
+        public async Task<ActionResult> Index()
         {
-            return View();
+            var plan = await _mealPlanService.GetCurrentWeekAsync();
+            return View(plan);
         }
 
+        // GET: Dinner/PlanWeek — 7-slot day picker
+        public async Task<ActionResult> PlanWeek(int? id)
+        {
+            var weekStart = MealPlanService.GetWeekStart(DateTime.UtcNow);
+            var vm = new PlanWeekVM
+            {
+                WeekStartDate = weekStart,
+                AllRecipes = _context.Recipes.Select(r => new ViewRecipeVM
+                {
+                    Id = r.Id,
+                    RecipeName = r.Name,
+                    ImageUri = r.ImageUri,
+                    DinnerCategory = r.DinnerCategory,
+                }).ToList(),
+            };
+
+            if (id.HasValue)
+            {
+                var existing = await _mealPlanService.GetByIdAsync(id.Value);
+                if (existing != null)
+                {
+                    vm.WeekStartDate = existing.WeekStartDate;
+                    foreach (var entry in existing.Entries)
+                    {
+                        if (entry.DayOfWeek >= 0 && entry.DayOfWeek < 7)
+                            vm.DayRecipes[entry.DayOfWeek] = entry.RecipeId;
+                    }
+                }
+            }
+
+            return View(vm);
+        }
+
+        // POST: Dinner/SaveMealPlan
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> SaveMealPlan(SaveMealPlanVM model)
+        {
+            await _mealPlanService.SaveAsync(model.WeekStartDate, model.DayRecipes);
+            return RedirectToAction(nameof(Index));
+        }
+
+        // GET: Dinner/History
+        public async Task<ActionResult> History()
+        {
+            var plans = await _mealPlanService.GetHistoryAsync();
+            return View(plans);
+        }
+
+        // GET: Dinner/ViewPlan/5
+        public async Task<ActionResult> ViewPlan(int id)
+        {
+            var plan = await _mealPlanService.GetByIdAsync(id);
+            if (plan == null) return NotFound();
+            return View(plan);
+        }
+
+        // POST: Dinner/DeletePlan/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> DeletePlan(int id)
+        {
+            await _mealPlanService.DeleteAsync(id);
+            return RedirectToAction(nameof(History));
+        }
+
+        // GET: Dinner/SelectWeeklyRecipes — kept for ingredient review flow
         public ActionResult SelectWeeklyRecipes()
         {
             var recipes = _context.Recipes.Select(r => new ViewRecipeVM
@@ -43,6 +111,7 @@ namespace RecipeHelper.Controllers
             return View(recipes);
         }
 
+        // POST: Dinner/SubmitDinnerSelections — ingredient aggregation, unchanged
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult SubmitDinnerSelections(List<int> selectedRecipes)
@@ -136,8 +205,6 @@ namespace RecipeHelper.Controllers
                 }
                 else
                 {
-                    // Different measurements for the same ingredient across recipes.
-                    // Sum by dimension, then pick the best display unit.
                     decimal totalVolumeBase = 0;
                     decimal totalWeightBase = 0;
                     decimal totalUnits = 0;
@@ -210,6 +277,5 @@ namespace RecipeHelper.Controllers
 
             return View("ReviewDinnerSelections", model);
         }
-
     }
 }

@@ -9,7 +9,7 @@
 
 ## Meal Planning
 
-- [ ] Enable meal plan history — view previous weeks' meal plans
+- [x] Enable meal plan history — view previous weeks' meal plans
 - [ ] Creating a meal plan should automatically generate the corresponding shopping list
 
 ## Shopping List

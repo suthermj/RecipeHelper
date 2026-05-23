@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
+using RecipeHelper.Models.Dinner;
 using RecipeHelper.Models.IngredientModels;
 using RecipeHelper.Models.Kroger;
 using RecipeHelper.Models.Lists;
@@ -53,5 +54,8 @@ namespace RecipeHelper
         public DbSet<KrogerCustomerToken> KrogerCustomerTokens { get; set; }
         public DbSet<ShoppingList> ShoppingLists { get; set; }
         public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
+
+        public DbSet<MealPlan> MealPlans { get; set; }
+        public DbSet<MealPlanEntry> MealPlanEntries { get; set; }
     }
 }

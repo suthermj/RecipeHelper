@@ -27,6 +27,10 @@
 ## Infrastructure / DevOps
 
 - [ ] Integrate Grafana for logging and metrics
+- [ ] Set up Prometheus with `prometheus-net.AspNetCore` to expose a `/metrics` endpoint
+- [ ] Set up Loki + Promtail to ship logs from journald to Grafana Loki
+- [ ] Add structured logging via Serilog for queryable logs in Loki/Grafana
+- [ ] Create Grafana dashboards for request rate, error rate, response latency, and DB query times
 
 ## Bug Fixes / Improvements
 

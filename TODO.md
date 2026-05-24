@@ -24,6 +24,10 @@
   - [x] Allow checking off items as completed; completed items move to a "Completed" section at the bottom
 - [x] When generating a list/adding to cart, allow auto-exclusion of bulk pantry items (e.g. spices) that don't need to be purchased every trip
 
+## Infrastructure / DevOps
+
+- [ ] Integrate Grafana for logging and metrics
+
 ## Bug Fixes / Improvements
 
 - [x] Fix plural logic — "1 teaspoons of sugar" should display as "1 teaspoon of sugar"

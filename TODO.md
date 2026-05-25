@@ -2,7 +2,7 @@
 
 ## UI / Navigation
 
-- [ ] Change "Dinners" nav label to "Meal Plan"
+- [x] Change "Dinners" nav label to "Meal Plan"
 - [ ] Add "Add to Cart" / "Add to List" button on individual recipe pages
 - [ ] Print recipe feature
 - [ ] Share recipe feature

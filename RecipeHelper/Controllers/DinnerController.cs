@@ -19,20 +19,16 @@ namespace RecipeHelper.Controllers
             _mealPlanService = mealPlanService;
         }
 
-        // GET: Dinner — current week's plan
-        public async Task<ActionResult> Index()
+        // GET: Dinner — plan for a week with inline day picker
+        public async Task<ActionResult> Index(DateTime? weekStart = null)
         {
-            var plan = await _mealPlanService.GetCurrentWeekAsync();
-            return View(plan);
-        }
+            var week = MealPlanService.GetWeekStart(weekStart ?? MealPlanService.LocalToday());
+            var plan = await _mealPlanService.GetByWeekAsync(week);
 
-        // GET: Dinner/PlanWeek — 7-slot day picker
-        public async Task<ActionResult> PlanWeek(int? id)
-        {
-            var weekStart = MealPlanService.GetWeekStart(DateTime.UtcNow);
-            var vm = new PlanWeekVM
+            var vm = new MealPlanIndexVM
             {
-                WeekStartDate = weekStart,
+                WeekStart = week,
+                Plan = plan,
                 AllRecipes = _context.Recipes.Select(r => new ViewRecipeVM
                 {
                     Id = r.Id,
@@ -42,54 +38,50 @@ namespace RecipeHelper.Controllers
                 }).ToList(),
             };
 
-            if (id.HasValue)
-            {
-                var existing = await _mealPlanService.GetByIdAsync(id.Value);
-                if (existing != null)
-                {
-                    vm.WeekStartDate = existing.WeekStartDate;
-                    foreach (var entry in existing.Entries)
-                    {
-                        if (entry.DayOfWeek >= 0 && entry.DayOfWeek < 7)
-                            vm.DayRecipes[entry.DayOfWeek] = entry.RecipeId;
-                    }
-                }
-            }
-
             return View(vm);
         }
 
-        // POST: Dinner/SaveMealPlan
+        private object BuildPlanJson(MealPlan? plan) => new
+        {
+            planId = plan?.Id,
+            entries = plan?.Entries.Select(e => new
+            {
+                entryId = e.Id,
+                dayOfWeek = e.DayOfWeek,
+                recipeId = e.RecipeId,
+                name = e.Recipe?.Name ?? "",
+                img = e.Recipe?.ImageUri ?? ""
+            }).ToArray() ?? Array.Empty<object>()
+        };
+
+        // POST: Dinner/AddDayRecipe — append a recipe entry to a day slot
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> SaveMealPlan(SaveMealPlanVM model)
+        public async Task<IActionResult> AddDayRecipe(DateTime weekStart, int dayOfWeek, int recipeId)
         {
-            await _mealPlanService.SaveAsync(model.WeekStartDate, model.DayRecipes);
-            return RedirectToAction(nameof(Index));
+            var week = MealPlanService.GetWeekStart(weekStart);
+            var plan = await _mealPlanService.AddEntryAsync(week, dayOfWeek, recipeId);
+            return Json(BuildPlanJson(plan));
         }
 
-        // GET: Dinner/History
-        public async Task<ActionResult> History()
+        // POST: Dinner/RemoveEntry — remove a single entry by id
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveEntry(int entryId)
         {
-            var plans = await _mealPlanService.GetHistoryAsync();
-            return View(plans);
-        }
-
-        // GET: Dinner/ViewPlan/5
-        public async Task<ActionResult> ViewPlan(int id)
-        {
-            var plan = await _mealPlanService.GetByIdAsync(id);
-            if (plan == null) return NotFound();
-            return View(plan);
+            var plan = await _mealPlanService.RemoveEntryAsync(entryId);
+            return Json(BuildPlanJson(plan));
         }
 
         // POST: Dinner/DeletePlan/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> DeletePlan(int id)
+        public async Task<ActionResult> DeletePlan(int id, DateTime? weekStart = null)
         {
             await _mealPlanService.DeleteAsync(id);
-            return RedirectToAction(nameof(History));
+            return RedirectToAction(nameof(Index), weekStart.HasValue
+                ? new { weekStart = weekStart.Value.ToString("yyyy-MM-dd") }
+                : null);
         }
 
         // GET: Dinner/SelectWeeklyRecipes — kept for ingredient review flow
@@ -122,8 +114,13 @@ namespace RecipeHelper.Controllers
                 Ingredients = new List<IngredientVM>()
             };
 
-            var recipes = _context.Recipes.Where(r => selectedRecipes.Contains(r.Id)).Select(r => new ViewRecipeVM
+            // Count occurrences so a recipe on multiple days multiplies its ingredient quantities
+            var idCounts = selectedRecipes.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
+            var distinctIds = idCounts.Keys.ToList();
+
+            var recipeRows = _context.Recipes.Where(r => distinctIds.Contains(r.Id)).Select(r => new ViewRecipeVM
             {
+                Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
                 Ingredients = r.Ingredients.Select(rp => new IngredientVM
@@ -137,25 +134,46 @@ namespace RecipeHelper.Controllers
                 }).ToList(),
             }).ToList();
 
+            // Expand each recipe by its occurrence count before aggregation
+            var recipes = new List<ViewRecipeVM>();
+            foreach (var row in recipeRows)
+            {
+                int n = idCounts[row.Id];
+                for (int i = 0; i < n; i++)
+                    recipes.Add(row);
+            }
+
             Dictionary<int, List<IngredientVM>> ingDict = new Dictionary<int, List<IngredientVM>>();
             List<IngredientVM> tempIngredients = new List<IngredientVM>();
 
-            if (recipes != null)
+            foreach (var recipe in recipes)
             {
-                foreach (var recipe in recipes)
+                model.SelectedRecipes.Add(new SelectedRecipeVM
                 {
-                    model.SelectedRecipes.Add(new SelectedRecipeVM
-                    {
-                        RecipeName = recipe.RecipeName,
-                        ImageUri = recipe.ImageUri
-                    });
+                    RecipeName = recipe.RecipeName,
+                    ImageUri = recipe.ImageUri
+                });
 
-                    foreach (var ingredient in recipe.Ingredients)
+                foreach (var ingredient in recipe.Ingredients)
+                {
+                    tempIngredients.Add(ingredient);
+                    if (ingDict.ContainsKey(ingredient.Id))
                     {
-                        tempIngredients.Add(ingredient);
-                        if (ingDict.ContainsKey(ingredient.Id))
+                        ingDict[ingredient.Id].Add(new IngredientVM
                         {
-                            ingDict[ingredient.Id].Add(new IngredientVM
+                            Id = ingredient.Id,
+                            Name = ingredient.Name,
+                            Section = ingredient.Section,
+                            Quantity = ingredient.Quantity,
+                            Upc = ingredient.Upc,
+                            Measurement = ingredient.Measurement
+                        });
+                    }
+                    else
+                    {
+                        List<IngredientVM> ingredientList =
+                        [
+                            new IngredientVM
                             {
                                 Id = ingredient.Id,
                                 Name = ingredient.Name,
@@ -163,24 +181,9 @@ namespace RecipeHelper.Controllers
                                 Quantity = ingredient.Quantity,
                                 Upc = ingredient.Upc,
                                 Measurement = ingredient.Measurement
-                            });
-                        }
-                        else
-                        {
-                            List<IngredientVM> ingredientList =
-                            [
-                                new IngredientVM
-                                {
-                                    Id = ingredient.Id,
-                                    Name = ingredient.Name,
-                                    Section = ingredient.Section,
-                                    Quantity = ingredient.Quantity,
-                                    Upc = ingredient.Upc,
-                                    Measurement = ingredient.Measurement
-                                },
-                            ];
-                            ingDict.Add(ingredient.Id, ingredientList);
-                        }
+                            },
+                        ];
+                        ingDict.Add(ingredient.Id, ingredientList);
                     }
                 }
             }

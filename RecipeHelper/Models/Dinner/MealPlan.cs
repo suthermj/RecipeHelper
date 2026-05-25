@@ -20,16 +20,10 @@ namespace RecipeHelper.Models.Dinner
         public int DayOfWeek { get; set; }   // 0 = Monday … 6 = Sunday
     }
 
-    public class SaveMealPlanVM
+    public class MealPlanIndexVM
     {
-        public DateTime WeekStartDate { get; set; }
-        public int?[] DayRecipes { get; set; } = new int?[7];
-    }
-
-    public class PlanWeekVM
-    {
-        public DateTime WeekStartDate { get; set; }
+        public DateTime WeekStart { get; set; }
+        public MealPlan? Plan { get; set; }
         public List<ViewRecipeVM> AllRecipes { get; set; } = new();
-        public int?[] DayRecipes { get; set; } = new int?[7];
     }
 }

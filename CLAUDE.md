@@ -18,6 +18,11 @@ dotnet ef database update
 
 # Deploy to Hetzner VM (run from repo root, requires git bash + ~/.ssh/hetzner key)
 bash deploy/deploy.sh
+
+# GitHub CLI (installed at C:\Program Files\GitHub CLI\gh.exe)
+# PATH may need updating in new shells: $env:PATH += ";C:\Program Files\GitHub CLI"
+gh pr create --title "..." --body-file path/to/body.md --base main
+gh pr list
 ```
 
 ## Architecture
@@ -76,10 +81,13 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 ## Meal Plan UI
 
 - `Dinner/Index` — weekly grid (Mon–Sun), always-interactive day cards, autosave on pick/remove
-- Each day card: stack of entry rows (image + name + × remove) + "Add recipe" button below
+- Each day card: stack of entry rows (image + name + × remove) + "Add recipe" button below; supports multiple entries per day
+- Today's card: `border-red-200`, red day name + date — computed with `MealPlanService.LocalToday()`
+- Each card shows the actual calendar date (e.g., "May 26") — `weekStart.AddDays(d).ToString("MMM d")`
 - Picker overlay: `z-[200]`, sits above nav (`z-50`) and loading overlay (`z-[100]`)
 - `AddDayRecipe` / `RemoveEntry` both return `{ planId, entries: [{entryId, dayOfWeek, recipeId, name, img}] }`
-- JS `renderAll(data)` repaints all 7 day containers from this response
+- JS `renderAll(data)` repaints all 7 day containers from this response; card dims to 55% opacity during in-flight requests
+- Font: Inter (Google Fonts), applied globally via `<body style="font-family: 'Inter', sans-serif;">`
 
 ## Deployment
 

@@ -1,0 +1,357 @@
+@using RecipeHelper.Models.Dinner
+@using RecipeHelper.Services
+@model MealPlanIndexVM
+
+@{
+    ViewData["Title"] = "Meal Plan";
+
+    var weekStart = Model.WeekStart;
+    var weekEnd = weekStart.AddDays(6);
+    var prevWeek = weekStart.AddDays(-7);
+    var nextWeek = weekStart.AddDays(7);
+    var currentWeekStart = MealPlanService.GetWeekStart(MealPlanService.LocalToday());
+    var isCurrentWeek = weekStart == currentWeekStart;
+
+    string WeekRange(DateTime s, DateTime e) =>
+        s.Year == e.Year
+            ? $"{s:d MMM} – {e:d MMM yyyy}"
+            : $"{s:d MMM yyyy} – {e:d MMM yyyy}";
+
+    string[] dayNames = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+    string DefaultImg = "https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp";
+
+    var entriesByDay = Enumerable.Range(0, 7)
+        .ToDictionary(d => d, d => Model.Plan?.Entries.Where(e => e.DayOfWeek == d).ToList() ?? new List<MealPlanEntry>());
+    var allEntries = Model.Plan?.Entries ?? new List<MealPlanEntry>();
+    var hasEntries = allEntries.Count > 0;
+}
+
+@Html.AntiForgeryToken()
+
+<div class="max-w-xl mx-auto px-4 py-6 space-y-5">
+
+    <!-- Week navigation header -->
+    <div class="flex items-center justify-between gap-2">
+        <a asp-action="Index" asp-route-weekStart="@prevWeek.ToString("yyyy-MM-dd")"
+           class="p-2.5 rounded-full text-gray-500 hover:bg-gray-100 transition shrink-0"
+           title="Previous week">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+        </a>
+        <div class="text-center flex-1 min-w-0">
+            <p class="text-lg font-bold text-gray-900 truncate">@WeekRange(weekStart, weekEnd)</p>
+            @if (!isCurrentWeek)
+            {
+                <a asp-action="Index" class="text-xs text-red-700 font-medium hover:underline underline-offset-2">← Current week</a>
+            }
+        </div>
+        <a asp-action="Index" asp-route-weekStart="@nextWeek.ToString("yyyy-MM-dd")"
+           class="p-2.5 rounded-full text-gray-500 hover:bg-gray-100 transition shrink-0"
+           title="Next week">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+        </a>
+    </div>
+
+    <!-- 7 day cards (always interactive) -->
+    <div class="space-y-3" id="daySlots">
+        @for (int d = 0; d < 7; d++)
+        {
+            var dayEntries = entriesByDay[d];
+            var dayDate = weekStart.AddDays(d);
+            var isToday = dayDate == MealPlanService.LocalToday();
+
+            <div class="bg-white rounded-2xl border @(isToday ? "border-red-200" : "border-gray-200") shadow-sm overflow-hidden transition-opacity duration-150" data-day="@d">
+                <div class="px-4 pt-3 pb-1 flex items-baseline justify-between">
+                    <p class="text-sm font-bold @(isToday ? "text-red-700" : "text-gray-800")">@dayNames[d]</p>
+                    <p class="text-xs tabular-nums @(isToday ? "text-red-400" : "text-gray-400")">@dayDate.ToString("MMM d")</p>
+                </div>
+
+                <div class="px-3 pb-3 space-y-2">
+                    <div class="day-entries space-y-1.5" data-day="@d">
+                        @foreach (var entry in dayEntries)
+                        {
+                            <div class="entry-row flex items-center gap-3 py-1" data-entry-id="@entry.Id">
+                                <div class="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                                    <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
+                                         alt="" class="w-full h-full object-cover" />
+                                </div>
+                                <p class="flex-1 text-sm font-semibold text-gray-900 truncate">@(entry.Recipe?.Name ?? "")</p>
+                                <button type="button"
+                                        class="clear-btn shrink-0 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+                                        data-entry-id="@entry.Id"
+                                        title="Remove">
+                                    <svg class="h-4 w-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    <button type="button"
+                            class="add-btn w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-gray-200 text-xs text-gray-400 hover:border-red-300 hover:text-red-600 transition mt-1"
+                            data-day="@d">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Add recipe
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Actions (visible only when ≥1 day filled) -->
+    <div id="planActions" class="space-y-2 pt-1 @(hasEntries ? "" : "hidden")">
+        <form asp-action="SubmitDinnerSelections" method="post" id="reviewForm">
+            @Html.AntiForgeryToken()
+            <div id="reviewHiddenInputs">
+                @foreach (var entry in allEntries)
+                {
+                    <input type="hidden" name="selectedRecipes" value="@entry.RecipeId" />
+                }
+            </div>
+            <button type="submit"
+                    class="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
+                Review ingredients
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+            </button>
+        </form>
+
+        <form asp-action="DeletePlan" method="post"
+              id="deleteForm"
+              onsubmit="return confirm('Delete this meal plan?')">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" id="deletePlanId" value="@(Model.Plan?.Id ?? 0)" />
+            <input type="hidden" name="weekStart" value="@weekStart.ToString("yyyy-MM-dd")" />
+            <div class="flex justify-center">
+                <button type="submit"
+                        class="text-xs text-gray-400 hover:text-red-600 underline-offset-2 hover:underline transition py-1">
+                    Delete plan
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<!-- Recipe picker overlay (centered card, sits above the bottom nav) -->
+<div id="recipePickerOverlay"
+     style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 56px; z-index: 200; background: rgba(0,0,0,0.5); padding: 16px; align-items: center; justify-content: center;"
+     aria-modal="true">
+    <div id="recipePickerCard"
+         style="width: 100%; max-width: 32rem; max-height: 100%; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); display: grid; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden;">
+        <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b border-gray-100">
+            <h2 class="text-base font-semibold text-gray-900">Pick a recipe</h2>
+            <button type="button" id="closeModal"
+                    class="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition">
+                <svg class="h-5 w-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="px-4 py-3 border-b border-gray-100">
+            <input type="text" id="recipeSearch"
+                   placeholder="Search recipes…"
+                   autocomplete="off"
+                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-700" />
+        </div>
+        <div id="recipeList"
+             style="overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0;"
+             class="p-3 grid grid-cols-2 gap-3">
+            @foreach (var recipe in Model.AllRecipes)
+            {
+                <button type="button"
+                        class="recipe-option flex flex-col overflow-hidden bg-white border border-gray-200 rounded-xl shadow-sm hover:border-red-400 transition text-left focus:outline-none focus:ring-2 focus:ring-red-600"
+                        data-id="@recipe.Id"
+                        data-name="@recipe.RecipeName"
+                        data-img="@(string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)">
+                    <div class="w-full h-24 bg-gray-100 overflow-hidden">
+                        <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)"
+                             alt="@recipe.RecipeName"
+                             class="w-full h-full object-cover" />
+                    </div>
+                    <div class="p-2">
+                        <p class="text-xs font-semibold text-gray-900 line-clamp-2">@recipe.RecipeName</p>
+                    </div>
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const overlay = document.getElementById('recipePickerOverlay');
+    const recipeSearch = document.getElementById('recipeSearch');
+    const planActions = document.getElementById('planActions');
+    const reviewHiddenInputs = document.getElementById('reviewHiddenInputs');
+    const deletePlanIdInput = document.getElementById('deletePlanId');
+    const weekStart = '@weekStart.ToString("yyyy-MM-dd")';
+    const defaultImg = '@DefaultImg';
+    const addDayRecipeUrl = '@Url.Action("AddDayRecipe", "Dinner")';
+    const removeEntryUrl = '@Url.Action("RemoveEntry", "Dinner")';
+    let activeDay = null;
+
+    function getToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]').value;
+    }
+
+    function openPicker(day) {
+        activeDay = day;
+        recipeSearch.value = '';
+        filterRecipes('');
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closePicker() {
+        overlay.style.display = 'none';
+        document.body.style.overflow = '';
+        activeDay = null;
+    }
+
+    document.querySelectorAll('.add-btn').forEach(btn => {
+        btn.addEventListener('click', () => openPicker(parseInt(btn.dataset.day)));
+    });
+
+    document.getElementById('closeModal').addEventListener('click', closePicker);
+
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) closePicker();
+    });
+
+    recipeSearch.addEventListener('input', () => filterRecipes(recipeSearch.value.toLowerCase().trim()));
+
+    function filterRecipes(term) {
+        document.querySelectorAll('.recipe-option').forEach(card => {
+            const match = !term || card.dataset.name.toLowerCase().includes(term);
+            card.classList.toggle('hidden', !match);
+        });
+    }
+
+    document.querySelectorAll('.recipe-option').forEach(card => {
+        card.addEventListener('click', () => {
+            if (activeDay === null) return;
+            const day = activeDay;
+            const id = card.dataset.id;
+            closePicker();
+            postAdd(day, id);
+        });
+    });
+
+    function entryRowHtml(entry) {
+        const img = entry.img || defaultImg;
+        return `<div class="entry-row flex items-center gap-3 py-1" data-entry-id="${entry.entryId}">
+            <div class="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                <img src="${img}" alt="" class="w-full h-full object-cover" />
+            </div>
+            <p class="flex-1 text-sm font-semibold text-gray-900 truncate">${entry.name}</p>
+            <button type="button" class="clear-btn shrink-0 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+                    data-entry-id="${entry.entryId}" title="Remove">
+                <svg class="h-4 w-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>`;
+    }
+
+    function renderAll(data) {
+        const byDay = {};
+        for (let d = 0; d < 7; d++) byDay[d] = [];
+        (data.entries || []).forEach(e => byDay[e.dayOfWeek].push(e));
+
+        document.querySelectorAll('.day-entries').forEach(container => {
+            const day = parseInt(container.dataset.day);
+            container.innerHTML = byDay[day].map(entryRowHtml).join('');
+        });
+
+        bindClearButtons();
+
+        reviewHiddenInputs.innerHTML = '';
+        (data.entries || []).forEach(e => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selectedRecipes';
+            input.value = e.recipeId;
+            reviewHiddenInputs.appendChild(input);
+        });
+
+        deletePlanIdInput.value = data.planId || 0;
+        planActions.classList.toggle('hidden', (data.entries || []).length === 0);
+    }
+
+    function bindClearButtons() {
+        document.querySelectorAll('.clear-btn').forEach(btn => {
+            btn.addEventListener('click', () => postRemove(parseInt(btn.dataset.entryId)));
+        });
+    }
+
+    bindClearButtons();
+
+    function dimCard(card) {
+        if (card) { card.style.opacity = '0.55'; card.style.pointerEvents = 'none'; }
+    }
+    function undimCard(card) {
+        if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+    }
+
+    async function postAdd(day, recipeId) {
+        const card = document.querySelector(`#daySlots [data-day="${day}"]`);
+        dimCard(card);
+        const body = new URLSearchParams();
+        body.append('weekStart', weekStart);
+        body.append('dayOfWeek', String(day));
+        body.append('recipeId', String(recipeId));
+
+        try {
+            const resp = await fetch(addDayRecipeUrl, {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': getToken(),
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json'
+                },
+                body: body.toString()
+            });
+            if (!resp.ok) throw new Error('Add failed: ' + resp.status);
+            renderAll(await resp.json());
+        } catch (err) {
+            alert('Could not add recipe. Please try again.');
+        } finally {
+            undimCard(card);
+        }
+    }
+
+    async function postRemove(entryId) {
+        const row = document.querySelector(`[data-entry-id="${entryId}"]`);
+        const card = row?.closest('[data-day]');
+        dimCard(card);
+        const body = new URLSearchParams();
+        body.append('entryId', String(entryId));
+
+        try {
+            const resp = await fetch(removeEntryUrl, {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': getToken(),
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json'
+                },
+                body: body.toString()
+            });
+            if (!resp.ok) throw new Error('Remove failed: ' + resp.status);
+            renderAll(await resp.json());
+        } catch (err) {
+            alert('Could not remove recipe. Please try again.');
+        } finally {
+            undimCard(card);
+        }
+    }
+</script>
+}

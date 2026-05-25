@@ -2,14 +2,14 @@
 
 ## UI / Navigation
 
-- [ ] Change "Dinners" nav label to "Meal Plan"
+- [x] Change "Dinners" nav label to "Meal Plan"
 - [ ] Add "Add to Cart" / "Add to List" button on individual recipe pages
 - [ ] Print recipe feature
 - [ ] Share recipe feature
 
 ## Meal Planning
 
-- [ ] Enable meal plan history — view previous weeks' meal plans
+- [x] Enable meal plan history — view previous weeks' meal plans
 - [ ] Creating a meal plan should automatically generate the corresponding shopping list
 
 ## Shopping List

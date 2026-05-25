@@ -2,6 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
 using OpenAI;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using RecipeHelper;
 using RecipeHelper.Services;
 
@@ -38,6 +44,63 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true; // Make the session cookie essential
 });
 builder.Services.AddControllers();
+
+// OpenTelemetry: read from appsettings first, fall back to OTEL_* env vars.
+var otelServiceName = builder.Configuration["OpenTelemetry:ServiceName"]
+    ?? Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME")
+    ?? "recipe-helper";
+var otelServiceNamespace = builder.Configuration["OpenTelemetry:ServiceNamespace"]
+    ?? "recipe-helper";
+var otlpEndpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"]
+    ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+var otlpHeaders = builder.Configuration["OpenTelemetry:Otlp:Headers"]
+    ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_HEADERS");
+var otlpProtocol = builder.Configuration["OpenTelemetry:Otlp:Protocol"]
+    ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_PROTOCOL")
+    ?? "http/protobuf";
+
+void ConfigureOtlp(OtlpExporterOptions opts)
+{
+    if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+        opts.Endpoint = new Uri(otlpEndpoint);
+    if (!string.IsNullOrWhiteSpace(otlpHeaders))
+        opts.Headers = otlpHeaders;
+    opts.Protocol = otlpProtocol.Equals("grpc", StringComparison.OrdinalIgnoreCase)
+        ? OtlpExportProtocol.Grpc
+        : OtlpExportProtocol.HttpProtobuf;
+}
+
+var otelResource = ResourceBuilder.CreateDefault()
+    .AddService(serviceName: otelServiceName, serviceNamespace: otelServiceNamespace, serviceVersion: "1.0.0")
+    .AddAttributes(new KeyValuePair<string, object>[]
+    {
+        new("deployment.environment", builder.Environment.EnvironmentName),
+        new("host.name", Environment.MachineName)
+    });
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService(serviceName: otelServiceName, serviceNamespace: otelServiceNamespace, serviceVersion: "1.0.0"))
+    .WithTracing(t => t
+        .AddSource("RecipeHelper.*")
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddSqlClientInstrumentation(o => o.SetDbStatementForText = true)
+        .AddOtlpExporter(ConfigureOtlp))
+    .WithMetrics(m => m
+        .AddMeter("RecipeHelper.*")
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddOtlpExporter(ConfigureOtlp));
+
+builder.Logging.AddOpenTelemetry(o =>
+{
+    o.SetResourceBuilder(otelResource);
+    o.IncludeFormattedMessage = true;
+    o.IncludeScopes = true;
+    o.AddOtlpExporter(ConfigureOtlp);
+});
+
 var app = builder.Build();
 
 

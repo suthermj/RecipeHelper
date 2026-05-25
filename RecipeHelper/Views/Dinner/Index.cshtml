@@ -33,18 +33,21 @@
     <!-- Week navigation header -->
     <div class="flex items-center justify-between gap-2">
         <a asp-action="Index" asp-route-weekStart="@prevWeek.ToString("yyyy-MM-dd")"
-           class="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition shrink-0"
+           class="p-2.5 rounded-full text-gray-500 hover:bg-gray-100 transition shrink-0"
            title="Previous week">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
             </svg>
         </a>
         <div class="text-center flex-1 min-w-0">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Meal Plan</p>
-            <p class="text-sm font-medium text-gray-900 truncate">@WeekRange(weekStart, weekEnd)</p>
+            <p class="text-lg font-bold text-gray-900 truncate">@WeekRange(weekStart, weekEnd)</p>
+            @if (!isCurrentWeek)
+            {
+                <a asp-action="Index" class="text-xs text-red-700 font-medium hover:underline underline-offset-2">← Current week</a>
+            }
         </div>
         <a asp-action="Index" asp-route-weekStart="@nextWeek.ToString("yyyy-MM-dd")"
-           class="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition shrink-0"
+           class="p-2.5 rounded-full text-gray-500 hover:bg-gray-100 transition shrink-0"
            title="Next week">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -52,38 +55,32 @@
         </a>
     </div>
 
-    @if (!isCurrentWeek)
-    {
-        <div class="flex justify-center">
-            <a asp-action="Index" class="text-xs text-red-800 font-medium hover:underline underline-offset-2">
-                Jump to current week
-            </a>
-        </div>
-    }
-
     <!-- 7 day cards (always interactive) -->
     <div class="space-y-3" id="daySlots">
         @for (int d = 0; d < 7; d++)
         {
             var dayEntries = entriesByDay[d];
+            var dayDate = weekStart.AddDays(d);
+            var isToday = dayDate == MealPlanService.LocalToday();
 
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" data-day="@d">
-                <div class="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">@dayNames[d]</p>
+            <div class="bg-white rounded-2xl border @(isToday ? "border-red-200" : "border-gray-200") shadow-sm overflow-hidden transition-opacity duration-150" data-day="@d">
+                <div class="px-4 pt-3 pb-1 flex items-baseline justify-between">
+                    <p class="text-sm font-bold @(isToday ? "text-red-700" : "text-gray-800")">@dayNames[d]</p>
+                    <p class="text-xs tabular-nums @(isToday ? "text-red-400" : "text-gray-400")">@dayDate.ToString("MMM d")</p>
                 </div>
 
-                <div class="p-3 space-y-2">
-                    <div class="day-entries space-y-2" data-day="@d">
+                <div class="px-3 pb-3 space-y-2">
+                    <div class="day-entries space-y-1.5" data-day="@d">
                         @foreach (var entry in dayEntries)
                         {
-                            <div class="entry-row flex items-center gap-3" data-entry-id="@entry.Id">
-                                <div class="w-14 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                            <div class="entry-row flex items-center gap-3 py-1" data-entry-id="@entry.Id">
+                                <div class="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                                     <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
                                          alt="" class="w-full h-full object-cover" />
                                 </div>
-                                <p class="flex-1 text-sm font-medium text-gray-900 truncate">@(entry.Recipe?.Name ?? "")</p>
+                                <p class="flex-1 text-sm font-semibold text-gray-900 truncate">@(entry.Recipe?.Name ?? "")</p>
                                 <button type="button"
-                                        class="clear-btn shrink-0 p-2 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                                        class="clear-btn shrink-0 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
                                         data-entry-id="@entry.Id"
                                         title="Remove">
                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -95,9 +92,9 @@
                     </div>
 
                     <button type="button"
-                            class="add-btn w-full flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-dashed border-gray-200 text-sm text-gray-400 hover:border-red-300 hover:text-red-700 transition"
+                            class="add-btn w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-gray-200 text-xs text-gray-400 hover:border-red-300 hover:text-red-600 transition mt-1"
                             data-day="@d">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
                         Add recipe
@@ -108,7 +105,7 @@
     </div>
 
     <!-- Actions (visible only when ≥1 day filled) -->
-    <div id="planActions" class="space-y-3 pt-1 @(hasEntries ? "" : "hidden")">
+    <div id="planActions" class="space-y-2 pt-1 @(hasEntries ? "" : "hidden")">
         <form asp-action="SubmitDinnerSelections" method="post" id="reviewForm">
             @Html.AntiForgeryToken()
             <div id="reviewHiddenInputs">
@@ -118,8 +115,11 @@
                 }
             </div>
             <button type="submit"
-                    class="w-full inline-flex items-center justify-center px-5 py-3 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">
+                    class="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
                 Review ingredients
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
             </button>
         </form>
 
@@ -129,10 +129,12 @@
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" id="deletePlanId" value="@(Model.Plan?.Id ?? 0)" />
             <input type="hidden" name="weekStart" value="@weekStart.ToString("yyyy-MM-dd")" />
-            <button type="submit"
-                    class="w-full inline-flex items-center justify-center px-5 py-3 rounded-full text-sm font-semibold border border-red-200 bg-white text-red-700 hover:bg-red-50 transition">
-                Delete plan
-            </button>
+            <div class="flex justify-center">
+                <button type="submit"
+                        class="text-xs text-gray-400 hover:text-red-600 underline-offset-2 hover:underline transition py-1">
+                    Delete plan
+                </button>
+            </div>
         </form>
     </div>
 
@@ -246,12 +248,12 @@
 
     function entryRowHtml(entry) {
         const img = entry.img || defaultImg;
-        return `<div class="entry-row flex items-center gap-3" data-entry-id="${entry.entryId}">
-            <div class="w-14 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+        return `<div class="entry-row flex items-center gap-3 py-1" data-entry-id="${entry.entryId}">
+            <div class="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                 <img src="${img}" alt="" class="w-full h-full object-cover" />
             </div>
-            <p class="flex-1 text-sm font-medium text-gray-900 truncate">${entry.name}</p>
-            <button type="button" class="clear-btn shrink-0 p-2 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+            <p class="flex-1 text-sm font-semibold text-gray-900 truncate">${entry.name}</p>
+            <button type="button" class="clear-btn shrink-0 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
                     data-entry-id="${entry.entryId}" title="Remove">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -293,7 +295,16 @@
 
     bindClearButtons();
 
+    function dimCard(card) {
+        if (card) { card.style.opacity = '0.55'; card.style.pointerEvents = 'none'; }
+    }
+    function undimCard(card) {
+        if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+    }
+
     async function postAdd(day, recipeId) {
+        const card = document.querySelector(`#daySlots [data-day="${day}"]`);
+        dimCard(card);
         const body = new URLSearchParams();
         body.append('weekStart', weekStart);
         body.append('dayOfWeek', String(day));
@@ -313,10 +324,15 @@
             renderAll(await resp.json());
         } catch (err) {
             alert('Could not add recipe. Please try again.');
+        } finally {
+            undimCard(card);
         }
     }
 
     async function postRemove(entryId) {
+        const row = document.querySelector(`[data-entry-id="${entryId}"]`);
+        const card = row?.closest('[data-day]');
+        dimCard(card);
         const body = new URLSearchParams();
         body.append('entryId', String(entryId));
 
@@ -334,6 +350,8 @@
             renderAll(await resp.json());
         } catch (err) {
             alert('Could not remove recipe. Please try again.');
+        } finally {
+            undimCard(card);
         }
     }
 </script>

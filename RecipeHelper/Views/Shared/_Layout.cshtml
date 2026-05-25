@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <title>@ViewData["Title"] - RecipeHelper</title>
 
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
     <!-- App styles -->
     <link rel="stylesheet" href="/css/output.css" asp-append-version="true" />
 
@@ -22,7 +27,7 @@
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
 }
 
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col" style="font-family: 'Inter', sans-serif;">
 
     <!-- Top App Bar -->
     <header class="bg-red-900 sticky top-0 z-50 safe-top">

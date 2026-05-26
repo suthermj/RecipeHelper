@@ -1,35 +1,34 @@
-﻿@{
+@{
     ViewData["Title"] = "Recipes";
 }
 
 @model List<ViewRecipeVM>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-4">
 
     <!-- Header + actions -->
-    <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div class="space-y-1">
-            <h1 class="text-xl font-bold text-gray-900 sm:text-2xl">
-                Recipe Library
-            </h1>
+    <header class="flex items-start justify-between gap-3">
+        <div class="min-w-0 space-y-1">
+            <h1 class="text-xl font-bold text-gray-900">Recipe Library</h1>
             <p class="text-sm text-gray-600 leading-snug hidden sm:block">
                 Create, import, and organize the recipes used to plan weekly dinners.
             </p>
+            <a asp-controller="Import" asp-action="ImportRecipe"
+               class="sm:hidden text-xs text-gray-500 hover:text-red-700 underline-offset-2 hover:underline">
+                Import from a link
+            </a>
         </div>
-
-        <div class="flex flex-nowrap gap-2 py-1">
+        <div class="flex flex-nowrap items-center gap-2 shrink-0">
+            <a asp-controller="Import" asp-action="ImportRecipe"
+               class="hidden sm:inline-flex items-center px-4 py-2.5 text-sm rounded-full
+                      bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
+                Import
+            </a>
             <a asp-controller="Recipe" asp-action="CreateEditRecipe"
-               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
-                  bg-red-800 text-white hover:bg-red-900 transition">
+               class="inline-flex items-center px-4 py-2.5 text-sm font-semibold rounded-full
+                      bg-red-800 text-white hover:bg-red-900 transition min-h-[44px]">
                 <span class="sm:hidden">Add</span>
                 <span class="hidden sm:inline">Add recipe</span>
-            </a>
-
-            <a asp-controller="Import" asp-action="ImportRecipe"
-               class="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm rounded-md
-                  bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
-                <span class="sm:hidden">Import</span>
-                <span class="hidden sm:inline">Import recipe</span>
             </a>
         </div>
     </header>
@@ -43,101 +42,88 @@
                 Start by adding or importing a recipe. Once you have a few saved, you can build weekly dinner lists
                 and send ingredients to your Kroger cart.
             </p>
-            <div class="flex flex-wrap justify-center gap-2">
-                <a asp-controller="Recipe" asp-action="CreateEditRecipe"
-                   class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full
-                              bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
-                    Add your first recipe
-                </a>
-                <a asp-controller="Recipe" asp-action="ImportRecipe"
-                   class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full
-                              bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
-                    Import from a link
-                </a>
-            </div>
+            <a asp-controller="Recipe" asp-action="CreateEditRecipe"
+               class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full
+                      bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
+                Add your first recipe
+            </a>
+            <p class="mt-3 text-xs text-gray-500">
+                or <a class="text-red-800 font-semibold underline-offset-2 hover:underline"
+                      asp-controller="Import" asp-action="ImportRecipe">import from a link</a>
+            </p>
         </section>
     }
     else
     {
-        <!-- Top bar: count + search -->
-        @* when Model has recipes *@
-        <section class="space-y-3">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="text-sm font-semibold text-gray-800">
-                    @Model.Count recipe@(Model.Count == 1 ? "" : "s")
-                </h2>
+        <!-- Sticky search + filter bar -->
+        <div class="sticky top-14 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 space-y-2">
 
-                <!-- Search -->
-                <div class="w-full sm:w-auto">
-                    <div class="flex w-full sm:min-w-[260px] items-center rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus-within:ring-2 focus-within:ring-red-700 focus-within:border-red-700">
-                        <input type="text"
-                               id="recipeSearch"
-                               placeholder="Search recipes..."
-                               class="w-full bg-transparent outline-none border-none text-sm text-gray-900 placeholder-gray-400" />
-                    </div>
+            <!-- Count + search row -->
+            <div class="flex items-center gap-3">
+                <span class="shrink-0 text-sm font-semibold text-gray-800">
+                    @Model.Count recipe@(Model.Count == 1 ? "" : "s")
+                </span>
+                <div class="flex-1 flex items-center rounded-full border border-gray-300 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-red-700 focus-within:border-red-700">
+                    <input type="text"
+                           id="recipeSearch"
+                           placeholder="Search recipes..."
+                           class="w-full bg-transparent outline-none border-none text-sm text-gray-900 placeholder-gray-400" />
                 </div>
             </div>
 
-            <!-- Category filter pills -->
-            <div class="flex flex-wrap gap-2">
+            <!-- Category filter pills — single horizontal-scroll row -->
+            <div class="flex overflow-x-auto gap-2 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
                 <button type="button" data-category=""
-                        class="category-filter-btn px-3 py-1 rounded-full text-xs font-medium border border-red-800 bg-red-800 text-white transition">
+                        class="category-filter-btn snap-start shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-red-800 bg-red-800 text-white transition">
                     All
                 </button>
                 @foreach (var cat in new[] { "Dinner", "Lunch", "Breakfast", "Side", "Dessert", "Snack", "Appetizer" })
                 {
                     <button type="button" data-category="@cat"
-                            class="category-filter-btn px-3 py-1 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700 hover:border-red-800 hover:text-red-800 transition">
+                            class="category-filter-btn snap-start shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:border-red-800 hover:text-red-800 transition">
                         @cat
                     </button>
                 }
             </div>
+        </div>
 
-            <!-- 2-column grid on phones, scales up on larger screens -->
-            <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                @foreach (var recipe in Model)
-                {
-                    <a asp-controller="Recipe"
-                       asp-action="ViewRecipe"
-                       asp-route-id="@recipe.Id"
-                       data-recipe-name="@recipe.RecipeName"
-                       data-category="@recipe.DinnerCategory"
-                       class="recipe-card group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
-                              hover:shadow-md transition hover:-translate-y-0.5">
+        <!-- Recipe grid -->
+        <div id="recipeGrid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 pt-1">
+            @foreach (var recipe in Model)
+            {
+                <a asp-controller="Recipe"
+                   asp-action="ViewRecipe"
+                   asp-route-id="@recipe.Id"
+                   data-recipe-name="@recipe.RecipeName"
+                   data-category="@recipe.DinnerCategory"
+                   class="recipe-card flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm
+                          motion-safe:transition motion-safe:active:scale-[0.98]">
 
-                        <!-- Slightly shorter image to keep cards compact -->
-                        <div class="relative w-full h-28 sm:h-32 bg-gray-100 overflow-hidden">
-                            <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri)
-                                                                    ? Url.Content("https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp")
-                                                                    : recipe.ImageUri)"
-                         alt="Image of @recipe.RecipeName"
-                         class="w-full h-full object-cover group-hover:opacity-80 transition" />
-                </div>
+                    <div class="w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+                        <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri)
+                                        ? Url.Content("https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp")
+                                        : recipe.ImageUri)"
+                             alt="@recipe.RecipeName"
+                             class="w-full h-full object-cover" />
+                    </div>
 
-                        <div class="flex-1 p-3 flex flex-col gap-1.5">
-                            <h3 class="text-xs font-semibold text-gray-900 line-clamp-2">
-                                @recipe.RecipeName
-                            </h3>
+                    <div class="p-3">
+                        <h3 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug">
+                            @recipe.RecipeName
+                        </h3>
+                    </div>
+                </a>
+            }
+        </div>
 
-                            <p class="text-[0.7rem] text-gray-500">
-                                @recipe.Ingredients.Count ingredient@(recipe.Ingredients.Count == 1 ? "" : "s")
-                            </p>
-
-                            <div class="mt-1 flex items-center justify-between text-[0.7rem] text-gray-500">
-                                <span class="truncate max-w-[60%]">
-                                    @if (!string.IsNullOrEmpty(recipe.DinnerCategory))
-                                    {
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[0.6rem] font-medium bg-red-100 text-red-800">
-                                            @recipe.DinnerCategory
-                                        </span>
-                                    }
-                                </span>
-                            </div>
-                        </div>
-                    </a>
-                        }
-            </div>
-        </section>
+        <!-- Empty search state -->
+        <div id="emptyResults" class="hidden text-center py-12">
+            <p class="text-sm text-gray-500">No recipes match your search.</p>
+            <button id="clearFilters" type="button"
+                    class="mt-2 text-sm font-semibold text-red-800 underline-offset-2 hover:underline active:opacity-70">
+                Clear filters
+            </button>
+        </div>
     }
 </div>
 
@@ -145,20 +131,28 @@
     (function () {
         const input = document.getElementById('recipeSearch');
         const filterBtns = document.querySelectorAll('.category-filter-btn');
+        const emptyResults = document.getElementById('emptyResults');
+        const clearBtn = document.getElementById('clearFilters');
         let activeCategory = '';
 
-        const ACTIVE_PILL = 'px-3 py-1 rounded-full text-xs font-medium border border-red-800 bg-red-800 text-white transition';
-        const INACTIVE_PILL = 'px-3 py-1 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700 hover:border-red-800 hover:text-red-800 transition';
+        const ACTIVE_PILL = 'category-filter-btn snap-start shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-red-800 bg-red-800 text-white transition';
+        const INACTIVE_PILL = 'category-filter-btn snap-start shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:border-red-800 hover:text-red-800 transition';
 
         function filterCards() {
             const term = input ? input.value.toLowerCase().trim() : '';
+            let visibleCount = 0;
             document.querySelectorAll('.recipe-card').forEach(card => {
                 const name = (card.dataset.recipeName || '').toLowerCase();
                 const category = card.dataset.category || '';
                 const nameMatch = name.includes(term);
                 const categoryMatch = activeCategory === '' || category === activeCategory;
-                card.style.display = nameMatch && categoryMatch ? '' : 'none';
+                const visible = nameMatch && categoryMatch;
+                card.style.display = visible ? '' : 'none';
+                if (visible) visibleCount++;
             });
+            if (emptyResults) {
+                emptyResults.classList.toggle('hidden', visibleCount > 0);
+            }
         }
 
         if (input) {
@@ -169,8 +163,20 @@
             btn.addEventListener('click', function () {
                 activeCategory = this.dataset.category;
                 filterBtns.forEach(b => b.className = b.dataset.category === activeCategory ? ACTIVE_PILL : INACTIVE_PILL);
+                this.scrollIntoView({ inline: 'center', block: 'nearest' });
                 filterCards();
             });
         });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                if (input) input.value = '';
+                activeCategory = '';
+                filterBtns.forEach(b => b.className = b.dataset.category === '' ? ACTIVE_PILL : INACTIVE_PILL);
+                const allBtn = document.querySelector('.category-filter-btn[data-category=""]');
+                if (allBtn) allBtn.scrollIntoView({ inline: 'center', block: 'nearest' });
+                filterCards();
+            });
+        }
     })();
 </script>

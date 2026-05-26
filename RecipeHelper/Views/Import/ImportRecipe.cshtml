@@ -4,25 +4,13 @@
     var hasResult = Model?.Preview != null;
 }
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-4">
 
     <!-- Header -->
-    <header class="text-center space-y-2">
-        <h1 class="text-3xl font-bold text-gray-900">Import a Recipe</h1>
-        <p class="text-gray-600">Paste a recipe URL and we’ll fetch the title, image, ingredients, and steps so you can review and save.</p>
+    <header class="space-y-1">
+        <h1 class="text-xl font-bold text-gray-900">Import a Recipe</h1>
+        <p class="text-sm text-gray-600 leading-snug">Paste a recipe URL and we’ll fetch the title, image, ingredients, and steps so you can review and save.</p>
     </header>
-
-    <!-- Error banner -->
-    @if (TempData["ErrorMessage"] is string err && !string.IsNullOrWhiteSpace(err))
-    {
-        <div id="errorMessage" class="relative bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded" role="alert" aria-live="polite">
-            <strong class="font-bold">Error: </strong>
-            <span class="block sm:inline">@err</span>
-            <button type="button" class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="document.getElementById('errorMessage')?.remove();">
-                <span class="text-2xl">&times;</span>
-            </button>
-        </div>
-    }
 
     <!-- Import form (GET) -->
     <form id="importForm" asp-action="ImportRecipe" method="get" class="flex gap-3" novalidate>
@@ -30,10 +18,10 @@
                type="url"
                required
                placeholder="Paste a recipe URL (e.g., https://example.com/lasagna)"
-               class="flex-1 rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-red-700 focus:border-red-700" />
+               class="flex-1 rounded-full border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-700 focus:border-red-700" />
 
         <button id="importBtn" type="submit"
-                class="inline-flex items-center gap-2 bg-red-800 hover:bg-red-900 text-white font-semibold px-4 py-2 rounded-md disabled:opacity-60 disabled:cursor-not-allowed">
+                class="inline-flex items-center gap-2 bg-red-800 hover:bg-red-900 text-white font-semibold px-4 py-2.5 rounded-full min-h-[44px] motion-safe:active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition">
             <svg id="importBtnSpinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
@@ -46,7 +34,7 @@
     <div id="clipboardBanner" class="hidden flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
         <span class="text-gray-700">Have a recipe URL copied? Paste it from your clipboard.</span>
         <div class="flex items-center gap-2 shrink-0">
-            <button type="button" class="clip-paste-btn inline-flex items-center gap-1.5 rounded-md bg-red-800 text-white px-3 py-1.5 text-sm font-medium hover:bg-red-900 transition">
+            <button type="button" class="clip-paste-btn inline-flex items-center gap-1.5 rounded-full bg-red-800 text-white px-3 py-2 text-sm font-medium hover:bg-red-900 transition">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
@@ -69,7 +57,7 @@
 
     @if (!string.IsNullOrWhiteSpace(ViewBag.Error as string))
     {
-        <div class="rounded-md bg-red-50 p-4 text-sm text-red-800 border border-red-200">
+        <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             @ViewBag.Error
         </div>
     }
@@ -83,7 +71,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Left: image + meta -->
             <div class="lg:col-span-1">
-                <img src="@img" alt="@Model.Preview.Title" class="w-full h-72 object-cover rounded-xl shadow" />
+                <img src="@img" alt="@Model.Preview.Title" class="w-full aspect-[4/3] object-cover rounded-2xl shadow-sm" />
 
                 <div class="mt-4 space-y-2 text-gray-700">
                     @if (Model.Preview.ReadyInMinutes is not null)
@@ -212,7 +200,7 @@
                         }
 
                         <button type="submit"
-                                class="bg-red-800 hover:bg-red-900 text-white font-semibold px-4 py-2 rounded-md">
+                                class="inline-flex items-center justify-center bg-red-800 hover:bg-red-900 text-white font-semibold px-4 py-2.5 rounded-full min-h-[44px] motion-safe:active:scale-[0.98] transition">
                             Review &amp; Save
                         </button>
                     </form>
@@ -236,10 +224,6 @@
         const btnText = document.getElementById('importBtnText');
         const overlay = document.getElementById('loadingOverlay');
         const urlInput = form.querySelector('input[name="Url"]');
-
-        // Auto-hide error banner
-        const err = document.getElementById('errorMessage');
-        if (err) setTimeout(() => err.remove(), 7000);
 
         // Clipboard paste banner — only show when the URL input is empty
         const clipBanner = document.getElementById('clipboardBanner');

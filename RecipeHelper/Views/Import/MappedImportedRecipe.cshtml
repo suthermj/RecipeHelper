@@ -59,7 +59,7 @@
                        name="Title"
                        type="text"
                        value="@Model.Title"
-                       class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm sm:text-base font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                       class="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm sm:text-base font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
                        maxlength="120"
                        autocomplete="off" />
 
@@ -81,33 +81,16 @@
 
         @* Ingredient cards *@
         <section class="space-y-4">
-            <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-gray-800">Ingredients</h2>
-                <button type="button"
-                        id="addIngredientBtn"
-                        class="inline-flex items-center rounded-lg bg-gray-900 text-white px-3 py-1.5 text-xs font-medium hover:bg-black">
-                    + Add ingredient
-                </button>
-            </div>
+            <h2 class="text-sm font-semibold text-gray-800">Ingredients</h2>
             @for (var i = 0; i < Model.Ingredients.Count; i++)
             {
                 var ing = Model.Ingredients[i];
 
                 var hasSelected = !string.IsNullOrWhiteSpace(ing.SelectedUpc);
-                var hasSuggested = !string.IsNullOrWhiteSpace(ing.SuggestedUpc) && !string.IsNullOrWhiteSpace(ing.SuggestedName);
 
-                var currentSource = hasSelected ? (ing.SelectedSource ?? "Kroger")
-                : (hasSuggested ? "Suggested" : "Unselected");
-
-                var currentName = hasSelected ? (ing.SelectedName ?? "")
-                : (hasSuggested ? (ing.SuggestedName ?? "") : "No item selected");
-
-                var currentUpc = hasSelected ? ing.SelectedUpc
-                : (hasSuggested ? ing.SuggestedUpc : "");
-
-                var currentImg = !string.IsNullOrWhiteSpace(currentUpc)
-                ? (krogerImgBase + currentUpc)
-                : placeholderProductImg;
+                var currentName = hasSelected ? (ing.SelectedName ?? "") : "Not mapped";
+                var currentUpc  = hasSelected ? ing.SelectedUpc : "";
+                var currentImg  = hasSelected ? (krogerImgBase + currentUpc) : placeholderProductImg;
 
                 <div class="js-row rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm transition"
                      data-idx="@i">
@@ -138,7 +121,7 @@
                         <div class="flex-1 min-w-0">
 
                             @* ✅ Editable name input *@
-                            <label class="block text-[0.7rem] font-semibold uppercase tracking-wide text-gray-500">
+                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                 Ingredient
                             </label>
                             <input type="text"
@@ -151,7 +134,7 @@
 
                             <div class="js-collapsible" data-idx="@i">
                                 <div class="mt-2 flex flex-wrap items-center gap-2">
-                                    <span class="text-[0.7rem] font-semibold uppercase tracking-wide text-gray-500">Quantity</span>
+                                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Quantity</span>
 
                                     <input type="number"
                                            step="0.01"
@@ -167,20 +150,19 @@
                                             data-idx="@i">
                                     </select>
 
-                                    <span class="ml-2 text-[0.7rem] text-gray-500">(Mapping optional)</span>
                                 </div>
                             </div>
                         </div>
 
                         <div class="flex items-center gap-2">
                             <button type="button"
-                                    class="js-open-map inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 text-xs font-semibold hover:bg-red-100"
+                                    class="js-open-map inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-2 text-xs font-medium hover:bg-gray-200 transition"
                                     data-idx="@i">
                                 Map item
                             </button>
 
                             <button type="button"
-                                    class="js-exclude-btn inline-flex items-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                    class="js-exclude-btn inline-flex items-center rounded-full border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
                                     data-idx="@i"
                                     aria-pressed="false">
                                 Exclude
@@ -188,62 +170,48 @@
                         </div>
                     </div>
 
-                    @* Compact current selection display *@
-                    <div class="js-collapsible mt-4 rounded-2xl border border-gray-200 bg-white p-4 flex items-center gap-3" data-idx="@i">
-                        <div id="currentImgWrap-@i" class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center">
-                            @if (!string.IsNullOrWhiteSpace(currentUpc))
+                    @* Product mapping row *@
+                    <div class="js-collapsible mt-3 flex items-center gap-2" data-idx="@i">
+                        <div id="currentImgWrap-@i" class="h-8 w-8 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center">
+                            @if (hasSelected)
                             {
-                                <img id="currentImg-@i" src="@currentImg" alt="Selected product image" class="h-full w-full object-cover" />
+                                <img id="currentImg-@i" src="@currentImg" alt="@currentName" class="h-full w-full object-cover" />
                             }
                             else
                             {
-                                <svg id="currentPlaceholder-@i" class="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <svg id="currentPlaceholder-@i" class="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                                 </svg>
                             }
                         </div>
 
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Selection</span>
-                                <span id="currentBadge-@i"
-                                      class="px-2 py-0.5 text-[0.65rem] rounded-full border
-                                                @(currentSource == "Kroger" ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                                                    : currentSource == "Suggested" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                                                    : currentSource == "My products" ? "bg-red-50 text-red-800 border-red-200"
-                                                                                    : "bg-gray-50 text-gray-600 border-gray-200")">
-                                @currentSource
-                            </span>
-                        </div>
-
-                            <div id="currentName-@i" class="mt-1 text-sm font-semibold text-gray-900 truncate">
-                                @currentName
-                            </div>
-
-                            <div id="currentMeta-@i" class="text-xs text-gray-500 truncate">
-                                @(string.IsNullOrWhiteSpace(currentUpc) ? "No UPC selected" : $"UPC: {currentUpc}")
-                            </div>
-                        </div>
+                        <span id="currentName-@i" class="flex-1 min-w-0 text-sm truncate @(hasSelected ? "text-gray-900 font-medium" : "text-gray-400")">
+                            @currentName
+                        </span>
 
                         <button type="button"
-                                class="js-clear-selection inline-flex items-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                class="js-clear-selection inline-flex items-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 @(hasSelected ? "" : "hidden")"
                                 data-idx="@i"
-                                @(hasSelected ? "" : "disabled")
-                                title="Clear selection">
-                            Clear
+                                title="Remove product mapping">
+                            Remove
                         </button>
                     </div>
                 </div>
                         }
         </section>
 
+        <button type="button" id="addIngredientBtn"
+                class="w-full rounded-2xl border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 transition">
+            + Add ingredient
+        </button>
+
         <div class="flex justify-end gap-3 pt-2">
             <a href="@Url.Action("ImportRecipe", "Import")"
-               class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+               class="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-4 py-2.5 min-h-[44px] text-sm font-medium text-gray-700 hover:bg-gray-50">
                 ← Back
             </a>
             <button type="submit"
-                    class="inline-flex items-center justify-center rounded-md bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900">
+                    class="inline-flex items-center justify-center rounded-full bg-red-800 px-4 py-2.5 min-h-[44px] text-sm font-semibold text-white hover:bg-red-900 motion-safe:active:scale-[0.98] transition">
                 Confirm mapping
             </button>
         </div>
@@ -251,7 +219,7 @@
 </div>
 
 @* ---------- Mapping Modal (shared) ---------- *@
-<div id="mapModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+<div id="mapModal" class="fixed inset-0 z-[200] hidden" aria-hidden="true">
     <div class="js-modal-backdrop absolute inset-0 bg-black/40"></div>
 
     <div class="absolute inset-0 flex items-center justify-center p-4">
@@ -319,7 +287,7 @@
                         <input id="modalSearch"
                                type="text"
                                placeholder="Search…"
-                               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                               class="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm focus:border-red-700 focus:ring-2 focus:ring-red-700"
                                autocomplete="off" />
                         <div id="modalHint" class="mt-1 text-[0.7rem] text-gray-500">
                             Searching your saved products.
@@ -337,11 +305,11 @@
             </div>
 
             <div class="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-                <div class="text-[0.7rem] text-gray-500">
+                <div class="text-xs text-gray-500">
                     Tip: choosing an item is optional. You can import without mapping.
                 </div>
                 <button type="button"
-                        class="js-close-modal inline-flex items-center justify-center rounded-md bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900">
+                        class="js-close-modal inline-flex items-center justify-center rounded-full bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900">
                     Done
                 </button>
             </div>
@@ -495,10 +463,6 @@
                 title.textContent = name;
                 col.appendChild(title);
 
-                const meta = document.createElement('div');
-                meta.className = 'text-xs text-gray-500 truncate';
-                meta.textContent = upc ? `UPC: ${upc}` : '';
-                col.appendChild(meta);
 
                 li.appendChild(col);
 
@@ -519,37 +483,28 @@
             if (srcH) srcH.value = source || '';
         }
 
-        const placeholderSvg = `<svg class="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>`;
+        const placeholderSvg = `<svg class="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>`;
 
-        function setCurrentSelection(idx, { source, name, upc }) {
+        function setCurrentSelection(idx, { name, upc }) {
             const wrap = document.getElementById(`currentImgWrap-${idx}`);
             const nameEl = document.getElementById(`currentName-${idx}`);
-            const badgeEl = document.getElementById(`currentBadge-${idx}`);
-            const metaEl = document.getElementById(`currentMeta-${idx}`);
+            const removeBtn = document.querySelector(`.js-clear-selection[data-idx="${idx}"]`);
 
+            const u = (upc || '').trim();
             if (wrap) {
-                const u = (upc || '').trim();
                 if (u) {
-                    wrap.innerHTML = `<img id="currentImg-${idx}" src="${krogerImgBase}${u}" alt="Selected product image" class="h-full w-full object-cover" />`;
+                    wrap.innerHTML = `<img id="currentImg-${idx}" src="${krogerImgBase}${u}" alt="${name || ''}" class="h-full w-full object-cover" />`;
                 } else {
                     wrap.innerHTML = placeholderSvg;
                 }
             }
-            if (nameEl) nameEl.textContent = name || 'No item selected';
-            if (metaEl) metaEl.textContent = upc ? `UPC: ${upc}` : 'No UPC selected';
-
-            if (badgeEl) {
-                badgeEl.textContent = source || 'Selected';
-                badgeEl.className =
-                    'px-2 py-0.5 text-[0.65rem] rounded-full border ' +
-                    (source === 'Kroger'
-                        ? 'bg-purple-50 text-purple-700 border-purple-200'
-                        : (source === 'My products')
-                            ? 'bg-red-50 text-red-800 border-red-200'
-                            : (source === 'Suggested')
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : 'bg-gray-50 text-gray-600 border-gray-200');
+            if (nameEl) {
+                nameEl.textContent = name || 'Not mapped';
+                nameEl.className = u
+                    ? 'flex-1 min-w-0 text-sm truncate text-gray-900 font-medium'
+                    : 'flex-1 min-w-0 text-sm truncate text-gray-400';
             }
+            if (removeBtn) removeBtn.classList.toggle('hidden', !u);
         }
 
         // Pinned suggestion hydrator (Suggested first, then Kroger fallback)
@@ -583,7 +538,7 @@
             pinnedWrap.classList.remove('hidden');
             pinnedImg.src = imgFromUpc(upc);
             pinnedName.textContent = name;
-            pinnedMeta.textContent = `UPC: ${upc} • ${source}`;
+            pinnedMeta.textContent = source;
             pinnedBtn.dataset.upc = upc;
             pinnedBtn.dataset.name = name;
             pinnedBtn.dataset.source = source;
@@ -598,11 +553,7 @@
             if (!upc.trim()) return;
 
             setHiddenSelection(activeIdx, upc, name, source);
-            setCurrentSelection(activeIdx, { source, name, upc });
-
-            const rowClear = document.querySelector(`.js-clear-selection[data-idx="${activeIdx}"]`);
-            if (rowClear) rowClear.removeAttribute('disabled');
-
+            setCurrentSelection(activeIdx, { name, upc });
             closeModal();
         });
 
@@ -651,17 +602,8 @@
             if (!btn) return;
             if (activeIdx == null) return;
 
-            setHiddenSelection(activeIdx, '', '', 'Unselected');
-
-            const suggestedUpc = document.querySelector(`input[name="Ingredients[${activeIdx}].SuggestedUpc"]`)?.value || '';
-            const suggestedName = document.querySelector(`input[name="Ingredients[${activeIdx}].SuggestedName"]`)?.value || '';
-
-            if (suggestedUpc.trim()) {
-                setCurrentSelection(activeIdx, { source: 'Suggested', name: suggestedName, upc: suggestedUpc });
-            } else {
-                setCurrentSelection(activeIdx, { source: 'Unselected', name: 'No item selected', upc: '' });
-            }
-
+            setHiddenSelection(activeIdx, '', '', '');
+            setCurrentSelection(activeIdx, { name: 'Not mapped', upc: '' });
             closeModal();
         });
 
@@ -669,23 +611,9 @@
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.js-clear-selection');
             if (!btn) return;
-
             const idx = btn.dataset.idx;
-            const upcH = document.querySelector(`input.js-selected-upc[data-idx="${idx}"]`);
-            if (!upcH || !upcH.value.trim()) return;
-
-            setHiddenSelection(idx, '', '', 'Unselected');
-
-            const suggestedUpc = document.querySelector(`input[name="Ingredients[${idx}].SuggestedUpc"]`)?.value || '';
-            const suggestedName = document.querySelector(`input[name="Ingredients[${idx}].SuggestedName"]`)?.value || '';
-
-            if (suggestedUpc.trim()) {
-                setCurrentSelection(idx, { source: 'Suggested', name: suggestedName, upc: suggestedUpc });
-            } else {
-                setCurrentSelection(idx, { source: 'Unselected', name: 'No item selected', upc: '' });
-            }
-
-            btn.setAttribute('disabled', 'disabled');
+            setHiddenSelection(idx, '', '', '');
+            setCurrentSelection(idx, { name: 'Not mapped', upc: '' });
         });
 
         // Search
@@ -735,11 +663,7 @@
             const source = li.dataset.source || (activeMode === 'db' ? 'My products' : 'Kroger');
 
             setHiddenSelection(activeIdx, upc, name, source);
-            setCurrentSelection(activeIdx, { source, name, upc });
-
-            const rowClear = document.querySelector(`.js-clear-selection[data-idx="${activeIdx}"]`);
-            if (rowClear) rowClear.removeAttribute('disabled');
-
+            setCurrentSelection(activeIdx, { name, upc });
             closeModal();
         });
 
@@ -808,7 +732,7 @@
 
                     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div class="flex-1 min-w-0">
-                            <label class="block text-[0.7rem] font-semibold uppercase tracking-wide text-gray-500">Ingredient</label>
+                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Ingredient</label>
                             <input type="text"
                                    name="Ingredients[${idx}].Name"
                                    value=""
@@ -820,7 +744,7 @@
 
                             <div class="js-collapsible" data-idx="${idx}">
                                 <div class="mt-2 flex flex-wrap items-center gap-2">
-                                    <span class="text-[0.7rem] font-semibold uppercase tracking-wide text-gray-500">Quantity</span>
+                                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Quantity</span>
                                     <input type="number" step="0.01" min="0"
                                            name="Ingredients[${idx}].Amount" value="1"
                                            class="js-amount w-24 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
@@ -830,14 +754,13 @@
                                             data-idx="${idx}">
                                         ${buildMeasurementOptions('')}
                                     </select>
-                                    <span class="ml-2 text-[0.7rem] text-gray-500">(Mapping optional)</span>
                                 </div>
                             </div>
                         </div>
 
                         <div class="flex items-center gap-2">
                             <button type="button"
-                                    class="js-open-map inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 text-xs font-semibold hover:bg-red-100"
+                                    class="js-open-map inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-2 text-xs font-medium hover:bg-gray-200 transition"
                                     data-idx="${idx}">
                                 Map item
                             </button>
@@ -849,23 +772,14 @@
                         </div>
                     </div>
 
-                    <div class="js-collapsible mt-4 rounded-2xl border border-gray-200 bg-white p-4 flex items-center gap-3" data-idx="${idx}">
-                        <div id="currentImgWrap-${idx}" class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center">
-                            ${placeholderSvg}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Selection</span>
-                                <span id="currentBadge-${idx}" class="px-2 py-0.5 text-[0.65rem] rounded-full border bg-gray-50 text-gray-600 border-gray-200">Unselected</span>
-                            </div>
-                            <div id="currentName-${idx}" class="mt-1 text-sm font-semibold text-gray-900 truncate">No item selected</div>
-                            <div id="currentMeta-${idx}" class="text-xs text-gray-500 truncate">No UPC selected</div>
-                        </div>
+                    <div class="js-collapsible mt-3 flex items-center gap-2" data-idx="${idx}">
+                        <div id="currentImgWrap-${idx}" class="h-8 w-8 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center">${placeholderSvg}</div>
+                        <span id="currentName-${idx}" class="flex-1 min-w-0 text-sm truncate text-gray-400">Not mapped</span>
                         <button type="button"
-                                class="js-clear-selection inline-flex items-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                data-idx="${idx}" disabled
-                                title="Clear selection">
-                            Clear
+                                class="js-clear-selection inline-flex items-center rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hidden"
+                                data-idx="${idx}"
+                                title="Remove product mapping">
+                            Remove
                         </button>
                     </div>
                 </div>
@@ -895,7 +809,7 @@
             if (row) row.remove();
         });
 
-        // Init row current selection on load (and disable Clear if none selected)
+        // Init row current selection on load
         document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.js-row').forEach(row => {
                 const idx = row.dataset.idx;
@@ -908,24 +822,7 @@
 
                 const selectedUpc = document.querySelector(`input.js-selected-upc[data-idx="${idx}"]`)?.value || '';
                 const selectedName = document.querySelector(`input.js-selected-name[data-idx="${idx}"]`)?.value || '';
-                const selectedSource = document.querySelector(`input.js-selected-source[data-idx="${idx}"]`)?.value || '';
-
-                const suggestedUpc = document.querySelector(`input[name="Ingredients[${idx}].SuggestedUpc"]`)?.value || '';
-                const suggestedName = document.querySelector(`input[name="Ingredients[${idx}].SuggestedName"]`)?.value || '';
-
-                if (selectedUpc.trim()) {
-                    setCurrentSelection(idx, { source: selectedSource || 'Kroger', name: selectedName, upc: selectedUpc });
-                } else if (suggestedUpc.trim()) {
-                    setCurrentSelection(idx, { source: 'Suggested', name: suggestedName, upc: suggestedUpc });
-                } else {
-                    setCurrentSelection(idx, { source: 'Unselected', name: 'No item selected', upc: '' });
-                }
-
-                const rowClear = document.querySelector(`.js-clear-selection[data-idx="${idx}"]`);
-                if (rowClear) {
-                    if (selectedUpc.trim()) rowClear.removeAttribute('disabled');
-                    else rowClear.setAttribute('disabled', 'disabled');
-                }
+                setCurrentSelection(idx, { name: selectedUpc.trim() ? selectedName : 'Not mapped', upc: selectedUpc });
             });
         });
 

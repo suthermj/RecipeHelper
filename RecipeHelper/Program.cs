@@ -59,10 +59,17 @@ var otlpProtocol = builder.Configuration["OpenTelemetry:Otlp:Protocol"]
     ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_PROTOCOL")
     ?? "http/protobuf";
 
-void ConfigureOtlp(OtlpExporterOptions opts)
+// NOTE: When OtlpExporterOptions.Endpoint is set programmatically, the SDK does NOT append
+// the per-signal path (/v1/traces, /v1/metrics, /v1/logs). It only appends them when the
+// value comes from the OTEL_EXPORTER_OTLP_ENDPOINT env var. So we append the path ourselves
+// per signal — otherwise Grafana Cloud's OTLP gateway gets POSTs to bare /otlp and silently drops them.
+void ConfigureOtlp(OtlpExporterOptions opts, string signalPath)
 {
     if (!string.IsNullOrWhiteSpace(otlpEndpoint))
-        opts.Endpoint = new Uri(otlpEndpoint);
+    {
+        var baseUri = otlpEndpoint.TrimEnd('/');
+        opts.Endpoint = new Uri($"{baseUri}/{signalPath}");
+    }
     if (!string.IsNullOrWhiteSpace(otlpHeaders))
         opts.Headers = otlpHeaders;
     opts.Protocol = otlpProtocol.Equals("grpc", StringComparison.OrdinalIgnoreCase)
@@ -85,20 +92,20 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddSqlClientInstrumentation(o => o.SetDbStatementForText = true)
-        .AddOtlpExporter(ConfigureOtlp))
+        .AddOtlpExporter(o => ConfigureOtlp(o, "v1/traces")))
     .WithMetrics(m => m
         .AddMeter("RecipeHelper.*")
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddRuntimeInstrumentation()
-        .AddOtlpExporter(ConfigureOtlp));
+        .AddOtlpExporter(o => ConfigureOtlp(o, "v1/metrics")));
 
 builder.Logging.AddOpenTelemetry(o =>
 {
     o.SetResourceBuilder(otelResource);
     o.IncludeFormattedMessage = true;
     o.IncludeScopes = true;
-    o.AddOtlpExporter(ConfigureOtlp);
+    o.AddOtlpExporter(e => ConfigureOtlp(e, "v1/logs"));
 });
 
 var app = builder.Build();

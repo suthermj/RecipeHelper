@@ -105,14 +105,19 @@ ssh -i ~/.ssh/hetzner root@178.105.73.57 "certbot renew"
 
 ## Firewall & Network
 
-Hetzner VPS uses standard `ufw` or `iptables` at the OS level. There is no cloud-level security list (unlike Oracle Cloud).
+Two layers:
 
-To check current iptables rules:
-```bash
-ssh -i ~/.ssh/hetzner root@178.105.73.57 "iptables -L INPUT -n --line-numbers"
-```
+1. **Hetzner Cloud Firewall** (cloud console, applied at the VM's network interface). SSH (port 22) is restricted by source IP — if your home IP rotates, `deploy.sh` will hang on the `scp` step with a connection timeout. Fix:
+   - Get current IP: `curl -s https://api.ipify.org`
+   - Hetzner Cloud Console → Firewalls → edit the SSH inbound rule → add/replace the IP
+   - Public HTTP/HTTPS (80/443) should remain open to `0.0.0.0/0` for site access and Let's Encrypt renewals.
 
-Required open ports: 22 (SSH), 80 (HTTP/cert renewal), 443 (HTTPS).
+2. **OS-level iptables** on the VM:
+   ```bash
+   ssh -i ~/.ssh/hetzner root@178.105.73.57 "iptables -L INPUT -n --line-numbers"
+   ```
+
+Required open ports overall: 22 (SSH), 80 (HTTP/cert renewal), 443 (HTTPS).
 
 ---
 
@@ -152,3 +157,29 @@ Should auto-renew, but if it didn't:
 ```bash
 ssh -i ~/.ssh/hetzner root@178.105.73.57 "certbot renew && systemctl reload nginx"
 ```
+
+---
+
+## Observability (Grafana Cloud)
+
+The app sends OpenTelemetry data (traces, metrics, logs) to Grafana Cloud over OTLP/HTTP.
+
+**Config lives in `RecipeHelper/appsettings.Production.json`** — that file is gitignored but the `dotnet publish` step in `deploy.sh` bundles it into the publish output, so deploying ships the config automatically. The relevant section:
+
+```json
+"OpenTelemetry": {
+  "ServiceName": "recipe-helper",
+  "ServiceNamespace": "recipe-helper",
+  "Otlp": {
+    "Endpoint": "https://otlp-gateway-prod-us-east-3.grafana.net/otlp",
+    "Protocol": "http/protobuf",
+    "Headers": "Authorization=Basic <base64(instanceId:glc_token)>"
+  }
+}
+```
+
+`Program.cs` wires three exporters and appends `/v1/traces`, `/v1/metrics`, `/v1/logs` to the base endpoint per signal (the .NET SDK does not auto-append when `Endpoint` is set programmatically).
+
+In Grafana Cloud, filter by `service_name="recipe-helper"`. Traces appear immediately; metrics export on a 60-second interval.
+
+**To add VM host metrics (CPU, memory, disk, network):** Grafana Cloud → Connections → Integrations → "Linux Server". It generates a one-line installer for Grafana Alloy plus pre-built dashboards. Not covered by the app's OpenTelemetry instrumentation.

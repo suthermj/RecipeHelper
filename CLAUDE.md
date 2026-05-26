@@ -59,6 +59,7 @@ gh pr list
 | `Utility/MeasurementHelper.cs` | Thin wrapper around `UnitConverter.Parse` + `ToDisplayName` |
 | `Controllers/ImportController.cs` | Recipe import flow: URL fetch → Spoonacular preview → mapping page → save |
 | `Services/ImportService.cs` | Saves mapped import to DB; **only `SelectedUpc` is persisted** — `SuggestedUpc` is a UI hint only |
+| `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
 | `deploy/deploy.sh` | Full deploy: CSS build → dotnet publish → scp → restart systemd |
 
 ## Data Model
@@ -109,3 +110,14 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 - **Service:** systemd unit `recipehelper`, app root `/var/www/recipehelper`
 - **Public URL:** `https://sutherlinsrecipes.duckdns.org`
 - Deploy script handles: CSS build → publish linux-x64 → scp to `/tmp/recipehelper/` → stop/copy/start service
+- **Hetzner Cloud Firewall:** SSH (22) is restricted by source IP. If `bash deploy/deploy.sh` fails with a connection timeout, the home IP probably rotated — whitelist the current one at `https://api.ipify.org` in the Hetzner Cloud console firewall.
+- **`appsettings.Production.json` is gitignored** but ships to the VM via the `dotnet publish` bundle (the SDK auto-copies all `appsettings*.json` files as content). It lives only on the dev machine; treat it as the production-secrets source of truth.
+
+## Observability
+
+- **Stack:** OpenTelemetry SDK → OTLP/HTTP → Grafana Cloud (free tier).
+- **Wired in `Program.cs`** — traces (ASP.NET, HttpClient, SqlClient), metrics (ASP.NET, HttpClient, runtime), and logs all export over OTLP.
+- **Config precedence:** `OpenTelemetry:*` section in appsettings first, then `OTEL_*` env-var fallback. Prod uses `appsettings.Production.json`; local dev uses env vars set in `Properties/launchSettings.json`.
+- **Critical: per-signal path is appended manually.** `ConfigureOtlp(opts, signalPath)` writes `{base}/v1/{signal}` to `opts.Endpoint`. The OTel .NET SDK does NOT auto-append `/v1/traces` etc. when the endpoint is set programmatically (only when read from the `OTEL_EXPORTER_OTLP_ENDPOINT` env var by the SDK itself). Without this, Grafana's gateway silently drops metrics + traces.
+- **Service identity:** `service.name=recipe-helper`, `deployment.environment=Production|Development`.
+- **VM host metrics (CPU/mem/disk) are NOT covered** by the app instrumentation. Use Grafana Cloud → Connections → Integrations → "Linux Server" (installs Alloy on the VM) when needed.

@@ -12,6 +12,7 @@ A recipe management and meal prep app with Kroger shopping cart integration. Imp
 - **Meal Planning** — Select up to 7 recipes for the week and automatically aggregate ingredients with smart unit conversions
 - **Kroger Integration** — Search Kroger products, link ingredients to specific items (by UPC), and bulk-add to your Kroger shopping cart via OAuth
 - **Unit Conversion** — Handles volume, weight, and count units with cross-dimension conversion via ingredient density tables
+- **Observability** — OpenTelemetry traces, metrics, and logs exported to Grafana Cloud over OTLP/HTTP
 
 ## Tech Stack
 
@@ -23,21 +24,23 @@ A recipe management and meal prep app with Kroger shopping cart integration. Imp
 | AI | OpenAI GPT-4o-mini (ingredient parsing) |
 | Storage | Azure Blob Storage (recipe images) |
 | APIs | Spoonacular (recipe import), Kroger (products & cart) |
-| Hosting | Oracle Cloud VM, nginx, Let's Encrypt SSL |
+| Observability | OpenTelemetry SDK → Grafana Cloud (Tempo / Mimir / Loki) |
+| Hosting | Hetzner Cloud VPS (Ubuntu), nginx, Let's Encrypt SSL |
 
 ## Project Structure
 
 ```
-RecipeHelper/
-├── Controllers/        # MVC controllers (Recipe, Import, Dinner, Cart, Auth, Product)
-├── Models/             # Entities and view models
-├── Views/              # Razor templates (responsive mobile-first design)
-├── Services/           # Business logic (9 services)
-├── Utility/            # UnitConverter, DensityTable, KrogerSizeParser
-├── Migrations/         # EF Core migrations
-├── wwwroot/css/        # Tailwind source (site.css) and compiled output
-├── deploy/             # Deployment scripts
-└── Program.cs          # DI container and middleware
+RecipeHelper/                # repo root
+├── RecipeHelper/            # the ASP.NET Core project
+│   ├── Controllers/         # MVC controllers (Recipe, Import, Dinner, Cart, Auth, Product)
+│   ├── Models/              # Entities and view models
+│   ├── Views/               # Razor templates (responsive mobile-first design)
+│   ├── Services/            # Business logic
+│   ├── Utility/             # UnitConverter, DensityTable, KrogerSizeParser
+│   ├── Migrations/          # EF Core migrations
+│   ├── wwwroot/css/         # Tailwind source (site.css) and compiled output
+│   └── Program.cs           # DI, middleware, OpenTelemetry wiring
+└── deploy/                  # deploy.sh + deployment runbook
 ```
 
 ## Getting Started

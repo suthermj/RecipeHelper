@@ -2,7 +2,7 @@
 
 ## Overview
 
-RecipeHelper is deployed on an Oracle Cloud free-tier Ubuntu 22.04 VM with:
+RecipeHelper is deployed on a Hetzner VPS (Ubuntu 22.04) with:
 
 - **.NET 8 ASP.NET Runtime** — runs the app
 - **nginx** — reverse proxy, handles HTTPS termination
@@ -21,9 +21,10 @@ Browser → https://sutherlinsrecipes.duckdns.org
 
 | Item | Value |
 |------|-------|
-| VM IP | `170.9.247.161` |
+| Provider | Hetzner VPS |
+| VM IP | `178.105.73.57` |
 | URL | `https://sutherlinsrecipes.duckdns.org` |
-| SSH | `ssh -i ~/Downloads/lrecipehelper101.key ubuntu@170.9.247.161` |
+| SSH | `ssh -i ~/.ssh/hetzner root@178.105.73.57` |
 | App directory | `/var/www/recipehelper/` |
 | Service name | `recipehelper` |
 | nginx config | `/etc/nginx/sites-available/recipehelper` |
@@ -36,7 +37,7 @@ Browser → https://sutherlinsrecipes.duckdns.org
 After making code changes, run the deploy script from your repo root in git bash:
 
 ```bash
-./deploy/deploy.sh
+bash deploy/deploy.sh
 ```
 
 This script does everything in one shot:
@@ -56,14 +57,14 @@ dotnet publish -c Release -r linux-x64 --self-contained false -o ../publish
 cd ..
 
 # 2. Upload to VM
-scp -i ~/Downloads/lrecipehelper101.key -r ./publish/* ubuntu@170.9.247.161:/tmp/recipehelper/
+scp -i ~/.ssh/hetzner -r ./publish/* root@178.105.73.57:/tmp/recipehelper/
 
 # 3. SSH in and deploy
-ssh -i ~/Downloads/lrecipehelper101.key ubuntu@170.9.247.161
-sudo systemctl stop recipehelper
-sudo cp -r /tmp/recipehelper/* /var/www/recipehelper/
-sudo chown -R www-data:www-data /var/www/recipehelper
-sudo systemctl start recipehelper
+ssh -i ~/.ssh/hetzner root@178.105.73.57
+systemctl stop recipehelper
+cp -r /tmp/recipehelper/* /var/www/recipehelper/
+chown -R www-data:www-data /var/www/recipehelper
+systemctl start recipehelper
 ```
 
 ---
@@ -72,80 +73,82 @@ sudo systemctl start recipehelper
 
 ### Check if the app is running
 ```bash
-ssh -i ~/Downloads/lrecipehelper101.key ubuntu@170.9.247.161 "sudo systemctl status recipehelper"
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "systemctl status recipehelper"
 ```
 
 ### View live logs
 ```bash
-ssh -i ~/Downloads/lrecipehelper101.key ubuntu@170.9.247.161 "sudo journalctl -u recipehelper -f"
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "journalctl -u recipehelper -f"
 ```
 
 ### Restart the app
 ```bash
-ssh -i ~/Downloads/lrecipehelper101.key ubuntu@170.9.247.161 "sudo systemctl restart recipehelper"
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "systemctl restart recipehelper"
 ```
 
 ### Check nginx status
 ```bash
-ssh -i ~/Downloads/lrecipehelper101.key ubuntu@170.9.247.161 "sudo systemctl status nginx"
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "systemctl status nginx"
 ```
 
 ### Check SSL certificate expiry
 ```bash
-ssh -i ~/Downloads/lrecipehelper101.key ubuntu@170.9.247.161 "sudo certbot certificates"
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "certbot certificates"
 ```
 
 ### Manually renew SSL certificate (normally auto-renews)
 ```bash
-ssh -i ~/Downloads/lrecipehelper101.key ubuntu@170.9.247.161 "sudo certbot renew"
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "certbot renew"
 ```
 
 ---
 
-## Firewall & Network Rules
+## Firewall & Network
 
-There are **two firewalls** that must both allow traffic:
+Hetzner VPS uses standard `ufw` or `iptables` at the OS level. There is no cloud-level security list (unlike Oracle Cloud).
 
-### 1. Oracle Cloud Security List (VCN level)
-
-Configured in: **Oracle Cloud Console > Networking > VCN > Subnet > Security List**
-
-| Direction | Source | Protocol | Port | Purpose |
-|-----------|--------|----------|------|---------|
-| Ingress | `0.0.0.0/0` | TCP | 80 | HTTP (redirects to HTTPS, also needed for cert renewal) |
-| Ingress | `<YOUR-IP>/32` | TCP | 443 | HTTPS (restricted to your home IP) |
-| Ingress | `0.0.0.0/0` | TCP | 22 | SSH |
-
-### 2. VM iptables (OS level)
-
-Already configured and persisted. Current rules:
-```
-1  ACCEPT  all   -- state RELATED,ESTABLISHED
-2  ACCEPT  icmp  --
-3  ACCEPT  all   -- (loopback)
-4  ACCEPT  tcp   -- dpt:22  (SSH)
-5  ACCEPT  tcp   -- dpt:80  (HTTP)
-6  ACCEPT  tcp   -- dpt:443 (HTTPS)  ← must be BEFORE the REJECT rule
-7  REJECT  all   -- (catch-all reject)
+To check current iptables rules:
+```bash
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "iptables -L INPUT -n --line-numbers"
 ```
 
-To view: `sudo iptables -L INPUT -n --line-numbers`
-
-**Important:** When adding iptables rules, always insert them BEFORE the REJECT rule. The REJECT rule drops all traffic that hasn't matched a previous ACCEPT rule. If you add a new rule after it, traffic will be rejected before reaching your rule.
-
-### If your home IP changes
-
-Your ISP may occasionally change your public IP. If you can't access the site:
-
-1. Find your new IP: visit https://api.ipify.org in your browser
-2. Update the OCI Security List: change the port 443 source CIDR to `<new-ip>/32`
+Required open ports: 22 (SSH), 80 (HTTP/cert renewal), 443 (HTTPS).
 
 ---
 
 ## Azure SQL Database
 
-The app connects to Azure SQL Database remotely. The VM's IP (`170.9.247.161`) must be whitelisted in Azure:
+The app connects to Azure SQL Database remotely. The VM's IP (`178.105.73.57`) must be whitelisted in Azure:
 
 **Azure Portal > SQL Server (sql-shopping-generator) > Networking > Firewall rules**
 
-If the VM's IP ever changes, you'll need to update this rule too.
+If the VM's IP ever changes, update this rule.
+
+---
+
+## Troubleshooting
+
+### App returns 500 error
+Check the logs — usually a database connection or config issue:
+```bash
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "journalctl -u recipehelper -n 50 --no-pager"
+```
+
+### Can't reach the site from your browser
+Work through the layers:
+```bash
+# 1. Is the app running?
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "systemctl status recipehelper"
+
+# 2. Does it respond locally?
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "curl http://localhost:5000"
+
+# 3. Does nginx respond?
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "systemctl status nginx"
+```
+
+### SSL certificate expired
+Should auto-renew, but if it didn't:
+```bash
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "certbot renew && systemctl reload nginx"
+```

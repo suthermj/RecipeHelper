@@ -1,6 +1,10 @@
-# Server Setup Guide — From Scratch
+# Server Setup Guide — Oracle Cloud (Historical)
 
-Step-by-step walkthrough of how RecipeHelper was deployed to Oracle Cloud. Use this to understand the process or to recreate it on a new VM.
+> **Note:** RecipeHelper is now hosted on a **Hetzner VPS** (`178.105.73.57`). This guide documents the original Oracle Cloud deployment. The general steps (nginx, systemd, Certbot, Azure SQL) still apply, but VM-specific details (IP, SSH key path, cloud firewall console) are Oracle-specific and differ on Hetzner. See `README.md` for current server details.
+
+---
+
+Step-by-step walkthrough of how RecipeHelper was originally deployed to Oracle Cloud Free Tier. Use this to understand the general setup process or as a reference if migrating to a new VM.
 
 ---
 

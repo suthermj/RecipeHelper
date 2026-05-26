@@ -21,6 +21,8 @@ bash deploy/deploy.sh
 
 # GitHub CLI (installed at C:\Program Files\GitHub CLI\gh.exe)
 # PATH may need updating in new shells: $env:PATH += ";C:\Program Files\GitHub CLI"
+# IMPORTANT: use --body-file (write body to temp file first) — inline --body fails in
+# PowerShell when the body contains backtick-quoted code (e.g. `rounded-full`)
 gh pr create --title "..." --body-file path/to/body.md --base main
 gh pr list
 ```
@@ -30,7 +32,7 @@ gh pr list
 **Flow:** Recipes → Meal Plan (weekly) → Ingredient aggregation → Review → Kroger shopping list/cart
 
 **External APIs:**
-- **Spoonacular** — recipe import (`ImportController`, `SpoonacularService`)
+- **Spoonacular** — recipe import (`ImportController`, `SpoonacularService`, `ImportService`)
 - **Kroger** — product search, cart add (`KrogerService`, `KrogerAuthService`)
   - Auth is OAuth2 client-credentials; token cached in `KrogerAuthService`
   - Product details use `/products/{upc}?filter.locationId=...` (NOT `/products?filter.productId=...` — the latter silently ignores locationId and returns no aisle data)
@@ -55,6 +57,9 @@ gh pr list
 | `Utility/KrogerSizeParser.cs` | Parses Kroger size strings like "8 ct / 22 oz" |
 | `Models/Kroger/KrogerPackInfo.cs` | Parsed pack info + soldBy inference |
 | `Utility/MeasurementHelper.cs` | Thin wrapper around `UnitConverter.Parse` + `ToDisplayName` |
+| `Controllers/ImportController.cs` | Recipe import flow: URL fetch → Spoonacular preview → mapping page → save |
+| `Services/ImportService.cs` | Saves mapped import to DB; **only `SelectedUpc` is persisted** — `SuggestedUpc` is a UI hint only |
+| `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
 | `deploy/deploy.sh` | Full deploy: CSS build → dotnet publish → scp → restart systemd |
 
 ## Data Model
@@ -89,6 +94,15 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 - JS `renderAll(data)` repaints all 7 day containers from this response; card dims to 55% opacity during in-flight requests
 - Font: Inter (Google Fonts), applied globally via `<body style="font-family: 'Inter', sans-serif;">`
 
+## Import UI
+
+- `Import/ImportRecipe` — URL input → Spoonacular fetch → read-only preview + "Review & Save" button
+- `Import/MappedImportedRecipe` — ingredient mapping page; each ingredient maps to a Kroger product
+- **Binary mapped state:** cards are either "Not mapped" (gray, no image) or explicitly mapped (product image + name + "Remove" button). `SuggestedUpc` is **never** shown on the card — it only pre-fills the modal's "Recommended" pinned item when the user opens the picker.
+- Mapping is optional; user can confirm without mapping any ingredients
+- JS selectors: `.js-row`, `.js-include`, `.js-selected-upc`, `.js-selected-name`, `.js-selected-source`, `.js-collapsible`, `.js-open-map`, `.js-exclude-btn`, `.js-clear-selection`, `.js-modal-clear`
+- Modal z-index: `z-[200]` (above nav `z-50` and loading overlay `z-[100]`)
+
 ## Deployment
 
 - **Host:** Hetzner VPS, `178.105.73.57`
@@ -96,3 +110,14 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 - **Service:** systemd unit `recipehelper`, app root `/var/www/recipehelper`
 - **Public URL:** `https://sutherlinsrecipes.duckdns.org`
 - Deploy script handles: CSS build → publish linux-x64 → scp to `/tmp/recipehelper/` → stop/copy/start service
+- **Hetzner Cloud Firewall:** SSH (22) is restricted by source IP. If `bash deploy/deploy.sh` fails with a connection timeout, the home IP probably rotated — whitelist the current one at `https://api.ipify.org` in the Hetzner Cloud console firewall.
+- **`appsettings.Production.json` is gitignored** but ships to the VM via the `dotnet publish` bundle (the SDK auto-copies all `appsettings*.json` files as content). It lives only on the dev machine; treat it as the production-secrets source of truth.
+
+## Observability
+
+- **Stack:** OpenTelemetry SDK → OTLP/HTTP → Grafana Cloud (free tier).
+- **Wired in `Program.cs`** — traces (ASP.NET, HttpClient, SqlClient), metrics (ASP.NET, HttpClient, runtime), and logs all export over OTLP.
+- **Config precedence:** `OpenTelemetry:*` section in appsettings first, then `OTEL_*` env-var fallback. Prod uses `appsettings.Production.json`; local dev uses env vars set in `Properties/launchSettings.json`.
+- **Critical: per-signal path is appended manually.** `ConfigureOtlp(opts, signalPath)` writes `{base}/v1/{signal}` to `opts.Endpoint`. The OTel .NET SDK does NOT auto-append `/v1/traces` etc. when the endpoint is set programmatically (only when read from the `OTEL_EXPORTER_OTLP_ENDPOINT` env var by the SDK itself). Without this, Grafana's gateway silently drops metrics + traces.
+- **Service identity:** `service.name=recipe-helper`, `deployment.environment=Production|Development`.
+- **VM host metrics (CPU/mem/disk) are NOT covered** by the app instrumentation. Use Grafana Cloud → Connections → Integrations → "Linux Server" (installs Alloy on the VM) when needed.

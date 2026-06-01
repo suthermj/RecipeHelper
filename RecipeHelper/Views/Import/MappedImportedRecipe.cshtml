@@ -5,6 +5,10 @@
     ViewData["Title"] = "Map Imported Recipe";
     var krogerImgBase = "https://www.kroger.com/product/images/large/front/";
     var placeholderProductImg = Url.Content("~/images/default-product.png");
+
+    string TitleCase(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? "" :
+        System.Globalization.CultureInfo.GetCultureInfo("en-US").TextInfo.ToTitleCase(s.ToLower());
 }
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-6">
@@ -25,19 +29,12 @@
         </div>
     }
 
-    <header class="space-y-1">
-        <h1 class="text-xl font-bold text-gray-900 sm:text-2xl">Map imported recipe</h1>
-        <p class="text-sm text-gray-600">
-            Mapping to Kroger is optional. You can import the recipe without selecting items.
-        </p>
-
-        @if (TempData["ErrorMessage"] is string err && !string.IsNullOrWhiteSpace(err))
-        {
-            <div class="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                <span class="font-semibold">⚠️ </span>@err
-            </div>
-        }
-    </header>
+    @if (TempData["ErrorMessage"] is string err && !string.IsNullOrWhiteSpace(err))
+    {
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <span class="font-semibold">⚠️ </span>@err
+        </div>
+    }
 
     <form asp-action="SaveImportedRecipe" method="post" class="space-y-5 loading-form" data-loading-text="Saving recipe...">
         @Html.AntiForgeryToken()
@@ -47,6 +44,7 @@
             <div class="h-20 w-20 sm:h-24 sm:w-24 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100">
                 <img src="@(string.IsNullOrWhiteSpace(Model.Image) ? Url.Content("~/images/default-recipe.png") : Model.Image)"
                      alt="@Model.Title"
+                     loading="lazy" decoding="async"
                      class="h-full w-full object-cover" />
             </div>
 
@@ -55,13 +53,12 @@
                     Recipe title
                 </label>
 
-                <input id="recipeTitleInput"
-                       name="Title"
-                       type="text"
-                       value="@Model.Title"
-                       class="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm sm:text-base font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
-                       maxlength="120"
-                       autocomplete="off" />
+                <textarea id="recipeTitleInput"
+                          name="Title"
+                          rows="1"
+                          class="js-autoresize w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm sm:text-base font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700 resize-none overflow-hidden"
+                          maxlength="120"
+                          autocomplete="off">@Model.Title</textarea>
 
                 <p class="text-[0.7rem] text-gray-500">You can rename this before importing.</p>
             </div>
@@ -124,43 +121,33 @@
                             <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">
                                 Ingredient
                             </label>
-                            <input type="text"
-                                   name="Ingredients[@i].Name"
-                                   value="@ing.Name"
-                                   class="js-ingredient-name mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
-                                   data-idx="@i"
-                                   maxlength="120"
-                                   autocomplete="off" />
+                            <textarea name="Ingredients[@i].Name"
+                                      rows="1"
+                                      class="js-ingredient-name js-autoresize mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700 resize-none overflow-hidden"
+                                      data-idx="@i"
+                                      maxlength="120"
+                                      autocomplete="off">@TitleCase(ing.Name)</textarea>
 
                             <div class="js-collapsible" data-idx="@i">
-                                <div class="mt-2 flex flex-wrap items-center gap-2">
-                                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Quantity</span>
-
+                                <div class="mt-2 inline-flex items-stretch rounded-lg border border-gray-200 overflow-hidden">
                                     <input type="number"
                                            step="0.01"
                                            min="0"
                                            name="Ingredients[@i].Amount"
                                            value="@(ing.Amount ?? 0m)"
-                                           class="js-amount w-24 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                                           class="js-amount w-16 border-0 border-r border-gray-200 px-2 py-2 text-sm text-center text-gray-900 bg-white focus:outline-none focus:ring-0"
                                            data-idx="@i" />
 
                                     <select asp-for="Ingredients[@i].Unit"
                                             asp-items="Model.AvailableMeasurements"
-                                            class="js-unit w-32 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                                            class="js-unit border-0 px-2 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-0 cursor-pointer"
                                             data-idx="@i">
                                     </select>
-
                                 </div>
                             </div>
                         </div>
 
                         <div class="flex items-center gap-2">
-                            <button type="button"
-                                    class="js-open-map inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-2 text-xs font-medium hover:bg-gray-200 transition"
-                                    data-idx="@i">
-                                Map item
-                            </button>
-
                             <button type="button"
                                     class="js-exclude-btn inline-flex items-center rounded-full border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
                                     data-idx="@i"
@@ -170,12 +157,12 @@
                         </div>
                     </div>
 
-                    @* Product mapping row *@
-                    <div class="js-collapsible mt-3 flex items-center gap-2" data-idx="@i">
+                    @* Product mapping row — click anywhere on it to open the mapper *@
+                    <div class="js-collapsible js-open-map mt-3 flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-xl px-2 py-1.5 -mx-2 transition" data-idx="@i">
                         <div id="currentImgWrap-@i" class="h-8 w-8 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center">
                             @if (hasSelected)
                             {
-                                <img id="currentImg-@i" src="@currentImg" alt="@currentName" class="h-full w-full object-cover" />
+                                <img id="currentImg-@i" src="@currentImg" alt="@currentName" loading="lazy" decoding="async" class="h-full w-full object-cover" />
                             }
                             else
                             {
@@ -224,18 +211,7 @@
 
     <div class="absolute inset-0 flex items-center justify-center p-4">
         <div class="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-gray-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
-                <div>
-                    <div class="text-sm font-semibold text-gray-900">Map ingredient to item</div>
-                    <div id="modalIngredientName" class="text-xs text-gray-500 mt-0.5">—</div>
-                </div>
-                <button type="button"
-                        class="js-close-modal rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                    Close
-                </button>
-            </div>
-
-            <div class="px-5 py-4 space-y-4">
+            <div class="px-5 pt-5 pb-4 space-y-4">
 
                 @* ✅ Pinned suggestion (hidden when not available) *@
                 <div id="modalPinnedWrap" class="hidden">
@@ -304,21 +280,34 @@
                 </div>
             </div>
 
-            <div class="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-                <div class="text-xs text-gray-500">
-                    Tip: choosing an item is optional. You can import without mapping.
-                </div>
-                <button type="button"
-                        class="js-close-modal inline-flex items-center justify-center rounded-full bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900">
-                    Done
-                </button>
-            </div>
         </div>
     </div>
 </div>
 
 <script>
     (function () {
+        function autoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+
+        function initAutoResize(el) {
+            autoResize(el);
+            el.addEventListener('input', () => autoResize(el));
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') e.preventDefault();
+            });
+        }
+
+        document.querySelectorAll('.js-autoresize').forEach(initAutoResize);
+
+        // Also init any .js-autoresize elements added dynamically
+        const _origInsertAdjacentHTML = Element.prototype.insertAdjacentHTML;
+        Element.prototype.insertAdjacentHTML = function (pos, html) {
+            _origInsertAdjacentHTML.call(this, pos, html);
+            this.querySelectorAll('.js-autoresize').forEach(initAutoResize);
+        };
+
         const dbSearchUrl = '@Url.Action("SearchDb", "Product")';
         const krogerSearchUrl = '@Url.Action("SearchKroger", "Product")';
         const debounceMs = 200;
@@ -344,7 +333,6 @@
         let activeMode = 'db';
 
         const modal = document.getElementById('mapModal');
-        const modalIngredientName = document.getElementById('modalIngredientName');
         const modalSearch = document.getElementById('modalSearch');
         const modalHint = document.getElementById('modalHint');
         const modalResults = document.getElementById('modalResults');
@@ -379,8 +367,6 @@
 
         function openModal(idx) {
             activeIdx = idx;
-
-            modalIngredientName.textContent = getIngredientName(idx) || '—';
 
             modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
@@ -561,21 +547,11 @@
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.js-open-map');
             if (!btn) return;
+            if (e.target.closest('.js-clear-selection')) return;
 
             const idx = btn.dataset.idx;
             activeMode = 'db';
             openModal(idx);
-        });
-
-        // Keep modal subtitle in sync if user edits ingredient name while modal is open
-        document.addEventListener('input', (e) => {
-            const inp = e.target;
-            if (!inp.classList || !inp.classList.contains('js-ingredient-name')) return;
-
-            const idx = inp.dataset.idx;
-            if (activeIdx != null && String(activeIdx) === String(idx) && !modal.classList.contains('hidden')) {
-                modalIngredientName.textContent = inp.value.trim() || '—';
-            }
         });
 
         // Close modal + backdrop
@@ -671,7 +647,6 @@
         function applyExcludedState(idx, excluded, { updateHidden = false } = {}) {
             const includeInput = document.querySelector(`input.js-include[data-idx="${idx}"]`);
             const row = document.querySelector(`.js-row[data-idx="${idx}"]`);
-            const mapBtn = document.querySelector(`.js-open-map[data-idx="${idx}"]`);
             const nameInput = document.querySelector(`input.js-ingredient-name[data-idx="${idx}"]`);
             const collapsibles = document.querySelectorAll(`.js-collapsible[data-idx="${idx}"]`);
 
@@ -679,12 +654,10 @@
 
             if (excluded) {
                 collapsibles.forEach(el => el.classList.add('hidden'));
-                if (mapBtn) mapBtn.classList.add('hidden');
                 if (nameInput) nameInput.disabled = true;
                 if (row) { row.classList.add('opacity-50'); row.classList.remove('shadow-sm'); }
             } else {
                 collapsibles.forEach(el => el.classList.remove('hidden'));
-                if (mapBtn) mapBtn.classList.remove('hidden');
                 if (nameInput) nameInput.disabled = false;
                 if (row) { row.classList.remove('opacity-50'); row.classList.add('shadow-sm'); }
             }
@@ -733,24 +706,22 @@
                     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div class="flex-1 min-w-0">
                             <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Ingredient</label>
-                            <input type="text"
-                                   name="Ingredients[${idx}].Name"
-                                   value=""
-                                   class="js-ingredient-name mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
-                                   data-idx="${idx}"
-                                   maxlength="120"
-                                   autocomplete="off"
-                                   placeholder="e.g., diced tomatoes" />
+                            <textarea name="Ingredients[${idx}].Name"
+                                      rows="1"
+                                      class="js-ingredient-name js-autoresize mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700 resize-none overflow-hidden"
+                                      data-idx="${idx}"
+                                      maxlength="120"
+                                      autocomplete="off"
+                                      placeholder="e.g., diced tomatoes"></textarea>
 
                             <div class="js-collapsible" data-idx="${idx}">
-                                <div class="mt-2 flex flex-wrap items-center gap-2">
-                                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Quantity</span>
+                                <div class="mt-2 inline-flex items-stretch rounded-lg border border-gray-200 overflow-hidden">
                                     <input type="number" step="0.01" min="0"
                                            name="Ingredients[${idx}].Amount" value="1"
-                                           class="js-amount w-24 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                                           class="js-amount w-16 border-0 border-r border-gray-200 px-2 py-2 text-sm text-center text-gray-900 bg-white focus:outline-none focus:ring-0"
                                            data-idx="${idx}" />
                                     <select name="Ingredients[${idx}].Unit"
-                                            class="js-unit w-32 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700"
+                                            class="js-unit border-0 px-2 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-0 cursor-pointer"
                                             data-idx="${idx}">
                                         ${buildMeasurementOptions('')}
                                     </select>
@@ -760,11 +731,6 @@
 
                         <div class="flex items-center gap-2">
                             <button type="button"
-                                    class="js-open-map inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-2 text-xs font-medium hover:bg-gray-200 transition"
-                                    data-idx="${idx}">
-                                Map item
-                            </button>
-                            <button type="button"
                                     class="js-remove-btn inline-flex items-center rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                                     data-idx="${idx}">
                                 Remove
@@ -772,7 +738,7 @@
                         </div>
                     </div>
 
-                    <div class="js-collapsible mt-3 flex items-center gap-2" data-idx="${idx}">
+                    <div class="js-collapsible js-open-map mt-3 flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-xl px-2 py-1.5 -mx-2 transition" data-idx="${idx}">
                         <div id="currentImgWrap-${idx}" class="h-8 w-8 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center">${placeholderSvg}</div>
                         <span id="currentName-${idx}" class="flex-1 min-w-0 text-sm truncate text-gray-400">Not mapped</span>
                         <button type="button"

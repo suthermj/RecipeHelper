@@ -44,23 +44,38 @@
         </div>
     </header>
 
+    @{
+        var toastSuccess = TempData["SuccessMessage"] as string;
+        var toastError = TempData["ErrorMessage"] as string;
+        var toastMessage = toastSuccess ?? toastError;
+    }
+    @if (toastMessage != null)
+    {
+        <div id="toast"
+             class="fixed top-16 left-1/2 -translate-x-1/2 z-[300] max-w-sm w-[calc(100%-2rem)]
+                    rounded-lg shadow-lg px-4 py-3 text-sm font-medium pointer-events-none
+                    transition-all duration-300 opacity-0 -translate-y-2
+                    @(toastSuccess != null ? "bg-green-600 text-white" : "bg-red-700 text-white")"
+             data-toast>
+            @toastMessage
+        </div>
+        <script>
+            (function () {
+                const t = document.getElementById('toast');
+                if (!t) return;
+                requestAnimationFrame(function () {
+                    t.classList.remove('opacity-0', '-translate-y-2');
+                });
+                setTimeout(function () {
+                    t.classList.add('opacity-0', '-translate-y-2');
+                    setTimeout(function () { t.remove(); }, 300);
+                }, 3500);
+            })();
+        </script>
+    }
+
     <!-- Main Content -->
     <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-3 pb-24">
-
-        @if (TempData["SuccessMessage"] is string success)
-        {
-            <div class="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-                <span class="font-semibold">Success:</span> @success
-            </div>
-        }
-
-        @if (TempData["ErrorMessage"] is string error)
-        {
-            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                <span class="font-semibold">Oops:</span> @error
-            </div>
-        }
-
         @RenderBody()
     </main>
 

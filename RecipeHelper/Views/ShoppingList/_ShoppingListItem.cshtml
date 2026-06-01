@@ -24,14 +24,14 @@
         : null;
 }
 
-<div id="item-@Model.Id" class="flex items-center gap-3 rounded-lg bg-white border border-gray-200 px-4 py-3">
+<div id="item-@Model.Id" class="flex items-center gap-3 rounded-lg bg-white border border-gray-200 px-4 py-3.5">
     <!-- Complete checkbox -->
     <form asp-action="UpdateItem" method="post" class="flex items-center" data-complete-form>
         @Html.AntiForgeryToken()
         <input type="hidden" name="itemId" value="@Model.Id" />
         <input type="hidden" name="listId" value="@listId" />
         <input type="hidden" name="isCompleted" value="true" />
-        <button type="submit" class="h-5 w-5 rounded border-2 border-gray-300 hover:border-green-500 transition flex-shrink-0"
+        <button type="submit" class="h-6 w-6 rounded border-2 border-gray-300 hover:border-green-500 transition flex-shrink-0 p-0.5"
                 title="Mark complete"></button>
     </form>
 
@@ -61,22 +61,22 @@
     </div>
 
     <!-- Quantity +/- -->
-    <div class="flex items-center gap-1 shrink-0" data-shopping-mode-hide>
+    <div class="flex items-center gap-1.5 shrink-0" data-shopping-mode-hide>
         <form asp-action="UpdateItem" method="post" class="flex items-center" data-qty-form>
             @Html.AntiForgeryToken()
             <input type="hidden" name="itemId" value="@Model.Id" />
             <input type="hidden" name="listId" value="@listId" />
             <button type="submit" name="quantity" value="@(Model.Quantity - 1)" data-dec-btn
-                    class="h-6 w-6 rounded-full border border-gray-300 text-gray-600 hover:border-red-400 hover:text-red-600 transition text-sm leading-none flex items-center justify-center @(Model.Quantity <= 1 ? "opacity-30 pointer-events-none" : "")"
+                    class="h-8 w-8 rounded-full border border-gray-300 text-gray-600 hover:border-red-400 hover:text-red-600 transition text-base leading-none flex items-center justify-center @(Model.Quantity <= 1 ? "opacity-30 pointer-events-none" : "")"
                     @(Model.Quantity <= 1 ? "disabled" : "")>−</button>
         </form>
-        <span class="w-5 text-center text-sm font-medium text-gray-800" data-qty-display>@Model.Quantity</span>
+        <span class="w-6 text-center text-sm font-medium text-gray-800" data-qty-display>@Model.Quantity</span>
         <form asp-action="UpdateItem" method="post" class="flex items-center" data-qty-form>
             @Html.AntiForgeryToken()
             <input type="hidden" name="itemId" value="@Model.Id" />
             <input type="hidden" name="listId" value="@listId" />
             <button type="submit" name="quantity" value="@(Model.Quantity + 1)" data-inc-btn
-                    class="h-6 w-6 rounded-full border border-gray-300 text-gray-600 hover:border-green-500 hover:text-green-600 transition text-sm leading-none flex items-center justify-center">+</button>
+                    class="h-8 w-8 rounded-full border border-gray-300 text-gray-600 hover:border-green-500 hover:text-green-600 transition text-base leading-none flex items-center justify-center">+</button>
         </form>
     </div>
 

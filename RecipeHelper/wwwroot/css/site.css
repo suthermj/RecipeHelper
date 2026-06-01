@@ -61,3 +61,30 @@ html {
     }
   }
 }
+
+@layer components {
+  /* Primary action button — red-800, 44px touch target */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full bg-red-800 text-white hover:bg-red-900 transition min-h-[44px];
+  }
+
+  /* Secondary action button — gray, same shape as primary */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-4 py-2.5 text-sm rounded-full bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition;
+  }
+
+  /* Card surface */
+  .card {
+    @apply rounded-2xl border border-gray-200 bg-white shadow-sm;
+  }
+
+  /* Form input */
+  .field-input {
+    @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:outline-none focus:ring-2 focus:ring-red-700;
+  }
+
+  /* Small uppercase section header label */
+  .section-label {
+    @apply text-sm font-semibold text-gray-500 uppercase tracking-wide;
+  }
+}

@@ -104,6 +104,8 @@
                                         ? Url.Content("https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp")
                                         : recipe.ImageUri)"
                              alt="@recipe.RecipeName"
+                             loading="lazy"
+                             decoding="async"
                              class="w-full h-full object-cover" />
                     </div>
 

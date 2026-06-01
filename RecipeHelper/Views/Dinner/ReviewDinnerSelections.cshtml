@@ -1,4 +1,4 @@
-﻿@using RecipeHelper.Models.Kroger
+@using RecipeHelper.Models.Kroger
 @using RecipeHelper.Models.Dinner
 @model ReviewDinnerSelectionsVM
 
@@ -15,130 +15,176 @@
         .ToList();
 }
 
-<div class="max-w-6xl mx-auto px-4 py-8 space-y-8">
-    <!-- Ingredients -->
-    <section class="space-y-4">
-        <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900">Combined ingredients</h2>
-            <p class="text-xs text-gray-500 hidden sm:block">
-                Uncheck items you already have at home.
-            </p>
-        </div>
+<div class="max-w-3xl mx-auto px-4 pt-4 pb-36 space-y-5">
 
-        @if (Model.Ingredients == null || !Model.Ingredients.Any())
-        {
-            <p class="text-sm text-gray-500">
-                No ingredients to display. Make sure you’ve selected at least one recipe.
-            </p>
-        }
-        else
-        {
-            <form asp-controller="Cart"
-                  asp-action="PreviewAddToCart"
-                  method="post"
-                  id="add-to-kroger-form"
-                  class="space-y-4 loading-form"
-                  data-loading-text="Building Kroger cart items...">
-                @Html.AntiForgeryToken()
+    <!-- Header -->
+    <header>
+        <a asp-controller="Dinner" asp-action="Index"
+           class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2 transition">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Meal Plan
+        </a>
+        <h1 class="text-xl font-bold text-gray-900">Review ingredients</h1>
+        <p class="text-xs text-gray-500 mt-0.5">Tap to uncheck anything you already have at home.</p>
+    </header>
 
-                <!-- Search + bulk toggles -->
-                <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="text"
-                           id="ingredientSearch"
-                           placeholder="Search ingredients..."
-                           class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-700" />
-                    <div class="flex gap-2 shrink-0">
-                        <button type="button" id="selectAllBtn"
-                                class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
-                            Select all
-                        </button>
-                        <button type="button" id="clearAllBtn"
-                                class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
-                            Clear all
-                        </button>
-                        <button type="button" id="pantryBtn"
-                                class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
-                            Uncheck pantry
-                        </button>
-                    </div>
-                </div>
+    @if (Model.Ingredients == null || !Model.Ingredients.Any())
+    {
+        <p class="text-sm text-gray-500">No ingredients to display. Make sure you've selected at least one recipe.</p>
+    }
+    else
+    {
+        <form asp-controller="Cart"
+              asp-action="PreviewAddToCart"
+              method="post"
+              id="add-to-kroger-form"
+              class="space-y-4 loading-form"
+              data-loading-text="Building Kroger cart items...">
+            @Html.AntiForgeryToken()
 
-                <!-- Ingredient list grouped by section -->
-                <div id="ingredientList" class="rounded-xl border border-gray-200 bg-white overflow-hidden">
-                    @{var i = 0;}
-                    @foreach (var group in grouped)
-                    {
-                        <div class="section-group" data-section="@group.Key">
-                            <div class="section-header bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-200">
-                                @group.Key
-                            </div>
-                            @foreach (var item in group)
-                            {
-                                <div class="ingredient-row flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0"
-                                     data-name="@item.Name.ToLowerInvariant()">
-                                    <input type="checkbox"
-                                           name="Items[@i].Include"
-                                           value="true"
-                                           checked
-                                           class="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0 ingredient-checkbox" />
-                                    <span class="flex-1 text-sm font-medium text-gray-900">@item.Name</span>
-                                    <span class="text-sm text-gray-500">@item.DisplayQuantity @item.DisplayMeasurement</span>
+            <!-- Search -->
+            <input type="text"
+                   id="ingredientSearch"
+                   placeholder="Search ingredients…"
+                   class="field-input" />
 
-                                    <input type="hidden" name="Items[@i].Name" value="@item.Name" />
-                                    <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
-                                    <input type="hidden" name="Items[@i].Quantity" value="@item.Quantity" />
-                                    <input type="hidden" name="Items[@i].Modality" value="PICKUP" />
-                                    <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
-                                </div>
-                                i++;
-                            }
+            <!-- Bulk toggles -->
+            <div class="flex gap-2 flex-wrap">
+                <button type="button" id="selectAllBtn"
+                        class="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
+                    Select all
+                </button>
+                <button type="button" id="clearAllBtn"
+                        class="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
+                    Clear all
+                </button>
+                <button type="button" id="pantryBtn"
+                        class="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
+                    Uncheck pantry
+                </button>
+            </div>
+
+            <!-- Ingredient list grouped by section -->
+            <div id="ingredientList" class="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                @{var i = 0;}
+                @foreach (var group in grouped)
+                {
+                    <div class="section-group" data-section="@group.Key">
+                        <div class="bg-gray-700 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white">
+                            @group.Key
                         </div>
-                    }
-                </div>
+                        @foreach (var item in group)
+                        {
+                            <div class="ingredient-row flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 last:border-b-0 cursor-pointer select-none"
+                                 data-name="@item.Name.ToLowerInvariant()">
+                                <!-- Custom checkmark circle -->
+                                <div class="check-circle h-6 w-6 rounded-full border-2 border-gray-300 flex-shrink-0 flex items-center justify-center transition-colors bg-green-500 border-green-500">
+                                    <svg class="check-icon h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="item-name flex-1 text-sm font-medium text-gray-900">@item.Name</span>
+                                <span class="text-xs text-gray-400 shrink-0">@item.DisplayQuantity @item.DisplayMeasurement</span>
 
-                <div class="flex justify-end gap-3 pt-3">
-                    <button type="button"
-                            id="add-to-list-button"
-                            class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition">
-                        Add to Shopping List
-                    </button>
-                    <button type="submit"
-                            id="add-to-kroger-button"
-                            class="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
-                        Add to Kroger Cart
-                    </button>
-                </div>
-            </form>
-        }
-    </section>
+                                <!-- Hidden checkbox — still submits with form -->
+                                <input type="checkbox"
+                                       name="Items[@i].Include"
+                                       value="true"
+                                       checked
+                                       class="ingredient-checkbox sr-only" />
+                                <input type="hidden" name="Items[@i].Name" value="@item.Name" />
+                                <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
+                                <input type="hidden" name="Items[@i].Quantity" value="@item.Quantity" />
+                                <input type="hidden" name="Items[@i].Modality" value="PICKUP" />
+                                <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
+                            </div>
+                            i++;
+                        }
+                    </div>
+                }
+            </div>
+        </form>
+    }
 </div>
+
+<!-- Sticky bottom action bar -->
+@if (Model.Ingredients != null && Model.Ingredients.Any())
+{
+    <div class="fixed bottom-14 left-0 right-0 z-30 px-4 pb-3 pt-2 bg-white/95 backdrop-blur-sm border-t border-gray-200">
+        <div class="max-w-3xl mx-auto flex gap-3">
+            <button type="button" id="add-to-list-button"
+                    class="btn-secondary flex-1">
+                Shopping List
+            </button>
+            <button type="submit" form="add-to-kroger-form" id="add-to-kroger-button"
+                    class="btn-primary flex-1">
+                Kroger Cart
+            </button>
+        </div>
+    </div>
+}
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         var form = document.getElementById('add-to-kroger-form');
         if (!form) return;
 
-        // Add to Kroger / Add to List buttons
         var krogerBtn = document.getElementById('add-to-kroger-button');
         var listBtn = document.getElementById('add-to-list-button');
 
         if (krogerBtn) {
-            form.addEventListener('submit', function () {
-                krogerBtn.disabled = true;
-                krogerBtn.classList.add('opacity-70', 'cursor-not-allowed');
-                krogerBtn.textContent = 'Adding to Kroger...';
+            krogerBtn.addEventListener('click', function () {
+                if (form) {
+                    krogerBtn.disabled = true;
+                    krogerBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                    krogerBtn.textContent = 'Adding to Kroger...';
+                    form.submit();
+                }
             });
         }
 
         if (listBtn) {
             listBtn.addEventListener('click', function () {
-                form.action = '@Url.Action("CreateFromMealPlan", "ShoppingList")';
-                listBtn.disabled = true;
-                listBtn.classList.add('opacity-70', 'cursor-not-allowed');
-                listBtn.textContent = 'Creating list...';
-                form.submit();
+                if (form) {
+                    form.action = '@Url.Action("CreateFromMealPlan", "ShoppingList")';
+                    listBtn.disabled = true;
+                    listBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                    listBtn.textContent = 'Creating list...';
+                    form.submit();
+                }
             });
         }
+
+        // Row tap → toggle checked state
+        function setRowState(row, checked) {
+            var circle = row.querySelector('.check-circle');
+            var icon = row.querySelector('.check-icon');
+            var name = row.querySelector('.item-name');
+            var cb = row.querySelector('.ingredient-checkbox');
+
+            if (checked) {
+                row.classList.remove('opacity-40');
+                if (circle) { circle.classList.add('bg-green-500', 'border-green-500'); circle.classList.remove('border-gray-300', 'bg-white'); }
+                if (icon) icon.classList.remove('hidden');
+                if (name) name.classList.remove('line-through', 'text-gray-400');
+                if (cb) cb.checked = true;
+            } else {
+                row.classList.add('opacity-40');
+                if (circle) { circle.classList.remove('bg-green-500', 'border-green-500'); circle.classList.add('border-gray-300', 'bg-white'); }
+                if (icon) icon.classList.add('hidden');
+                if (name) name.classList.add('line-through', 'text-gray-400');
+                if (cb) cb.checked = false;
+            }
+        }
+
+        document.addEventListener('click', function (e) {
+            var row = e.target.closest('.ingredient-row');
+            if (!row) return;
+            var cb = row.querySelector('.ingredient-checkbox');
+            setRowState(row, !cb.checked);
+        });
 
         // Search
         var searchInput = document.getElementById('ingredientSearch');
@@ -168,21 +214,18 @@
         ];
 
         document.getElementById('selectAllBtn')?.addEventListener('click', function () {
-            document.querySelectorAll('.ingredient-checkbox').forEach(function (cb) { cb.checked = true; });
+            document.querySelectorAll('.ingredient-row').forEach(function (row) { setRowState(row, true); });
         });
 
         document.getElementById('clearAllBtn')?.addEventListener('click', function () {
-            document.querySelectorAll('.ingredient-checkbox').forEach(function (cb) { cb.checked = false; });
+            document.querySelectorAll('.ingredient-row').forEach(function (row) { setRowState(row, false); });
         });
 
         document.getElementById('pantryBtn')?.addEventListener('click', function () {
             document.querySelectorAll('.ingredient-row').forEach(function (row) {
                 var name = row.dataset.name;
                 var isPantry = pantryKeywords.some(function (kw) { return name.includes(kw); });
-                if (isPantry) {
-                    var cb = row.querySelector('.ingredient-checkbox');
-                    if (cb) cb.checked = false;
-                }
+                if (isPantry) setRowState(row, false);
             });
         });
     });

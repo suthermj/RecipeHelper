@@ -76,7 +76,7 @@
                             <div class="entry-row flex items-center gap-3 py-1" data-entry-id="@entry.Id">
                                 <div class="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                                     <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
-                                         alt="" class="w-full h-full object-cover" />
+                                         alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
                                 </div>
                                 <p class="flex-1 text-sm font-semibold text-gray-900 truncate">@(entry.Recipe?.Name ?? "")</p>
                                 <button type="button"
@@ -140,30 +140,34 @@
 
 </div>
 
-<!-- Recipe picker overlay (centered card, sits above the bottom nav) -->
+<!-- Recipe picker (bottom sheet on mobile, centered card on sm+) -->
 <div id="recipePickerOverlay"
-     style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 56px; z-index: 200; background: rgba(0,0,0,0.5); padding: 16px; align-items: center; justify-content: center;"
+     style="display: none;"
+     class="fixed inset-x-0 top-0 bottom-14 z-[200] bg-black/50 flex items-end sm:inset-0 sm:items-center sm:justify-center sm:p-4"
      aria-modal="true">
     <div id="recipePickerCard"
-         style="width: 100%; max-width: 32rem; max-height: 100%; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); display: grid; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden;">
-        <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b border-gray-100">
+         class="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden max-h-[88svh]">
+        <!-- Drag pill (mobile only) -->
+        <div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+            <div class="w-8 h-1 rounded-full bg-gray-200"></div>
+        </div>
+        <div class="flex items-center justify-between px-4 pt-2 pb-3 border-b border-gray-100 shrink-0">
             <h2 class="text-base font-semibold text-gray-900">Pick a recipe</h2>
             <button type="button" id="closeModal"
-                    class="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition">
+                    class="p-3 min-h-[44px] min-w-[44px] rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
                 <svg class="h-5 w-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                 </svg>
             </button>
         </div>
-        <div class="px-4 py-3 border-b border-gray-100">
+        <div class="px-4 py-3 border-b border-gray-100 shrink-0">
             <input type="text" id="recipeSearch"
                    placeholder="Search recipes…"
                    autocomplete="off"
                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-700" />
         </div>
         <div id="recipeList"
-             style="overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0;"
-             class="p-3 grid grid-cols-2 gap-3">
+             class="overflow-y-auto overscroll-contain p-3 grid grid-cols-2 gap-3 min-h-0">
             @foreach (var recipe in Model.AllRecipes)
             {
                 <button type="button"
@@ -171,9 +175,10 @@
                         data-id="@recipe.Id"
                         data-name="@recipe.RecipeName"
                         data-img="@(string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)">
-                    <div class="w-full h-24 bg-gray-100 overflow-hidden">
+                    <div class="w-full aspect-[4/3] bg-gray-100 overflow-hidden">
                         <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)"
                              alt="@recipe.RecipeName"
+                             loading="lazy" decoding="async"
                              class="w-full h-full object-cover" />
                     </div>
                     <div class="p-2">
@@ -207,12 +212,10 @@
         recipeSearch.value = '';
         filterRecipes('');
         overlay.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
     }
 
     function closePicker() {
         overlay.style.display = 'none';
-        document.body.style.overflow = '';
         activeDay = null;
     }
 
@@ -225,6 +228,16 @@
     overlay.addEventListener('click', e => {
         if (e.target === overlay) closePicker();
     });
+
+    // Swipe down to close (mobile)
+    (function () {
+        const card = document.getElementById('recipePickerCard');
+        let startY = 0;
+        card.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+        card.addEventListener('touchend', e => {
+            if (e.changedTouches[0].clientY - startY > 80) closePicker();
+        }, { passive: true });
+    })();
 
     recipeSearch.addEventListener('input', () => filterRecipes(recipeSearch.value.toLowerCase().trim()));
 

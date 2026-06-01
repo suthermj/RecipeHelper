@@ -50,30 +50,32 @@
             </svg>
             All Lists
         </a>
-        <div class="flex items-center justify-between gap-3" data-shopping-mode-hide>
-            <form asp-action="Rename" method="post" class="flex-1 flex items-center gap-2" id="renameForm">
+        <div data-shopping-mode-hide>
+            <form asp-action="Rename" method="post" class="flex items-center gap-2" id="renameForm">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 <input name="name" type="text" value="@Model.Name"
-                       class="text-2xl font-bold text-gray-900 bg-transparent border-0 border-b-2 border-transparent focus:border-red-700 focus:ring-0 p-0 w-full"
+                       class="text-2xl font-bold text-gray-900 bg-transparent border-0 border-b-2 border-transparent focus:border-red-700 focus:ring-0 p-0 flex-1 min-w-0"
                        id="listNameInput" />
                 <button type="submit" id="renameBtn"
                         class="hidden text-sm text-red-800 font-semibold hover:text-red-900 whitespace-nowrap">Save</button>
             </form>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this list?');">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="id" value="@Model.Id" />
-                    <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
-                </form>
-                <button id="startShoppingBtn"
-                        data-current-store-id="@ViewData["CurrentStoreId"]"
-                        class="px-4 py-2 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
-                    Shop mode
-                </button>
+            <div class="flex items-center justify-between mt-1.5">
+                <p class="text-xs text-gray-500">@Model.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</p>
+                <div class="flex items-center gap-3">
+                    <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this list?');">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
+                    </form>
+                    <button id="startShoppingBtn"
+                            data-current-store-id="@ViewData["CurrentStoreId"]"
+                            class="px-4 py-2 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
+                        Shop mode
+                    </button>
+                </div>
             </div>
         </div>
-        <p class="text-xs text-gray-500 mt-1" data-shopping-mode-hide>@Model.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</p>
 
         <!-- Shopping mode header (shown only when in shopping mode) -->
         <div id="shoppingModeHeader" class="hidden">
@@ -113,7 +115,7 @@
         @foreach (var aisleGroup in byAisle)
         {
             <div data-section-wrapper>
-                <div class="bg-blue-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                <div class="bg-gray-700 text-white font-bold text-base px-4 py-2 rounded-t-lg">
                     Aisle @aisleGroup.Key
                 </div>
                 <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
@@ -133,7 +135,7 @@
         }.Where(s => s.Item2.Count > 0))
         {
             <div data-section-wrapper>
-                <div class="bg-blue-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                <div class="bg-gray-700 text-white font-bold text-base px-4 py-2 rounded-t-lg">
                     @label
                 </div>
                 <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
@@ -149,7 +151,7 @@
         @if (noAisle.Count > 0)
         {
             <div data-section-wrapper>
-                <div class="bg-gray-400 text-white font-bold text-base px-4 py-2 rounded-t-lg">
+                <div class="bg-gray-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
                     Other
                 </div>
                 <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
@@ -171,14 +173,14 @@
                 <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
                     @foreach (var item in completed)
                     {
-                        <div class="flex items-center gap-3 bg-gray-50 px-4 py-3">
+                        <div class="flex items-center gap-3 bg-gray-50 px-4 py-3.5">
                             <form asp-action="UpdateItem" method="post" class="flex items-center" data-complete-form>
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="itemId" value="@item.Id" />
                                 <input type="hidden" name="listId" value="@Model.Id" />
                                 <input type="hidden" name="isCompleted" value="false" />
-                                <button type="submit" class="h-5 w-5 rounded border-2 border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center">
-                                    <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                <button type="submit" class="h-6 w-6 rounded border-2 border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center p-0.5">
+                                    <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                                     </svg>
                                 </button>

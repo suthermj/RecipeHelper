@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Offline — Cooking Helper</title>
+    <meta name="theme-color" content="#7F1D1D" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #F9FAFB;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background: #7F1D1D;
+            color: white;
+            padding: 12px 16px;
+            padding-top: max(12px, env(safe-area-inset-top));
+            font-size: 18px;
+            font-weight: 600;
+        }
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 24px;
+            text-align: center;
+            gap: 16px;
+        }
+        .icon {
+            width: 64px;
+            height: 64px;
+            color: #9CA3AF;
+        }
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+        }
+        p {
+            font-size: 15px;
+            color: #6B7280;
+            max-width: 280px;
+            line-height: 1.5;
+        }
+        button {
+            margin-top: 8px;
+            background: #7F1D1D;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <header>Cooking Helper</header>
+    <main>
+        <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.584 10.587a2 2 0 002.828 2.83M9.363 5.365A9 9 0 0119.07 8.59M5.637 5.637a9 9 0 00-.073 12.728M12 3c1.853 0 3.593.56 5.04 1.52" />
+        </svg>
+        <h1>You're offline</h1>
+        <p>Check your connection and try again to use Cooking Helper.</p>
+        <button onclick="location.reload()">Try again</button>
+    </main>
+</body>
+</html>

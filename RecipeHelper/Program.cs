@@ -121,7 +121,26 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var headers = ctx.Context.Response.Headers;
+        if (ctx.File.Name == "sw.js")
+        {
+            headers["Cache-Control"] = "no-store";
+        }
+        else if (ctx.File.Name.EndsWith(".css") || ctx.File.Name.EndsWith(".js"))
+        {
+            // asp-append-version fingerprints these URLs; safe to cache long-term
+            headers["Cache-Control"] = "public, max-age=31536000, immutable";
+        }
+        else
+        {
+            headers["Cache-Control"] = "public, max-age=86400";
+        }
+    }
+});
 
 app.UseRouting();
 

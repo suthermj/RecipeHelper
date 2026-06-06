@@ -21,7 +21,8 @@ cd ..
 
 # 2. Upload to VM
 echo "[3/4] Uploading to VM..."
-rsync -az --delete -e "ssh -i $SSH_KEY" ./publish/ "$VM_USER@$VM_HOST:/tmp/recipehelper/"
+ssh -i "$SSH_KEY" "$VM_USER@$VM_HOST" "rm -rf /tmp/recipehelper && mkdir -p /tmp/recipehelper"
+tar -czf - -C ./publish . | ssh -i "$SSH_KEY" "$VM_USER@$VM_HOST" "tar -xzf - -C /tmp/recipehelper"
 
 # 3. Deploy on VM: stop service, copy files, restart
 echo "[4/4] Deploying on VM..."

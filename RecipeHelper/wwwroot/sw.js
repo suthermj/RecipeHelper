@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const FONTS_CACHE = `fonts-${CACHE_VERSION}`;
 const PAGES_CACHE = `pages-${CACHE_VERSION}`;
@@ -83,7 +83,7 @@ self.addEventListener('fetch', event => {
     }
 
     if (request.mode === 'navigate') {
-        event.respondWith(networkFirst(request, PAGES_CACHE));
+        event.respondWith(staleWhileRevalidate(request, PAGES_CACHE));
         return;
     }
 });

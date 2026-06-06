@@ -15,6 +15,9 @@ function isGoogleFont(url) {
 }
 
 self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(STATIC_CACHE).then(cache => cache.add('/offline.html'))
+    );
     self.skipWaiting();
 });
 

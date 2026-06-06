@@ -1,3 +1,7 @@
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+}
+
 // Loading overlay for forms with class "loading-form"
 // Optionally set data-loading-text="Custom message..." on the form
 (function () {

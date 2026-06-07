@@ -1,7 +1,10 @@
 @model EditRecipeVM
 
 @{
-    ViewData["Title"] = "Edit Recipe";
+    ViewData["Title"]    = "Edit Recipe";
+    ViewData["NavTitle"] = "Edit Recipe";
+    ViewData["BackLink"] = Url.Action("ViewRecipe", "Recipe", new { id = Model.RecipeId });
+    ViewData["BackLabel"] = "Recipe";
 
     if (Model.Ingredients == null)
         Model.Ingredients = new List<EditRecipeIngredientVM>();
@@ -10,55 +13,45 @@
         Model.Ingredients.Add(new EditRecipeIngredientVM());
 }
 
-<div class="max-w-5xl mx-auto px-4 py-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">Edit Recipe</h1>
-    </div>
-
-    <div asp-validation-summary="ModelOnly" class="text-red-600 mb-4"></div>
-    <span asp-validation-for="Title" class="text-red-600 text-sm"></span>
-    <form asp-action="EditRecipe" asp-controller="Recipe" method="post" enctype="multipart/form-data" class="space-y-8 loading-form" data-loading-text="Saving recipe...">
+<div class="pb-6">
+    <div asp-validation-summary="ModelOnly" class="mx-4 mb-3 rounded-2xl px-4 py-3 text-[14px]" style="color: var(--ios-red); background: #FFF0F0;"></div>
+    <form asp-action="EditRecipe" asp-controller="Recipe" method="post" enctype="multipart/form-data" class="loading-form" data-loading-text="Saving recipe...">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="RecipeId" />
 
         <!-- Basic info -->
-        <div class="bg-white rounded-2xl shadow p-6 space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+        <p class="ios-section-hdr">Details</p>
+        <div class="ios-group">
+            <div class="ios-cell flex-col items-stretch gap-1 py-3">
+                <label class="text-[13px]" style="color: var(--ios-label-2);">Title</label>
                 <input asp-for="Title"
-                       class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring"
+                       class="field-input w-full"
                        placeholder="e.g., Chicken Tacos" />
-                <span asp-validation-for="Title" class="text-sm text-red-600"></span>
+                <span asp-validation-for="Title" class="text-[12px]" style="color: var(--ios-red);"></span>
             </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Image</label>
-
+            <div class="ios-cell flex-col items-stretch gap-2 py-3">
+                <label class="text-[13px]" style="color: var(--ios-label-2);">Image</label>
                 @if (!string.IsNullOrEmpty(Model.ImageUri))
                 {
-                    <div class="mb-3 flex items-center gap-4">
-                        <img src="@Model.ImageUri" alt="Current recipe image"
-                             class="h-24 w-24 rounded-lg object-cover border border-gray-200" />
-                        <span class="text-sm text-gray-500">Current image</span>
-                    </div>
+                    <img src="@Model.ImageUri" alt="Current recipe image"
+                         class="h-20 w-20 rounded-xl object-cover" />
                 }
-
                 <input asp-for="ImageFile" type="file" accept="image/*"
-                       class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 hover:file:bg-gray-200" />
-                <span asp-validation-for="ImageFile" class="text-sm text-red-600"></span>
-                <p class="text-xs text-gray-500 mt-1">Leave blank to keep the current image.</p>
+                       class="block w-full text-[14px]" style="color: var(--ios-label);" />
+                <span asp-validation-for="ImageFile" class="text-[12px]" style="color: var(--ios-red);"></span>
+                <p class="text-[12px]" style="color: var(--ios-label-2);">Leave blank to keep the current image.</p>
             </div>
         </div>
 
         <!-- Category -->
-        <div class="bg-white rounded-2xl shadow p-6">
-            <h2 class="text-lg font-semibold mb-3">Category</h2>
-            <div class="flex flex-wrap gap-4">
+        <p class="ios-section-hdr">Category</p>
+        <div class="ios-group">
+            <div class="ios-cell flex-wrap gap-x-5 gap-y-3 py-3">
                 @foreach (var cat in new[] { "Dinner", "Lunch", "Breakfast", "Side", "Dessert", "Snack", "Appetizer" })
                 {
-                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <label class="flex items-center gap-2 text-[15px] cursor-pointer" style="color: var(--ios-label);">
                         <input type="radio" name="DinnerCategory" value="@cat"
-                               class="border-gray-300"
+                               style="accent-color: var(--ios-red);"
                                @(Model.DinnerCategory == cat ? "checked" : "") />
                         @cat
                     </label>
@@ -67,13 +60,13 @@
         </div>
 
         <!-- Ingredients -->
-        <div class="bg-white rounded-2xl shadow p-4 sm:p-6">
-            <h2 class="text-lg font-semibold mb-1">Ingredients</h2>
-            <p class="text-sm text-gray-500 mb-3">
-                Type each ingredient with its amount. Use the dropdown to mark a row as a section header.
+        <p class="ios-section-hdr">Ingredients</p>
+        <div class="mx-4 rounded-2xl overflow-hidden mb-2" style="background: var(--ios-surface); box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+            <p class="text-[13px] px-4 pt-3 pb-1" style="color: var(--ios-label-2);">
+                Type each ingredient with amount. Use the dropdown to mark a row as a section header.
             </p>
 
-            <div id="ingredientsContainer" class="space-y-2">
+            <div id="ingredientsContainer" class="p-2 space-y-2">
                 @{
                     string? ePrevSec = "__NONE__";
                     int eIdx = 0;
@@ -166,18 +159,18 @@
         </div>
 
         <!-- Instructions -->
-        <div class="bg-white rounded-2xl shadow p-6">
-            <div class="flex items-center justify-between gap-3 mb-2">
-                <h2 class="text-lg font-semibold">Instructions</h2>
-
+        <p class="ios-section-hdr">Instructions</p>
+        <div class="mx-4 rounded-2xl overflow-hidden mb-2" style="background: var(--ios-surface); box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+            <div class="flex items-center justify-between gap-3 px-4 py-3" style="border-bottom: 0.5px solid var(--ios-separator);">
+                <span class="text-[15px] font-semibold" style="color: var(--ios-label);">Steps</span>
                 <button type="button"
                         id="addStepBtn"
-                        class="inline-flex items-center rounded-lg bg-gray-900 text-white px-3 py-2 text-sm hover:bg-black">
+                        class="ios-btn-text-sm font-semibold">
                     + Add step
                 </button>
             </div>
 
-            <div id="stepsContainer" class="space-y-3">
+            <div id="stepsContainer" class="p-2 space-y-2">
                 @if (Model.Instructions != null)
                 {
                     @for (int i = 0; i < Model.Instructions.Count; i++)
@@ -210,15 +203,10 @@
         </div>
 
         <!-- Submit -->
-        <div class="flex items-center justify-end gap-3">
+        <div class="px-4 flex gap-3 mt-2">
             <a asp-action="ViewRecipe" asp-controller="Recipe" asp-route-id="@Model.RecipeId"
-               class="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
-                Cancel
-            </a>
-            <button type="submit"
-                    class="rounded-lg bg-green-600 text-white px-5 py-2 text-sm font-semibold hover:bg-green-700">
-                Save Changes
-            </button>
+               class="btn-secondary flex-1">Cancel</a>
+            <button type="submit" class="btn-primary flex-1">Save Changes</button>
         </div>
     </form>
 </div>

@@ -2,7 +2,10 @@
 @model RecipeHelper.ViewModels.MappedImportedRecipeVM
 
 @{
-    ViewData["Title"] = "Map Imported Recipe";
+    ViewData["Title"]    = "Map Ingredients";
+    ViewData["NavTitle"] = "Map Ingredients";
+    ViewData["BackLink"] = Url.Action("ImportRecipe", "Import");
+    ViewData["BackLabel"] = "Import";
     var krogerImgBase = "https://www.kroger.com/product/images/large/front/";
     var placeholderProductImg = Url.Content("~/images/default-product.png");
 
@@ -11,11 +14,11 @@
         System.Globalization.CultureInfo.GetCultureInfo("en-US").TextInfo.ToTitleCase(s.ToLower());
 }
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-6">
+<div class="pt-2 pb-6 space-y-4">
 
     @if (!ViewData.ModelState.IsValid)
     {
-        <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div class="mx-4 rounded-2xl px-4 py-3 text-[14px]" style="background: #FFF0F0; color: var(--ios-red);">
             <div class="font-semibold mb-1">Please fix the following:</div>
             <ul class="list-disc pl-5 space-y-0.5">
                 @foreach (var ms in ViewData.ModelState.Values)
@@ -31,16 +34,16 @@
 
     @if (TempData["ErrorMessage"] is string err && !string.IsNullOrWhiteSpace(err))
     {
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <span class="font-semibold">⚠️ </span>@err
+        <div class="mx-4 rounded-2xl px-4 py-3 text-[14px]" style="background: #FFF0F0; color: var(--ios-red);">
+            @err
         </div>
     }
 
-    <form asp-action="SaveImportedRecipe" method="post" class="space-y-5 loading-form" data-loading-text="Saving recipe...">
+    <form asp-action="SaveImportedRecipe" method="post" class="space-y-4 loading-form" data-loading-text="Saving recipe...">
         @Html.AntiForgeryToken()
 
         @* Recipe summary *@
-        <section class="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 flex gap-4">
+        <section class="ios-card mx-4 flex gap-4 p-4">
             <div class="h-20 w-20 sm:h-24 sm:w-24 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100">
                 <img src="@(string.IsNullOrWhiteSpace(Model.Image) ? Url.Content("~/images/default-recipe.png") : Model.Image)"
                      alt="@Model.Title"
@@ -48,19 +51,19 @@
                      class="h-full w-full object-cover" />
             </div>
 
-            <div class="flex-1 space-y-2">
-                <label for="recipeTitleInput" class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div class="flex-1 space-y-1">
+                <label for="recipeTitleInput" class="text-[12px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">
                     Recipe title
                 </label>
 
                 <textarea id="recipeTitleInput"
                           name="Title"
                           rows="1"
-                          class="js-autoresize w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm sm:text-base font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700 resize-none overflow-hidden"
+                          class="js-autoresize field-input w-full font-semibold resize-none overflow-hidden"
                           maxlength="120"
                           autocomplete="off">@Model.Title</textarea>
 
-                <p class="text-[0.7rem] text-gray-500">You can rename this before importing.</p>
+                <p class="text-[12px]" style="color: var(--ios-label-2);">You can rename this before importing.</p>
             </div>
         </section>
 
@@ -79,14 +82,14 @@
         @* Steps (read-only, collapsible) *@
         @if (Model.Steps != null && Model.Steps.Count > 0)
         {
-            <details class="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <summary class="px-4 py-3 text-sm font-semibold text-gray-800 cursor-pointer select-none list-none flex items-center justify-between">
-                    <span>Steps <span class="ml-1 text-gray-400 font-normal text-xs">(@Model.Steps.Count)</span></span>
-                    <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <details class="ios-card mx-4">
+                <summary class="px-4 py-3 text-[15px] font-semibold cursor-pointer select-none list-none flex items-center justify-between" style="color: var(--ios-label);">
+                    <span>Steps <span class="ml-1 font-normal text-[13px]" style="color: var(--ios-label-2);">(@Model.Steps.Count)</span></span>
+                    <svg class="h-4 w-4 ios-disclosure" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                 </summary>
-                <ol class="px-5 pb-4 pt-1 space-y-2 text-sm text-gray-700 list-decimal list-outside ml-4">
+                <ol class="px-5 pb-4 pt-1 space-y-2 text-[14px] list-decimal list-outside ml-4" style="color: var(--ios-label);">
                     @foreach (var step in Model.Steps)
                     {
                         <li>@step</li>
@@ -96,8 +99,8 @@
         }
 
         @* Ingredient cards *@
-        <section class="space-y-4">
-            <h2 class="text-sm font-semibold text-gray-800">Ingredients</h2>
+        <section class="space-y-3 px-4">
+            <p class="ios-section-hdr" style="padding-left: 0;">Ingredients</p>
             @for (var i = 0; i < Model.Ingredients.Count; i++)
             {
                 var ing = Model.Ingredients[i];
@@ -108,7 +111,7 @@
                 var currentUpc  = hasSelected ? ing.SelectedUpc : "";
                 var currentImg  = hasSelected ? (krogerImgBase + currentUpc) : placeholderProductImg;
 
-                <div class="js-row rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm transition"
+                <div class="js-row ios-card p-4 transition"
                      data-idx="@i">
 
                     @* ✅ Editable ingredient name (replaces hidden Name) *@
@@ -137,12 +140,12 @@
                         <div class="flex-1 min-w-0">
 
                             @* ✅ Editable name input *@
-                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <label class="block text-[12px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">
                                 Ingredient
                             </label>
                             <textarea name="Ingredients[@i].Name"
                                       rows="1"
-                                      class="js-ingredient-name js-autoresize mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700 resize-none overflow-hidden"
+                                      class="js-ingredient-name js-autoresize mt-1 field-input w-full font-semibold resize-none overflow-hidden"
                                       data-idx="@i"
                                       maxlength="120"
                                       autocomplete="off">@TitleCase(ing.Name)</textarea>
@@ -169,7 +172,7 @@
 
                         <div class="flex items-center gap-2">
                             <button type="button"
-                                    class="js-exclude-btn inline-flex items-center rounded-full border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                    class="js-exclude-btn ios-btn-text-sm border rounded-full px-3 py-1.5" style="border-color: var(--ios-separator);"
                                     data-idx="@i"
                                     aria-pressed="false">
                                 Exclude
@@ -208,19 +211,13 @@
         </section>
 
         <button type="button" id="addIngredientBtn"
-                class="w-full rounded-2xl border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 transition">
+                class="w-full rounded-2xl py-3 text-[14px] font-medium transition"
+                style="border: 2px dashed var(--ios-separator); color: var(--ios-label-2);">
             + Add ingredient
         </button>
 
-        <div class="flex justify-end gap-3 pt-2">
-            <a href="@Url.Action("ImportRecipe", "Import")"
-               class="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-4 py-2.5 min-h-[44px] text-sm font-medium text-gray-700 hover:bg-gray-50">
-                ← Back
-            </a>
-            <button type="submit"
-                    class="inline-flex items-center justify-center rounded-full bg-red-800 px-4 py-2.5 min-h-[44px] text-sm font-semibold text-white hover:bg-red-900 motion-safe:active:scale-[0.98] transition">
-                Confirm mapping
-            </button>
+        <div class="px-4 flex gap-3 pt-1">
+            <button type="submit" class="btn-primary flex-1">Confirm mapping</button>
         </div>
     </form>
 </div>
@@ -716,7 +713,7 @@
 
         function newIngredientRowHtml(idx) {
             return `
-                <div class="js-row rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm transition" data-idx="${idx}">
+                <div class="js-row ios-card p-4 transition" data-idx="${idx}">
                     <input type="hidden" name="Ingredients[${idx}].Include" value="true" class="js-include" data-idx="${idx}" />
                     <input type="hidden" name="Ingredients[${idx}].IngredientId" value="0" />
                     <input type="hidden" name="Ingredients[${idx}].CanonicalName" value="" />
@@ -735,7 +732,7 @@
                             <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Ingredient</label>
                             <textarea name="Ingredients[${idx}].Name"
                                       rows="1"
-                                      class="js-ingredient-name js-autoresize mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-red-700 focus:ring-2 focus:ring-red-700 resize-none overflow-hidden"
+                                      class="js-ingredient-name js-autoresize mt-1 field-input w-full font-semibold resize-none overflow-hidden"
                                       data-idx="${idx}"
                                       maxlength="120"
                                       autocomplete="off"

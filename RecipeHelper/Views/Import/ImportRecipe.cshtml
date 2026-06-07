@@ -1,63 +1,61 @@
-﻿@model RecipeHelper.ViewModels.ImportRecipePageVM
+@model RecipeHelper.ViewModels.ImportRecipePageVM
 @{
-    ViewData["Title"] = "Import Recipe";
+    ViewData["Title"]    = "Import Recipe";
+    ViewData["NavTitle"] = "Import Recipe";
+    ViewData["BackLink"] = Url.Action("Recipe", "Recipe");
+    ViewData["BackLabel"] = "Recipes";
     var hasResult = Model?.Preview != null;
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-4">
+<div class="pt-2 pb-6">
 
-    <!-- Header -->
-    <header class="space-y-1">
-        <h1 class="text-xl font-bold text-gray-900">Import a Recipe</h1>
-        <p class="text-sm text-gray-600 leading-snug">Paste a recipe URL and we’ll fetch the title, image, ingredients, and steps so you can review and save.</p>
-    </header>
-
-    <!-- Import form (GET) -->
-    <form id="importForm" asp-action="ImportRecipe" method="get" class="flex gap-3" novalidate>
-        <input asp-for="Url"
-               type="url"
-               required
-               placeholder="Paste a recipe URL (e.g., https://example.com/lasagna)"
-               class="flex-1 rounded-full border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-700 focus:border-red-700" />
-
-        <button id="importBtn" type="submit"
-                class="inline-flex items-center gap-2 bg-red-800 hover:bg-red-900 text-white font-semibold px-4 py-2.5 rounded-full min-h-[44px] motion-safe:active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition">
-            <svg id="importBtnSpinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
-            </svg>
-            <span id="importBtnText">Import</span>
-        </button>
-    </form>
+    <!-- URL import form -->
+    <div class="px-4 pb-3">
+        <form id="importForm" asp-action="ImportRecipe" method="get" novalidate>
+            <div class="flex gap-2 items-center">
+                <div class="ios-search-wrap flex-1">
+                    <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                    </svg>
+                    <input asp-for="Url" type="url" required
+                           placeholder="Paste a recipe URL…"
+                           class="ios-search-input" />
+                </div>
+                <button id="importBtn" type="submit" class="ios-btn-text font-semibold" style="font-size:15px; white-space:nowrap;">
+                    <svg id="importBtnSpinner" class="hidden animate-spin h-4 w-4 inline" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
+                    </svg>
+                    <span id="importBtnText">Import</span>
+                </button>
+            </div>
+        </form>
+    </div>
 
     <!-- Clipboard paste banner -->
-    <div id="clipboardBanner" class="hidden flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
-        <span class="text-gray-700">Have a recipe URL copied? Paste it from your clipboard.</span>
-        <div class="flex items-center gap-2 shrink-0">
-            <button type="button" class="clip-paste-btn inline-flex items-center gap-1.5 rounded-full bg-red-800 text-white px-3 py-2 text-sm font-medium hover:bg-red-900 transition">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                Paste
-            </button>
-            <button type="button" class="clip-dismiss-btn text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+    <div id="clipboardBanner" class="hidden mx-4 mb-3">
+        <div class="ios-cell rounded-xl" style="background: var(--ios-fill);">
+            <span class="flex-1 text-[14px]" style="color: var(--ios-label-2);">Have a recipe URL copied?</span>
+            <button type="button" class="clip-paste-btn ios-btn-text-sm font-semibold">Paste</button>
+            <button type="button" class="clip-dismiss-btn ios-btn-text-sm" style="color: var(--ios-label-2);">&times;</button>
         </div>
     </div>
 
-    <!-- Page-level loading overlay during GET navigation -->
-    <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-white/60 backdrop-blur-sm flex items-center justify-center" aria-live="polite" aria-busy="true">
-        <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white shadow">
-            <svg class="animate-spin h-5 w-5 text-red-800" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center" style="background: rgba(0,0,0,0.3);">
+        <div class="flex items-center gap-3 px-5 py-4 rounded-2xl" style="background: var(--ios-surface);">
+            <svg class="animate-spin h-5 w-5" style="color: var(--ios-red);" viewBox="0 0 24 24" fill="none">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
             </svg>
-            <span class="text-sm text-gray-700">Importing recipe…</span>
+            <span class="text-[15px]" style="color: var(--ios-label);">Importing recipe…</span>
         </div>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(ViewBag.Error as string))
     {
-        <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div class="mx-4 mb-3 rounded-2xl px-4 py-3 text-[14px]" style="background: #FFF0F0; color: var(--ios-red);">
             @ViewBag.Error
         </div>
     }
@@ -65,156 +63,117 @@
     @if (hasResult)
     {
         var img = string.IsNullOrWhiteSpace(Model.Preview!.Image)
-        ? Url.Content("~/images/default-recipe.png")
-        : Model.Preview.Image;
+            ? Url.Content("~/images/default-recipe.png")
+            : Model.Preview.Image;
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left: image + meta -->
-            <div class="lg:col-span-1">
-                <img src="@img" alt="@Model.Preview.Title" class="w-full aspect-[4/3] object-cover rounded-2xl shadow-sm" />
+        <div class="px-4 space-y-4">
 
-                <div class="mt-4 space-y-2 text-gray-700">
-                    @if (Model.Preview.ReadyInMinutes is not null)
-                    {
-                        <div><span class="font-semibold">Ready in:</span> @Model.Preview.ReadyInMinutes min</div>
-                    }
-                    @if (Model.Preview.Servings is not null)
-                    {
-                        <div><span class="font-semibold">Servings:</span> @Model.Preview.Servings</div>
-                    }
+            <!-- Hero image + title -->
+            <div class="ios-card overflow-hidden">
+                <img src="@img" alt="@Model.Preview.Title"
+                     class="w-full object-cover" style="aspect-ratio: 16/9; max-height: 220px;" />
+                <div class="p-4 space-y-2">
+                    <h2 class="text-[20px] font-bold" style="color: var(--ios-label);">@Model.Preview.Title</h2>
+                    <div class="flex flex-wrap gap-2">
+                        @if (Model.Preview.ReadyInMinutes is not null)
+                        { <span class="ios-badge" style="background: var(--ios-fill); color: var(--ios-label-2);">@Model.Preview.ReadyInMinutes min</span> }
+                        @if (Model.Preview.Servings is not null)
+                        { <span class="ios-badge" style="background: var(--ios-fill); color: var(--ios-label-2);">@Model.Preview.Servings servings</span> }
+                        @if (Model.Preview.Vegetarian)
+                        { <span class="ios-badge" style="background: #E8F8E8; color: #1A6B1A;">Vegetarian</span> }
+                        @if (Model.Preview.Vegan)
+                        { <span class="ios-badge" style="background: #E2F5E2; color: #145C14;">Vegan</span> }
+                        @if (Model.Preview.GlutenFree)
+                        { <span class="ios-badge" style="background: #FFF8E1; color: #7A5900;">Gluten-free</span> }
+                        @if (Model.Preview.DairyFree)
+                        { <span class="ios-badge" style="background: #E3F0FF; color: #1A4A7A;">Dairy-free</span> }
+                    </div>
                     @if (!string.IsNullOrWhiteSpace(Model.Preview.SourceUrl))
                     {
-                        <div class="text-red-800">
-                            <a href="@Model.Preview.SourceUrl" target="_blank" class="underline">Source</a>
-                        </div>
-                    }
-                </div>
-
-                <!-- badges -->
-                <div class="mt-4 flex flex-wrap gap-2">
-                    @if (Model.Preview.Vegetarian)
-                    {
-                        <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Vegetarian</span>
-                    }
-                    @if (Model.Preview.Vegan)
-                    {
-                        <span class="px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-800">Vegan</span>
-                    }
-                    @if (Model.Preview.GlutenFree)
-                    {
-                        <span class="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-800">Gluten-free</span>
-                    }
-                    @if (Model.Preview.DairyFree)
-                    {
-                        <span class="px-2 py-1 text-xs rounded-full bg-sky-100 text-sky-800">Dairy-free</span>
+                        <a href="@Model.Preview.SourceUrl" target="_blank" class="ios-btn-text-sm" style="text-decoration: underline;">View source</a>
                     }
                 </div>
             </div>
 
-            <!-- Right: title, summary, ingredients & steps -->
-            <div class="lg:col-span-2 space-y-8">
-                <section>
-                    <h2 class="text-2xl font-bold text-gray-900">@Model.Preview.Title</h2>
-
-                    @if (!string.IsNullOrWhiteSpace(Model.Preview.SummaryText))
-                    {
-                        <p class="mt-2 text-gray-700 leading-relaxed">@Model.Preview.SummaryText</p>
-                    }
-
-                    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <!-- Read-only preview (left) -->
-                        <section>
-                            <h3 class="text-xl font-semibold text-gray-900 mb-3">Ingredients</h3>
-                            @if (Model.Preview.Ingredients?.Count > 0)
-                            {
-                                <ul class="list-disc list-inside space-y-1 text-gray-800">
-                                    @foreach (var ing in Model.Preview.Ingredients)
+            <!-- Ingredients -->
+            @if (Model.Preview.Ingredients?.Count > 0)
+            {
+                <div>
+                    <p class="ios-section-hdr" style="padding-left: 0;">Ingredients</p>
+                    <div class="ios-group">
+                        @foreach (var ing in Model.Preview.Ingredients)
+                        {
+                            <div class="ios-cell">
+                                <span class="text-[15px]" style="color: var(--ios-label);">
+                                    @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
                                     {
-                                        <li>
-                                            @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
-                                            {
-                                                <span class="font-medium">@ing.DisplayAmount</span> 
-                                                @ing.Name
-                                            }
-                                            else
-                                            {
-                                                @ing.Name
-                                            }
-                                        </li>
+                                        <span class="font-semibold">@ing.DisplayAmount</span>
+                                        @(" " + ing.Name)
                                     }
-                                </ul>
-                            }
-                            else
-                            {
-                                <p class="text-gray-500">No ingredients found.</p>
-                            }
-                        </section>
-
-                        <!-- Read-only preview (right) -->
-                        <section>
-                            <h3 class="text-xl font-semibold text-gray-900 mb-3">Instructions</h3>
-                            @if (Model.Preview.Steps?.Count > 0)
-                            {
-                                <ol class="list-decimal list-inside space-y-2 text-gray-800">
-                                    @for (int i = 0; i < Model.Preview.Steps.Count; i++)
-                                    {
-                                        <li>@Model.Preview.Steps[i]</li>
-                                    }
-                                </ol>
-                            }
-                            else
-                            {
-                                <p class="text-gray-500">No instructions provided.</p>
-                            }
-                        </section>
+                                    else { @ing.Name }
+                                </span>
+                            </div>
+                        }
                     </div>
-                </section>
+                </div>
+            }
 
-                <!-- Review & Save (editable) -->
-                <section class="pt-2">
-                    <form asp-action="GetImportedRecipePreview" method="post" class="space-y-4 loading-form" data-loading-text="Preparing recipe preview...">
-                        @Html.AntiForgeryToken()
-
-                        <!-- core fields -->
-                        <input type="hidden" name="Title" value="@Model.Preview.Title" />
-                        <input type="hidden" name="Image" value="@Model.Preview.Image" />
-                        <input type="hidden" name="SourceUrl" value="@Model.Preview.SourceUrl" />
-
-                        <!-- ingredients (all hidden) -->
-                        @for (var i = 0; i < Model.Preview.Ingredients.Count; i++)
+            <!-- Instructions -->
+            @if (Model.Preview.Steps?.Count > 0)
+            {
+                <div>
+                    <p class="ios-section-hdr" style="padding-left: 0;">Instructions</p>
+                    <div class="ios-group">
+                        @for (int i = 0; i < Model.Preview.Steps.Count; i++)
                         {
-                            var ing = Model.Preview.Ingredients[i];
-                            <input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
-                            <input type="hidden" name="Ingredients[@i].CleanName" value="@ing.CleanName" />
-                            <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
-                            <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
+                            <div class="ios-cell gap-3">
+                                <span class="h-6 w-6 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0"
+                                      style="background: var(--ios-red);">@(i + 1)</span>
+                                <span class="text-[15px]" style="color: var(--ios-label);">@Model.Preview.Steps[i]</span>
+                            </div>
                         }
+                    </div>
+                </div>
+            }
 
-                        <!-- steps (all hidden) -->
-                        @if (Model.Preview.Steps != null)
-                        {
-                            @for (var i = 0; i < Model.Preview.Steps.Count; i++)
-                            {
-                                <input type="hidden" name="Steps[@i]" value="@Model.Preview.Steps[i]" />
-                            }
-                        }
-
-                        <button type="submit"
-                                class="inline-flex items-center justify-center bg-red-800 hover:bg-red-900 text-white font-semibold px-4 py-2.5 rounded-full min-h-[44px] motion-safe:active:scale-[0.98] transition">
-                            Review &amp; Save
-                        </button>
-                    </form>
-                </section>
-            </div>
+            <!-- Review & Save -->
+            <form asp-action="GetImportedRecipePreview" method="post" class="loading-form" data-loading-text="Preparing recipe preview...">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Title" value="@Model.Preview.Title" />
+                <input type="hidden" name="Image" value="@Model.Preview.Image" />
+                <input type="hidden" name="SourceUrl" value="@Model.Preview.SourceUrl" />
+                @for (var i = 0; i < Model.Preview.Ingredients.Count; i++)
+                {
+                    var ing = Model.Preview.Ingredients[i];
+                    <input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
+                    <input type="hidden" name="Ingredients[@i].CleanName" value="@ing.CleanName" />
+                    <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
+                    <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
+                }
+                @if (Model.Preview.Steps != null)
+                {
+                    @for (var i = 0; i < Model.Preview.Steps.Count; i++)
+                    {
+                        <input type="hidden" name="Steps[@i]" value="@Model.Preview.Steps[i]" />
+                    }
+                }
+                <button type="submit" class="btn-primary w-full">Review &amp; Save</button>
+            </form>
+        </div>
+    }
+    else if (string.IsNullOrWhiteSpace(ViewBag.Error as string))
+    {
+        <div class="mx-4 ios-card p-8 text-center">
+            <svg class="mx-auto h-12 w-12 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"
+                 style="color: var(--ios-label-2);">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+            </svg>
+            <p class="text-[15px] font-semibold mb-1" style="color: var(--ios-label);">Paste a recipe URL</p>
+            <p class="text-[13px]" style="color: var(--ios-label-2);">Fetch ingredients and steps, then review and save.</p>
         </div>
     }
 </div>
-
-<noscript>
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <p class="mt-4 text-sm text-gray-600">JavaScript is disabled; loading indicator is unavailable, but the import will still work.</p>
-    </div>
-</noscript>
 
 <script>
     (function () {
@@ -225,7 +184,6 @@
         const overlay = document.getElementById('loadingOverlay');
         const urlInput = form.querySelector('input[name="Url"]');
 
-        // Clipboard paste banner — only show when the URL input is empty
         const clipBanner = document.getElementById('clipboardBanner');
         if (clipBanner && !urlInput.value.trim()) {
             clipBanner.querySelector('.clip-paste-btn').addEventListener('click', async function () {

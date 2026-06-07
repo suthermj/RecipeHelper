@@ -39,7 +39,9 @@ gh pr list
   - Store ID comes from `KrogerLocationId` cookie (set via location services in Settings)
   - User's preferred store: Mariemont `01400421`
 
-**DB:** Azure SQL Server via EF Core. `DatabaseContext` in project root.
+**DB:** Azure SQL Server (`sql-recipe-helper.database.windows.net`, `germanywestcentral`) via EF Core. `DatabaseContext` in project root. Auth via Entra service principal — connection string uses `Authentication=Active Directory Service Principal`.
+
+**Blob Storage:** Azure Storage Account `sarecipehelper` (`germanywestcentral`), container `recipe-images`. Auth via `ClientSecretCredential` using `AzureAd` config section (no connection string in prod). `StorageService` falls back to connection string when `StorageSettings:connectionString` is present (local dev only).
 
 **CSS:** Tailwind via `npm run css:build` → `wwwroot/css/output.css`. Never hand-edit output.css.
 
@@ -59,6 +61,7 @@ gh pr list
 | `Utility/MeasurementHelper.cs` | Thin wrapper around `UnitConverter.Parse` + `ToDisplayName` |
 | `Controllers/ImportController.cs` | Recipe import flow: URL fetch → Spoonacular preview → mapping page → save |
 | `Services/ImportService.cs` | Saves mapped import to DB; **only `SelectedUpc` is persisted** — `SuggestedUpc` is a UI hint only |
+| `Services/StorageService.cs` | Blob upload/delete; uses `ClientSecretCredential` in prod, connection string in dev |
 | `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
 | `deploy/deploy.sh` | Full deploy: CSS build → dotnet publish → scp → restart systemd |
 
@@ -102,6 +105,8 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 - Mapping is optional; user can confirm without mapping any ingredients
 - JS selectors: `.js-row`, `.js-include`, `.js-selected-upc`, `.js-selected-name`, `.js-selected-source`, `.js-collapsible`, `.js-open-map`, `.js-exclude-btn`, `.js-clear-selection`, `.js-modal-clear`
 - Modal z-index: `z-[200]` (above nav `z-50` and loading overlay `z-[100]`)
+- Amount inputs use `step="any"` and `inputmode="decimal"` — Spoonacular returns fractional quantities (1/3, 1/6) that fail `step="0.01"` browser validation and silently block form submission on mobile
+- Spoonacular `originalName` sometimes includes the raw quantity string (e.g. "30 g of sour cream") — `StripLeadingQuantity` in `FromSpoonacular()` strips these before display
 
 ## Deployment
 
@@ -111,7 +116,9 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 - **Public URL:** `https://sutherlinsrecipes.duckdns.org`
 - Deploy script handles: CSS build → publish linux-x64 → scp to `/tmp/recipehelper/` → stop/copy/start service
 - **Hetzner Cloud Firewall:** SSH (22) is restricted by source IP. If `bash deploy/deploy.sh` fails with a connection timeout, the home IP probably rotated — whitelist the current one at `https://api.ipify.org` in the Hetzner Cloud console firewall.
-- **`appsettings.Production.json` is gitignored** but ships to the VM via the `dotnet publish` bundle (the SDK auto-copies all `appsettings*.json` files as content). It lives only on the dev machine; treat it as the production-secrets source of truth.
+- **`appsettings.json` and `appsettings.Production.json` are both gitignored.** `appsettings.json` contains empty placeholders only. All secrets live in `appsettings.Production.json` on the dev machine, which ships to the VM via `dotnet publish` (SDK auto-copies all `appsettings*.json` as content). Treat `appsettings.Production.json` as the production-secrets source of truth.
+- **Entra service principal:** `sp-recipe-helper-p` (client ID `3e54accb-87f2-4f61-9732-9d01bf5c669d`, object ID `6922cf3d-d918-47fa-ac48-9e72ffa1378e`). Has `db_datareader`, `db_datawriter`, `db_ddladmin` on `recipehelper` DB and `Storage Blob Data Contributor` on `sarecipehelper`. Credentials in `AzureAd` config section.
+- **Known issue: ephemeral data protection keys.** The app uses in-memory key storage, so antiforgery tokens are invalidated on every restart (deploy). Users see a blank page on the first POST after a deploy and must go back and retry. Fix: persist keys to disk or blob storage via `AddDataProtection().PersistKeysTo...()` in `Program.cs`.
 
 ## Observability
 

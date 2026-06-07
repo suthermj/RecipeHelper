@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,9 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo("/var/lib/recipehelper/keys"))
+    .SetApplicationName("RecipeHelper");
 builder.Services.AddScoped<KrogerService, KrogerService>();  // Registering your Kroger service
 builder.Services.AddScoped<StorageService, StorageService>();
 builder.Services.AddScoped<SpoonacularService, SpoonacularService>();

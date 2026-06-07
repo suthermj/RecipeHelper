@@ -27,7 +27,7 @@
     <p class="ios-section-hdr">Change Store</p>
     <div class="ios-group">
         <div class="ios-cell flex-col items-stretch gap-3 py-4" style="align-items: stretch;">
-            <div class="flex gap-2">
+            <div class="flex items-center gap-2">
                 <div class="ios-search-wrap flex-1">
                     <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -39,12 +39,12 @@
                            inputmode="numeric" maxlength="5"
                            class="ios-search-input" />
                 </div>
-                <button id="searchBtn" class="ios-btn-text font-semibold" style="font-size:15px; white-space:nowrap;">Search</button>
+                <button id="searchBtn" type="button" class="ios-inline-action">Search</button>
             </div>
         </div>
 
         <div class="ios-cell" style="border-bottom: none;">
-            <button id="locationBtn" class="ios-btn-text-sm flex items-center gap-2 py-1">
+            <button id="locationBtn" class="ios-inline-action flex items-center gap-2">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     <path stroke-linecap="round" stroke-linejoin="round"

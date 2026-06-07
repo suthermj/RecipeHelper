@@ -30,8 +30,12 @@
             </div>
             <div class="ios-cell flex-col items-stretch gap-1 py-3">
                 <label class="text-[13px]" style="color: var(--ios-label-2);">Image (optional)</label>
-                <input asp-for="ImageFile" type="file" accept="image/*"
-                       class="block w-full text-[14px]" style="color: var(--ios-label);" />
+                <div class="flex items-center gap-3 flex-wrap">
+                    <label for="recipeImageFile" class="ios-file-trigger">Choose Photo</label>
+                    <span id="recipeImageFileName" class="ios-file-name">No photo selected</span>
+                </div>
+                <input asp-for="ImageFile" id="recipeImageFile" type="file" accept="image/*"
+                       class="sr-only" />
                 <span asp-validation-for="ImageFile" class="text-[12px]" style="color: var(--ios-red);"></span>
             </div>
         </div>
@@ -263,6 +267,16 @@
     <script>
         (function () {
             const container = document.getElementById('ingredientsContainer');
+            const imageInput = document.getElementById('recipeImageFile');
+            const imageName = document.getElementById('recipeImageFileName');
+
+            if (imageInput && imageName) {
+                imageInput.addEventListener('change', function () {
+                    imageName.textContent = this.files && this.files.length > 0
+                        ? this.files[0].name
+                        : 'No photo selected';
+                });
+            }
 
             // Product modal elements
             const productModal = document.getElementById('productModal');

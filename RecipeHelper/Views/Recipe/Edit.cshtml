@@ -36,8 +36,12 @@
                     <img src="@Model.ImageUri" alt="Current recipe image"
                          class="h-20 w-20 rounded-xl object-cover" />
                 }
-                <input asp-for="ImageFile" type="file" accept="image/*"
-                       class="block w-full text-[14px]" style="color: var(--ios-label);" />
+                <div class="flex items-center gap-3 flex-wrap">
+                    <label for="editRecipeImageFile" class="ios-file-trigger">Choose Photo</label>
+                    <span id="editRecipeImageFileName" class="ios-file-name">Keep current photo</span>
+                </div>
+                <input asp-for="ImageFile" id="editRecipeImageFile" type="file" accept="image/*"
+                       class="sr-only" />
                 <span asp-validation-for="ImageFile" class="text-[12px]" style="color: var(--ios-red);"></span>
                 <p class="text-[12px]" style="color: var(--ios-label-2);">Leave blank to keep the current image.</p>
             </div>
@@ -268,6 +272,16 @@
     <script>
         (function () {
             const container = document.getElementById('ingredientsContainer');
+            const imageInput = document.getElementById('editRecipeImageFile');
+            const imageName = document.getElementById('editRecipeImageFileName');
+
+            if (imageInput && imageName) {
+                imageInput.addEventListener('change', function () {
+                    imageName.textContent = this.files && this.files.length > 0
+                        ? this.files[0].name
+                        : 'Keep current photo';
+                });
+            }
 
             const productModal = document.getElementById('productModal');
             const closeProductModal = document.getElementById('closeProductModal');

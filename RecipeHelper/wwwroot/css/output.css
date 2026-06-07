@@ -1120,10 +1120,6 @@ video {
   min-width: 0px;
 }
 
-.min-w-\[56px\] {
-  min-width: 56px;
-}
-
 .min-w-\[60px\] {
   min-width: 60px;
 }
@@ -1802,10 +1798,6 @@ video {
   padding-bottom: 0.5rem;
 }
 
-.pb-28 {
-  padding-bottom: 7rem;
-}
-
 .pb-3 {
   padding-bottom: 0.75rem;
 }
@@ -2252,7 +2244,7 @@ video {
   --ios-separator: rgba(60, 60, 67, 0.29);
   --ios-fill: rgba(120, 120, 128, 0.2);
   --ios-nav-h: 44px;
-  --ios-tab-h: 49px;
+  --ios-tab-h: 58px;
   /* Offset for sticky elements that should sit below the nav bar */
   --ios-nav-offset: calc(env(safe-area-inset-top) + 44px);
 }
@@ -2304,11 +2296,36 @@ html {
 /* ─── iOS Tab Bar ─── */
 
 .ios-tab {
-  height: var(--ios-tab-h);
+  min-height: calc(var(--ios-tab-h) + env(safe-area-inset-bottom));
   background: rgba(249, 249, 249, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 0.5px solid var(--ios-separator);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.ios-tab-items {
+  min-height: var(--ios-tab-h);
+  align-items: flex-start;
+  padding-top: 7px;
+}
+
+.ios-tab-item {
+  display: flex;
+  min-width: 58px;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 0 4px 4px;
+}
+
+.ios-tab-label {
+  font-size: 11px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
 /* ─── Large Title ─── */
@@ -2474,6 +2491,49 @@ html {
   cursor: pointer;
   padding: 0;
   text-decoration: none;
+}
+
+.ios-inline-action {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9999px;
+  background: var(--ios-fill);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ios-red);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ios-inline-action:disabled {
+  color: var(--ios-label-2);
+  opacity: 0.7;
+}
+
+.ios-file-trigger {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--ios-fill);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ios-label);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ios-file-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 14px;
+  color: var(--ios-label-2);
 }
 
 /* ─── Disclosure Chevron ─── */

@@ -22,7 +22,7 @@
                            placeholder="Paste a recipe URL…"
                            class="ios-search-input" />
                 </div>
-                <button id="importBtn" type="submit" class="ios-btn-text font-semibold" style="font-size:15px; white-space:nowrap;">
+                <button id="importBtn" type="submit" class="ios-inline-action">
                     <svg id="importBtnSpinner" class="hidden animate-spin h-4 w-4 inline" viewBox="0 0 24 24" fill="none">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
@@ -35,9 +35,9 @@
 
     <!-- Clipboard paste banner -->
     <div id="clipboardBanner" class="hidden mx-4 mb-3">
-        <div class="ios-cell rounded-xl" style="background: var(--ios-fill);">
+        <div class="ios-cell rounded-xl gap-3" style="background: var(--ios-fill);">
             <span class="flex-1 text-[14px]" style="color: var(--ios-label-2);">Have a recipe URL copied?</span>
-            <button type="button" class="clip-paste-btn ios-btn-text-sm font-semibold">Paste</button>
+            <button type="button" class="clip-paste-btn ios-inline-action">Paste</button>
             <button type="button" class="clip-dismiss-btn ios-btn-text-sm" style="color: var(--ios-label-2);">&times;</button>
         </div>
     </div>

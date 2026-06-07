@@ -18,11 +18,27 @@ namespace RecipeHelper.Services
 
         public StorageService(IConfiguration configuration, ILogger<StorageService> logger)
         {
-            var storageSettings = configuration.GetSection("StorageSettings");
-            _accountUri = storageSettings["accountUri"];
-            _blobServiceClient = new BlobServiceClient(storageSettings["connectionString"]);
-            _blobContainerClient = new BlobContainerClient(storageSettings["connectionString"], "recipe-images");
             _logger = logger;
+            var storageSettings = configuration.GetSection("StorageSettings");
+            _accountUri = storageSettings["accountUri"] ?? throw new InvalidOperationException("StorageSettings:accountUri not configured");
+
+            var connectionString = storageSettings["connectionString"];
+            if (!string.IsNullOrWhiteSpace(connectionString))
+            {
+                // Local dev: storage account key connection string
+                _blobServiceClient = new BlobServiceClient(connectionString);
+                _blobContainerClient = new BlobContainerClient(connectionString, "recipe-images");
+            }
+            else
+            {
+                // Production: Entra service principal
+                var tenantId = configuration["AzureAd:TenantId"] ?? throw new InvalidOperationException("AzureAd:TenantId not configured");
+                var clientId = configuration["AzureAd:ClientId"] ?? throw new InvalidOperationException("AzureAd:ClientId not configured");
+                var clientSecret = configuration["AzureAd:ClientSecret"] ?? throw new InvalidOperationException("AzureAd:ClientSecret not configured");
+                var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+                _blobServiceClient = new BlobServiceClient(new Uri(_accountUri), credential);
+                _blobContainerClient = new BlobContainerClient(new Uri($"{_accountUri}/recipe-images"), credential);
+            }
         }
 
         public async Task<StoreImageBlobResponse> StoreRecipeImage(IFormFile image)

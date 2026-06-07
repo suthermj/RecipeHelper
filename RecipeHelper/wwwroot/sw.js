@@ -1,10 +1,15 @@
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const FONTS_CACHE = `fonts-${CACHE_VERSION}`;
 const PAGES_CACHE = `pages-${CACHE_VERSION}`;
 const ALL_CACHES = [STATIC_CACHE, FONTS_CACHE, PAGES_CACHE];
 
 const STATIC_EXTENSIONS = ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.svg'];
+
+// Tracks the last time any mutation (POST/PUT/DELETE) was observed.
+// staleWhileRevalidate checks this so pages cached before a mutation are
+// re-fetched on the next navigation rather than served stale.
+let lastMutationTime = 0;
 
 function isStaticAsset(url) {
     return STATIC_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
@@ -43,6 +48,17 @@ async function cacheFirst(request, cacheName) {
 async function staleWhileRevalidate(request, cacheName) {
     const cache = await caches.open(cacheName);
     const cached = await cache.match(request);
+
+    // If the cached response predates the last mutation, bypass it and fetch fresh.
+    if (cached && lastMutationTime > 0) {
+        const cachedDate = new Date(cached.headers.get('date') || 0).getTime();
+        if (cachedDate < lastMutationTime) {
+            const response = await fetch(request);
+            if (response.ok) cache.put(request, response.clone());
+            return response;
+        }
+    }
+
     const networkPromise = fetch(request).then(response => {
         if (response.ok) cache.put(request, response.clone());
         return response;
@@ -65,7 +81,12 @@ async function networkFirst(request, cacheName) {
 
 self.addEventListener('fetch', event => {
     const { request } = event;
-    if (request.method !== 'GET') return;
+
+    // Record mutation time synchronously so the next navigate sees it.
+    if (request.method !== 'GET') {
+        lastMutationTime = Date.now();
+        return;
+    }
 
     const url = new URL(request.url);
     const isSameOrigin = url.origin === self.location.origin;

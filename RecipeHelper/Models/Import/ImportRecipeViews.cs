@@ -62,6 +62,17 @@ public class ImportRecipeVM
             return values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "UNKNOWN";
         }
 
+        // Strip leading quantity patterns like "30 g of " or "1/3 cup " that Spoonacular
+        // sometimes leaves in originalName when ingredient parsing fails.
+        static string StripLeadingQuantity(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return s ?? "";
+            var m = Regex.Match(s,
+                @"^[\d./]+\s*(g|ml|oz|fl\.?\s*oz|cups?|tbsps?|tsps?|lbs?|kgs?|mg|tablespoons?|teaspoons?|ounces?|pounds?|grams?|milliliters?|liters?)\s*(of\s+)?",
+                RegexOptions.IgnoreCase);
+            return m.Success ? s[m.Length..].Trim() : s;
+        }
+
         var vm = new ImportRecipeVM
         {
             Title = dto.title ?? "Untitled",
@@ -83,8 +94,8 @@ public class ImportRecipeVM
             {
                 vm.Ingredients.Add(new ImportIngredientVM
                 {
-                    Name = FirstNonEmpty(ei.originalName, ei.name, ei.original, "UNKNOWN"),
-                    CleanName = FirstNonEmpty(ei.name, ei.originalName, ei.original, "UNKNOWN"),
+                    Name = FirstNonEmpty(StripLeadingQuantity(ei.originalName), StripLeadingQuantity(ei.name), ei.original, "UNKNOWN"),
+                    CleanName = FirstNonEmpty(StripLeadingQuantity(ei.name), StripLeadingQuantity(ei.originalName), ei.original, "UNKNOWN"),
                     DisplayAmount = PickAmount(ei),
                     Amount = (decimal)ei.amount,
                     Unit = ei.unit

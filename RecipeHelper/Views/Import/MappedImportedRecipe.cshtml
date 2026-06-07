@@ -383,9 +383,8 @@
         }
 
         function getIngredientName(idx) {
-            // ✅ now reads the editable input
-            return document.querySelector(`input.js-ingredient-name[data-idx="${idx}"]`)?.value
-                || document.querySelector(`input[name="Ingredients[${idx}].Name"]`)?.value
+            return document.querySelector(`textarea.js-ingredient-name[data-idx="${idx}"]`)?.value
+                || document.querySelector(`textarea[name="Ingredients[${idx}].Name"]`)?.value
                 || '';
         }
 
@@ -671,7 +670,7 @@
         function applyExcludedState(idx, excluded, { updateHidden = false } = {}) {
             const includeInput = document.querySelector(`input.js-include[data-idx="${idx}"]`);
             const row = document.querySelector(`.js-row[data-idx="${idx}"]`);
-            const nameInput = document.querySelector(`input.js-ingredient-name[data-idx="${idx}"]`);
+            const nameInput = document.querySelector(`textarea.js-ingredient-name[data-idx="${idx}"]`);
             const collapsibles = document.querySelectorAll(`.js-collapsible[data-idx="${idx}"]`);
 
             if (updateHidden && includeInput) includeInput.value = excluded ? 'false' : 'true';
@@ -704,7 +703,7 @@
         });
 
         // Add new ingredient row
-        const ingredientSection = document.querySelector('section.space-y-4');
+        const ingredientSection = document.querySelector('section.space-y-3.px-4');
         const addIngredientBtn = document.getElementById('addIngredientBtn');
 
         function getNextIngredientIndex() {
@@ -785,7 +784,7 @@
                 } else {
                     ingredientSection.insertAdjacentHTML('beforeend', newIngredientRowHtml(idx));
                 }
-                const newName = document.querySelector(`input.js-ingredient-name[data-idx="${idx}"]`);
+                const newName = document.querySelector(`textarea.js-ingredient-name[data-idx="${idx}"]`);
                 if (newName) newName.focus();
             });
         }

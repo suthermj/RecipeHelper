@@ -28,6 +28,8 @@ tar -czf - -C ./publish . | ssh -i "$SSH_KEY" "$VM_USER@$VM_HOST" "tar -xzf - -C
 echo "[4/4] Deploying on VM..."
 ssh -i "$SSH_KEY" "$VM_USER@$VM_HOST" bash -s <<'REMOTE'
 set -e
+mkdir -p /var/lib/recipehelper/keys
+chown -R www-data:www-data /var/lib/recipehelper/keys
 systemctl stop recipehelper
 cp -r /tmp/recipehelper/* /var/www/recipehelper/
 chown -R www-data:www-data /var/www/recipehelper

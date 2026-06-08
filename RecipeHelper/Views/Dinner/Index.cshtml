@@ -191,7 +191,7 @@
 <!-- Recipe picker — bottom sheet on mobile, centered card on sm+ -->
 <div id="recipePickerOverlay"
      class="fixed inset-x-0 top-0 z-[200] flex items-end sm:inset-0 sm:items-center sm:justify-center sm:p-4"
-     style="bottom: calc(49px + env(safe-area-inset-bottom));"
+     style="display:none; bottom: calc(49px + env(safe-area-inset-bottom));"
      aria-modal="true">
 
     <div id="recipePickerCard"
@@ -285,18 +285,21 @@
     const addDayRecipeUrl    = '@Url.Action("AddDayRecipe", "Dinner")';
     const removeEntryUrl     = '@Url.Action("RemoveEntry", "Dinner")';
     let activeDay = null;
+    let hideTimeout = null;
 
     function getToken() {
         return document.querySelector('input[name="__RequestVerificationToken"]').value;
     }
 
     function openPicker(day) {
+        if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
         activeDay = day;
         recipeSearch.value = '';
         clearSearch.classList.add('hidden');
         clearSearch.classList.remove('flex');
         filterRecipes('');
         document.getElementById('recipeList').scrollTop = 0;
+        overlay.style.display = 'flex';
         requestAnimationFrame(() => overlay.classList.add('picker-open'));
     }
 
@@ -305,6 +308,7 @@
         overlay.style.bottom = '';
         pickerCard.style.maxHeight = '';
         activeDay = null;
+        hideTimeout = setTimeout(() => { overlay.style.display = 'none'; hideTimeout = null; }, 350);
     }
 
     function onViewportResize() {

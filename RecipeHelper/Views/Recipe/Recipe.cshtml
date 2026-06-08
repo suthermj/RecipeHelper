@@ -1,94 +1,95 @@
 @{
     ViewData["Title"] = "Recipes";
+    ViewData["NavTitle"] = "";
 }
 
 @model List<ViewRecipeVM>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-4">
+@section TabBarCenterAction {
+    <button type="button"
+            id="recipeQuickAddButton"
+            class="ios-tab-plus-btn"
+            aria-label="Add recipe options"
+            aria-haspopup="dialog"
+            aria-expanded="false">
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5.25v13.5M5.25 12h13.5" />
+        </svg>
+    </button>
+}
 
-    <!-- Header + actions -->
-    <header class="flex items-start justify-between gap-3">
-        <div class="min-w-0 space-y-1">
-            <h1 class="text-xl font-bold text-gray-900">Recipe Library</h1>
-            <p class="text-sm text-gray-600 leading-snug hidden sm:block">
-                Create, import, and organize the recipes used to plan weekly dinners.
-            </p>
-            <a asp-controller="Import" asp-action="ImportRecipe"
-               class="sm:hidden text-xs text-gray-500 hover:text-red-700 underline-offset-2 hover:underline">
-                Import from a link
-            </a>
-        </div>
-        <div class="flex flex-nowrap items-center gap-2 shrink-0">
-            <a asp-controller="Import" asp-action="ImportRecipe"
-               class="hidden sm:inline-flex items-center px-4 py-2.5 text-sm rounded-full
-                      bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition">
-                Import
-            </a>
-            <a asp-controller="Recipe" asp-action="CreateEditRecipe"
-               class="inline-flex items-center px-4 py-2.5 text-sm font-semibold rounded-full
-                      bg-red-800 text-white hover:bg-red-900 transition min-h-[44px]">
-                <span class="sm:hidden">Add</span>
-                <span class="hidden sm:inline">Add recipe</span>
-            </a>
-        </div>
-    </header>
+<div class="pt-2 pb-4">
+
+    <!-- Large title -->
+    <div class="px-4 pb-3">
+        <h1 class="ios-large-title">Recipes</h1>
+    </div>
 
     @if (Model == null || !Model.Any())
     {
         <!-- Empty state -->
-        <section class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-            <h2 class="text-lg font-semibold text-gray-800 mb-2">No recipes yet</h2>
-            <p class="text-sm text-gray-600 mb-4">
-                Start by adding or importing a recipe. Once you have a few saved, you can build weekly dinner lists
-                and send ingredients to your Kroger cart.
+        <div class="mx-4 rounded-2xl p-10 text-center" style="background: var(--ios-surface); box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+            <svg class="mx-auto h-14 w-14 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                 stroke-width="1" style="color: var(--ios-label-3);">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+            </svg>
+            <h2 class="text-[17px] font-semibold mb-1" style="color: var(--ios-label);">No recipes yet</h2>
+            <p class="text-[15px] mb-5" style="color: var(--ios-label-2);">
+                Add or import a recipe to get started.
             </p>
-            <a asp-controller="Recipe" asp-action="CreateEditRecipe"
-               class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full
-                      bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
+            <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="btn-primary">
                 Add your first recipe
             </a>
-            <p class="mt-3 text-xs text-gray-500">
-                or <a class="text-red-800 font-semibold underline-offset-2 hover:underline"
-                      asp-controller="Import" asp-action="ImportRecipe">import from a link</a>
+            <p class="mt-4 text-[13px]" style="color: var(--ios-label-2);">
+                or <a class="ios-btn-text-sm" asp-controller="Import" asp-action="ImportRecipe">import from a link</a>
             </p>
-        </section>
+        </div>
     }
     else
     {
         <!-- Sticky search + filter bar -->
-        <div class="sticky top-14 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 space-y-2">
+        <div class="sticky sticky-below-nav z-30 pb-2"
+             style="background: rgba(242,242,247,0.94); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
 
-            <!-- Count + search row -->
-            <div class="flex items-center gap-3">
-                <span class="shrink-0 text-sm font-semibold text-gray-800">
-                    @Model.Count recipe@(Model.Count == 1 ? "" : "s")
-                </span>
-                <div class="flex-1 flex items-center rounded-full border border-gray-300 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-red-700 focus-within:border-red-700">
+            <!-- Search row -->
+            <div class="px-4 pt-2 pb-2">
+                <div class="ios-search-wrap">
+                    <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
                     <input type="text"
                            id="recipeSearch"
-                           placeholder="Search recipes..."
-                           class="w-full bg-transparent outline-none border-none text-sm text-gray-900 placeholder-gray-400" />
+                           placeholder="Search recipes…"
+                           autocomplete="off"
+                           class="ios-search-input" />
                 </div>
             </div>
 
-            <!-- Category filter pills — single horizontal-scroll row -->
-            <div class="flex overflow-x-auto gap-2 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
+            <!-- Category pills -->
+            <div class="flex overflow-x-auto gap-2 px-4 pb-1 hide-scrollbar">
                 <button type="button" data-category=""
-                        class="category-filter-btn snap-start shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-red-800 bg-red-800 text-white transition">
+                        class="category-filter-btn ios-pill active">
                     All
                 </button>
                 @foreach (var cat in new[] { "Dinner", "Lunch", "Breakfast", "Side", "Dessert", "Snack", "Appetizer" })
                 {
                     <button type="button" data-category="@cat"
-                            class="category-filter-btn snap-start shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:border-red-800 hover:text-red-800 transition">
+                            class="category-filter-btn ios-pill">
                         @cat
                     </button>
                 }
             </div>
         </div>
 
+        <!-- Recipe count -->
+        <p class="px-4 pt-3 pb-1 text-[13px]" style="color: var(--ios-label-2);">
+            @Model.Count recipe@(Model.Count == 1 ? "" : "s")
+        </p>
+
         <!-- Recipe grid -->
-        <div id="recipeGrid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 pt-1">
+        <div id="recipeGrid" class="grid grid-cols-2 gap-3 px-4 sm:grid-cols-3 lg:grid-cols-4">
             @foreach (var recipe in Model)
             {
                 <a asp-controller="Recipe"
@@ -96,10 +97,10 @@
                    asp-route-id="@recipe.Id"
                    data-recipe-name="@recipe.RecipeName"
                    data-category="@recipe.DinnerCategory"
-                   class="recipe-card flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm
-                          motion-safe:transition motion-safe:active:scale-[0.98]">
+                   class="recipe-card ios-card flex flex-col overflow-hidden active:opacity-75 transition-opacity"
+                   style="text-decoration: none;">
 
-                    <div class="w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+                    <div class="w-full aspect-[4/3] overflow-hidden" style="background: var(--ios-fill);">
                         <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri)
                                         ? Url.Content("https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp")
                                         : recipe.ImageUri)"
@@ -109,62 +110,146 @@
                              class="w-full h-full object-cover" />
                     </div>
 
-                    <div class="p-3">
-                        <h3 class="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug">
+                    <div class="p-2.5">
+                        <p class="text-[13px] font-semibold leading-snug line-clamp-2" style="color: var(--ios-label);">
                             @recipe.RecipeName
-                        </h3>
+                        </p>
+                        @if (!string.IsNullOrEmpty(recipe.DinnerCategory))
+                        {
+                            <p class="text-[11px] mt-0.5" style="color: var(--ios-label-2);">@recipe.DinnerCategory</p>
+                        }
                     </div>
                 </a>
             }
         </div>
 
         <!-- Empty search state -->
-        <div id="emptyResults" class="hidden text-center py-12">
-            <p class="text-sm text-gray-500">No recipes match your search.</p>
-            <button id="clearFilters" type="button"
-                    class="mt-2 text-sm font-semibold text-red-800 underline-offset-2 hover:underline active:opacity-70">
+        <div id="emptyResults" class="hidden text-center py-14">
+            <p class="text-[15px]" style="color: var(--ios-label-2);">No recipes match your search.</p>
+            <button id="clearFilters" type="button" class="ios-btn-text-sm mt-2">
                 Clear filters
             </button>
         </div>
     }
 </div>
 
+<div id="recipeQuickAddSheet"
+     class="ios-action-sheet-backdrop hidden"
+     aria-hidden="true">
+    <div class="ios-action-sheet" role="dialog" aria-modal="true" aria-labelledby="recipeQuickAddTitle">
+        <div class="flex justify-center pt-2.5 pb-1 sm:hidden">
+            <div class="w-9 h-1 rounded-full" style="background: var(--ios-separator);"></div>
+        </div>
+        <div class="px-4 pt-2 pb-3 text-center">
+            <p id="recipeQuickAddTitle" class="text-[17px] font-semibold" style="color: var(--ios-label);">Add a recipe</p>
+            <p class="mt-1 text-[13px]" style="color: var(--ios-label-2);">Choose how you want to start.</p>
+        </div>
+        <div class="px-4 pb-4 space-y-2">
+            <a asp-controller="Recipe"
+               asp-action="CreateEditRecipe"
+               class="ios-action-sheet-option">
+                <span class="font-semibold" style="color: var(--ios-label);">Create manually</span>
+                <span style="color: var(--ios-label-2);">Start with a blank recipe.</span>
+            </a>
+            <a asp-controller="Import"
+               asp-action="ImportRecipe"
+               class="ios-action-sheet-option">
+                <span class="font-semibold" style="color: var(--ios-label);">Import from link</span>
+                <span style="color: var(--ios-label-2);">Paste a recipe URL to pull it in.</span>
+            </a>
+            <button type="button"
+                    class="ios-action-sheet-option ios-action-sheet-option-disabled"
+                    disabled>
+                <span class="font-semibold" style="color: var(--ios-label-2);">Import from photo</span>
+                <span style="color: var(--ios-label-2);">Coming soon.</span>
+            </button>
+            <button type="button" id="recipeQuickAddCancel" class="btn-secondary w-full">Cancel</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
 <script>
     (function () {
-        const input = document.getElementById('recipeSearch');
-        const filterBtns = document.querySelectorAll('.category-filter-btn');
-        const emptyResults = document.getElementById('emptyResults');
-        const clearBtn = document.getElementById('clearFilters');
-        let activeCategory = '';
+        const quickAddButton = document.getElementById('recipeQuickAddButton');
+        const quickAddSheet = document.getElementById('recipeQuickAddSheet');
+        const quickAddCancel = document.getElementById('recipeQuickAddCancel');
+        let quickAddCloseTimer;
+        let quickAddOpenRaf;
 
-        const ACTIVE_PILL = 'category-filter-btn snap-start shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-red-800 bg-red-800 text-white transition';
-        const INACTIVE_PILL = 'category-filter-btn snap-start shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:border-red-800 hover:text-red-800 transition';
+        function setQuickAddOpen(open) {
+            if (!quickAddSheet || !quickAddButton) return;
+            window.clearTimeout(quickAddCloseTimer);
+            window.cancelAnimationFrame(quickAddOpenRaf);
+
+            if (open) {
+                quickAddSheet.classList.remove('hidden');
+                quickAddSheet.classList.add('flex');
+                quickAddSheet.setAttribute('aria-hidden', 'false');
+                quickAddButton.setAttribute('aria-expanded', 'true');
+                document.body.classList.add('overflow-hidden');
+                // Force the pre-open state to paint before enabling the animated state.
+                void quickAddSheet.offsetHeight;
+                quickAddOpenRaf = window.requestAnimationFrame(function () {
+                    quickAddOpenRaf = window.requestAnimationFrame(function () {
+                        quickAddSheet.classList.add('is-open');
+                    });
+                });
+                return;
+            }
+
+            quickAddSheet.classList.remove('is-open');
+            quickAddSheet.setAttribute('aria-hidden', 'true');
+            quickAddButton.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('overflow-hidden');
+            quickAddCloseTimer = window.setTimeout(function () {
+                quickAddSheet.classList.add('hidden');
+                quickAddSheet.classList.remove('flex');
+            }, 260);
+        }
+
+        quickAddButton?.addEventListener('click', function () {
+            const isOpen = quickAddSheet?.classList.contains('flex');
+            setQuickAddOpen(!isOpen);
+        });
+
+        quickAddCancel?.addEventListener('click', function () {
+            setQuickAddOpen(false);
+        });
+
+        quickAddSheet?.addEventListener('click', function (e) {
+            if (e.target === quickAddSheet) setQuickAddOpen(false);
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') setQuickAddOpen(false);
+        });
+
+        const input      = document.getElementById('recipeSearch');
+        const filterBtns = document.querySelectorAll('.category-filter-btn');
+        const emptyEl    = document.getElementById('emptyResults');
+        const clearBtn   = document.getElementById('clearFilters');
+        let activeCategory = '';
 
         function filterCards() {
             const term = input ? input.value.toLowerCase().trim() : '';
-            let visibleCount = 0;
+            let visible = 0;
             document.querySelectorAll('.recipe-card').forEach(card => {
                 const name = (card.dataset.recipeName || '').toLowerCase();
-                const category = card.dataset.category || '';
-                const nameMatch = name.includes(term);
-                const categoryMatch = activeCategory === '' || category === activeCategory;
-                const visible = nameMatch && categoryMatch;
-                card.style.display = visible ? '' : 'none';
-                if (visible) visibleCount++;
+                const cat  = card.dataset.category || '';
+                const show = name.includes(term) && (activeCategory === '' || cat === activeCategory);
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
             });
-            if (emptyResults) {
-                emptyResults.classList.toggle('hidden', visibleCount > 0);
-            }
+            if (emptyEl) emptyEl.classList.toggle('hidden', visible > 0);
         }
 
-        if (input) {
-            input.addEventListener('input', filterCards);
-        }
+        if (input) input.addEventListener('input', filterCards);
 
         filterBtns.forEach(btn => {
             btn.addEventListener('click', function () {
                 activeCategory = this.dataset.category;
-                filterBtns.forEach(b => b.className = b.dataset.category === activeCategory ? ACTIVE_PILL : INACTIVE_PILL);
+                filterBtns.forEach(b => b.classList.toggle('active', b.dataset.category === activeCategory));
                 this.scrollIntoView({ inline: 'center', block: 'nearest' });
                 filterCards();
             });
@@ -174,11 +259,12 @@
             clearBtn.addEventListener('click', function () {
                 if (input) input.value = '';
                 activeCategory = '';
-                filterBtns.forEach(b => b.className = b.dataset.category === '' ? ACTIVE_PILL : INACTIVE_PILL);
-                const allBtn = document.querySelector('.category-filter-btn[data-category=""]');
-                if (allBtn) allBtn.scrollIntoView({ inline: 'center', block: 'nearest' });
+                filterBtns.forEach(b => b.classList.toggle('active', b.dataset.category === ''));
+                document.querySelector('.category-filter-btn[data-category=""]')
+                    ?.scrollIntoView({ inline: 'center', block: 'nearest' });
                 filterCards();
             });
         }
     })();
 </script>
+}

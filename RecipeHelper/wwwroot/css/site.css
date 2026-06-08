@@ -2,35 +2,330 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── iOS Design Tokens ─── */
+:root {
+  --ios-red: #FF3B30;
+  --ios-bg: #F2F2F7;
+  --ios-surface: #FFFFFF;
+  --ios-label: #1C1C1E;
+  --ios-label-2: rgba(60, 60, 67, 0.6);
+  --ios-label-3: rgba(60, 60, 67, 0.3);
+  --ios-separator: rgba(60, 60, 67, 0.29);
+  --ios-fill: rgba(120, 120, 128, 0.2);
+  --ios-nav-h: 44px;
+  --ios-tab-h: 58px;
+  /* Offset for sticky elements that should sit below the nav bar */
+  --ios-nav-offset: calc(env(safe-area-inset-top) + 44px);
+}
+
 html {
-  font-size: 14px;
-}
-
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
+  font-size: 16px;
   position: relative;
   min-height: 100%;
 }
 
-/* Safe-area handling for iOS PWA (notch / Dynamic Island / home indicator) */
-.safe-top {
-  padding-top: env(safe-area-inset-top);
+/* ─── Safe Area (iOS PWA) ─── */
+.safe-top    { padding-top:    env(safe-area-inset-top);    }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* ─── Hide scrollbar ─── */
+.hide-scrollbar                    { scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ─── Sticky just below the nav bar ─── */
+.sticky-below-nav {
+  top: var(--ios-nav-offset);
 }
 
-.safe-bottom {
+/* ─── iOS Navigation Bar ─── */
+.ios-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(249, 249, 249, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+/* ─── iOS Tab Bar ─── */
+.ios-tab {
+  min-height: calc(var(--ios-tab-h) + env(safe-area-inset-bottom));
+  background: rgba(249, 249, 249, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid var(--ios-separator);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Expand/collapse animation for mobile detail panels */
+.ios-tab-items {
+  min-height: var(--ios-tab-h);
+  align-items: flex-start;
+  padding-top: 7px;
+}
+
+.ios-tab-item {
+  display: flex;
+  min-width: 58px;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 0 4px 4px;
+}
+
+.ios-tab-label {
+  font-size: 11px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/* ─── Large Title ─── */
+.ios-large-title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--ios-label);
+  line-height: 1.1;
+}
+
+/* ─── Section Header (above grouped lists) ─── */
+.ios-section-hdr {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ios-label-2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 20px 16px 6px;
+}
+
+/* ─── Grouped List ─── */
+.ios-group {
+  background: var(--ios-surface);
+  border-radius: 12px;
+  margin: 0 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.ios-cell {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  background: var(--ios-surface);
+  border-bottom: 0.5px solid var(--ios-separator);
+  gap: 12px;
+}
+
+.ios-cell:last-child {
+  border-bottom: none;
+}
+
+/* ─── Search Bar ─── */
+.ios-search-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.ios-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ios-label-2);
+  pointer-events: none;
+  width: 15px;
+  height: 15px;
+}
+
+.ios-search-input {
+  width: 100%;
+  background: var(--ios-fill);
+  border-radius: 10px;
+  padding: 7px 10px 7px 32px;
+  font-size: 15px;
+  border: none;
+  outline: none;
+  color: var(--ios-label);
+  -webkit-appearance: none;
+}
+
+.ios-search-input::placeholder {
+  color: var(--ios-label-2);
+}
+
+/* ─── Filter Pills ─── */
+.ios-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--ios-fill);
+  color: var(--ios-label-2);
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+  border: none;
+  outline: none;
+}
+
+.ios-pill.active {
+  background: var(--ios-red);
+  color: #fff;
+}
+
+.ios-choice-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ios-choice-pill {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--ios-fill);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ios-label);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ios-choice-input:checked + .ios-choice-pill {
+  background: var(--ios-red);
+  color: #fff;
+}
+
+.ios-choice-input:focus-visible + .ios-choice-pill {
+  outline: 2px solid rgba(255, 59, 48, 0.3);
+  outline-offset: 2px;
+}
+
+/* ─── Badge ─── */
+.ios-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ios-red);
+  color: #fff;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 7px;
+  min-width: 22px;
+  line-height: 1.4;
+}
+
+.ios-badge-gray {
+  background: var(--ios-fill);
+  color: var(--ios-label-2);
+}
+
+/* ─── Text-style Buttons ─── */
+.ios-btn-text {
+  color: var(--ios-red);
+  font-size: 17px;
+  font-weight: 400;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+}
+
+.ios-btn-text-sm {
+  color: var(--ios-red);
+  font-size: 15px;
+  font-weight: 400;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+}
+
+.ios-btn-text-destructive {
+  color: #FF3B30;
+  font-size: 15px;
+  font-weight: 400;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.ios-inline-action {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9999px;
+  background: var(--ios-fill);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ios-red);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ios-inline-action:disabled {
+  color: var(--ios-label-2);
+  opacity: 0.7;
+}
+
+.ios-file-trigger {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--ios-fill);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ios-label);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ios-file-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 14px;
+  color: var(--ios-label-2);
+}
+
+/* ─── Disclosure Chevron ─── */
+.ios-disclosure {
+  color: var(--ios-label-3);
+  flex-shrink: 0;
+}
+
+/* ─── Card ─── */
+.ios-card {
+  background: var(--ios-surface);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Expand/Collapse animation ─── */
 .detail-panel {
   max-height: 0;
   overflow: hidden;
@@ -39,13 +334,11 @@ html {
 .detail-panel.expanded {
   max-height: 80px;
 }
-
-/* Rotate chevron when expanded */
 .expand-chevron.rotate-180 {
   transform: rotate(180deg);
 }
 
-/* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
+/* ─── Prevent iOS Safari auto-zoom on inputs < 16px ─── */
 @supports (-webkit-touch-callout: none) {
   @media screen and (max-width: 767px) {
     input[type="text"],
@@ -63,28 +356,53 @@ html {
 }
 
 @layer components {
-  /* Primary action button — red-800, 44px touch target */
+  /* Primary button */
   .btn-primary {
-    @apply inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-full bg-red-800 text-white hover:bg-red-900 transition min-h-[44px];
+    @apply inline-flex items-center justify-center px-5 py-3 font-semibold rounded-xl text-white transition-opacity active:opacity-75;
+    font-size: 15px;
+    background-color: var(--ios-red);
+    min-height: 50px;
   }
 
-  /* Secondary action button — gray, same shape as primary */
+  /* Secondary button */
   .btn-secondary {
-    @apply inline-flex items-center justify-center px-4 py-2.5 text-sm rounded-full bg-gray-100 text-gray-800 border border-gray-300 hover:bg-gray-200 transition;
+    @apply inline-flex items-center justify-center px-5 py-3 font-medium rounded-xl transition-opacity active:opacity-75;
+    font-size: 15px;
+    background: var(--ios-fill);
+    color: var(--ios-label);
+    min-height: 50px;
   }
 
-  /* Card surface */
+  /* Card (legacy compat) */
   .card {
-    @apply rounded-2xl border border-gray-200 bg-white shadow-sm;
+    @apply rounded-xl bg-white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 
   /* Form input */
   .field-input {
-    @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:outline-none focus:ring-2 focus:ring-red-700;
+    @apply w-full rounded-[10px] px-3 py-2.5 outline-none transition;
+    font-size: 15px;
+    background: var(--ios-fill);
+    border: 1.5px solid transparent;
+    color: var(--ios-label);
+    min-height: 44px;
+    -webkit-appearance: none;
+  }
+  .field-input:focus {
+    border-color: var(--ios-red);
+    background: rgba(255, 59, 48, 0.06);
+  }
+  .field-input::placeholder {
+    color: var(--ios-label-2);
   }
 
-  /* Small uppercase section header label */
+  /* Section label */
   .section-label {
-    @apply text-sm font-semibold text-gray-500 uppercase tracking-wide;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--ios-label-2);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
   }
 }

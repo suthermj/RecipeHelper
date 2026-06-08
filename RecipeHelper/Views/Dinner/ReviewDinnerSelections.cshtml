@@ -3,6 +3,11 @@
 @model ReviewDinnerSelectionsVM
 
 @{
+    ViewData["Title"]     = "Ingredients";
+    ViewData["NavTitle"]  = "Ingredients";
+    ViewData["BackLink"]  = Url.Action("Index", "Dinner");
+    ViewData["BackLabel"] = "Meal Plan";
+
     var sectionOrder = new[] { "Produce", "Meat", "Dairy", "Pantry", "Bakery", "Frozen" };
 
     var grouped = Model.Ingredients
@@ -15,24 +20,15 @@
         .ToList();
 }
 
-<div class="max-w-3xl mx-auto px-4 pt-4 pb-36 space-y-5">
-
-    <!-- Header -->
-    <header>
-        <a asp-controller="Dinner" asp-action="Index"
-           class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2 transition">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Meal Plan
-        </a>
-        <h1 class="text-xl font-bold text-gray-900">Review ingredients</h1>
-        <p class="text-xs text-gray-500 mt-0.5">Tap to uncheck anything you already have at home.</p>
-    </header>
+<div class="pt-2 pb-36">
 
     @if (Model.Ingredients == null || !Model.Ingredients.Any())
     {
-        <p class="text-sm text-gray-500">No ingredients to display. Make sure you've selected at least one recipe.</p>
+        <div class="px-4 py-14 text-center">
+            <p class="text-[15px]" style="color: var(--ios-label-2);">
+                No ingredients to display. Make sure you've selected at least one recipe.
+            </p>
+        </div>
     }
     else
     {
@@ -40,68 +36,66 @@
               asp-action="PreviewAddToCart"
               method="post"
               id="add-to-kroger-form"
-              class="space-y-4 loading-form"
-              data-loading-text="Building Kroger cart items...">
+              class="loading-form"
+              data-loading-text="Building Kroger cart items…">
             @Html.AntiForgeryToken()
 
-            <!-- Search -->
-            <input type="text"
-                   id="ingredientSearch"
-                   placeholder="Search ingredients…"
-                   class="field-input" />
-
-            <!-- Bulk toggles -->
-            <div class="flex gap-2 flex-wrap">
-                <button type="button" id="selectAllBtn"
-                        class="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
-                    Select all
-                </button>
-                <button type="button" id="clearAllBtn"
-                        class="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
-                    Clear all
-                </button>
-                <button type="button" id="pantryBtn"
-                        class="px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition">
-                    Uncheck pantry
-                </button>
+            <!-- Search + bulk actions -->
+            <div class="px-4 pb-3 space-y-2">
+                <div class="ios-search-wrap">
+                    <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                    <input type="text" id="ingredientSearch" placeholder="Search ingredients…"
+                           class="ios-search-input" />
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <button type="button" id="selectAllBtn" class="ios-pill">Select all</button>
+                    <button type="button" id="clearAllBtn"  class="ios-pill">Clear all</button>
+                    <button type="button" id="pantryBtn"    class="ios-pill">Uncheck pantry</button>
+                </div>
             </div>
 
             <!-- Ingredient list grouped by section -->
-            <div id="ingredientList" class="rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <div id="ingredientList">
                 @{var i = 0;}
                 @foreach (var group in grouped)
                 {
                     <div class="section-group" data-section="@group.Key">
-                        <div class="bg-gray-700 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white">
-                            @group.Key
-                        </div>
-                        @foreach (var item in group)
-                        {
-                            <div class="ingredient-row flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 last:border-b-0 cursor-pointer select-none"
-                                 data-name="@item.Name.ToLowerInvariant()">
-                                <!-- Custom checkmark circle -->
-                                <div class="check-circle h-6 w-6 rounded-full border-2 border-gray-300 flex-shrink-0 flex items-center justify-center transition-colors bg-green-500 border-green-500">
-                                    <svg class="check-icon h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                </div>
-                                <span class="item-name flex-1 text-sm font-medium text-gray-900">@item.Name</span>
-                                <span class="text-xs text-gray-400 shrink-0">@item.DisplayQuantity @item.DisplayMeasurement</span>
+                        <p class="ios-section-hdr" style="padding-top:12px;">@group.Key</p>
+                        <div class="ios-group">
+                            @foreach (var item in group)
+                            {
+                                <div class="ingredient-row ios-cell cursor-pointer select-none transition-opacity"
+                                     data-name="@item.Name.ToLowerInvariant()"
+                                     style="border-bottom: 0.5px solid var(--ios-separator);">
+                                    <!-- Check circle -->
+                                    <div class="check-circle h-6 w-6 rounded-full shrink-0 flex items-center justify-center transition-colors"
+                                         style="background: #34C759; border: 2px solid #34C759;">
+                                        <svg class="check-icon h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <span class="item-name flex-1 text-[15px] font-medium" style="color: var(--ios-label);">@item.Name</span>
+                                    <span class="text-[13px] shrink-0" style="color: var(--ios-label-2);">
+                                        @item.DisplayQuantity @item.DisplayMeasurement
+                                    </span>
 
-                                <!-- Hidden checkbox — still submits with form -->
-                                <input type="checkbox"
-                                       name="Items[@i].Include"
-                                       value="true"
-                                       checked
-                                       class="ingredient-checkbox sr-only" />
-                                <input type="hidden" name="Items[@i].Name" value="@item.Name" />
-                                <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
-                                <input type="hidden" name="Items[@i].Quantity" value="@item.Quantity" />
-                                <input type="hidden" name="Items[@i].Modality" value="PICKUP" />
-                                <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
-                            </div>
-                            i++;
-                        }
+                                    <input type="checkbox"
+                                           name="Items[@i].Include"
+                                           value="true"
+                                           checked
+                                           class="ingredient-checkbox sr-only" />
+                                    <input type="hidden" name="Items[@i].Name"        value="@item.Name" />
+                                    <input type="hidden" name="Items[@i].Upc"         value="@item.Upc" />
+                                    <input type="hidden" name="Items[@i].Quantity"    value="@item.Quantity" />
+                                    <input type="hidden" name="Items[@i].Modality"    value="PICKUP" />
+                                    <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
+                                </div>
+                                i++;
+                            }
+                        </div>
                     </div>
                 }
             </div>
@@ -112,14 +106,17 @@
 <!-- Sticky bottom action bar -->
 @if (Model.Ingredients != null && Model.Ingredients.Any())
 {
-    <div class="fixed bottom-14 left-0 right-0 z-30 px-4 pb-3 pt-2 bg-white/95 backdrop-blur-sm border-t border-gray-200">
+    <div class="fixed inset-x-0 z-30 px-4 py-3"
+         style="bottom: calc(49px + env(safe-area-inset-bottom));
+                background: rgba(249,249,249,0.94);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border-top: 0.5px solid var(--ios-separator);">
         <div class="max-w-3xl mx-auto flex gap-3">
-            <button type="button" id="add-to-list-button"
-                    class="btn-secondary flex-1">
+            <button type="button" id="add-to-list-button" class="btn-secondary flex-1">
                 Shopping List
             </button>
-            <button type="submit" form="add-to-kroger-form" id="add-to-kroger-button"
-                    class="btn-primary flex-1">
+            <button type="submit" form="add-to-kroger-form" id="add-to-kroger-button" class="btn-primary flex-1">
                 Kroger Cart
             </button>
         </div>
@@ -128,54 +125,43 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        var form = document.getElementById('add-to-kroger-form');
-        if (!form) return;
-
+        var form      = document.getElementById('add-to-kroger-form');
         var krogerBtn = document.getElementById('add-to-kroger-button');
-        var listBtn = document.getElementById('add-to-list-button');
+        var listBtn   = document.getElementById('add-to-list-button');
 
-        if (krogerBtn) {
-            krogerBtn.addEventListener('click', function () {
-                if (form) {
-                    krogerBtn.disabled = true;
-                    krogerBtn.classList.add('opacity-70', 'cursor-not-allowed');
-                    krogerBtn.textContent = 'Adding to Kroger...';
-                    form.submit();
-                }
-            });
-        }
+        krogerBtn?.addEventListener('click', function () {
+            krogerBtn.disabled = true;
+            krogerBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            krogerBtn.textContent = 'Adding to Kroger…';
+            form.submit();
+        });
 
-        if (listBtn) {
-            listBtn.addEventListener('click', function () {
-                if (form) {
-                    form.action = '@Url.Action("CreateFromMealPlan", "ShoppingList")';
-                    listBtn.disabled = true;
-                    listBtn.classList.add('opacity-70', 'cursor-not-allowed');
-                    listBtn.textContent = 'Creating list...';
-                    form.submit();
-                }
-            });
-        }
+        listBtn?.addEventListener('click', function () {
+            form.action = '@Url.Action("CreateFromMealPlan", "ShoppingList")';
+            listBtn.disabled = true;
+            listBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            listBtn.textContent = 'Creating list…';
+            form.submit();
+        });
 
-        // Row tap → toggle checked state
         function setRowState(row, checked) {
             var circle = row.querySelector('.check-circle');
-            var icon = row.querySelector('.check-icon');
-            var name = row.querySelector('.item-name');
-            var cb = row.querySelector('.ingredient-checkbox');
+            var icon   = row.querySelector('.check-icon');
+            var name   = row.querySelector('.item-name');
+            var cb     = row.querySelector('.ingredient-checkbox');
 
             if (checked) {
-                row.classList.remove('opacity-40');
-                if (circle) { circle.classList.add('bg-green-500', 'border-green-500'); circle.classList.remove('border-gray-300', 'bg-white'); }
-                if (icon) icon.classList.remove('hidden');
-                if (name) name.classList.remove('line-through', 'text-gray-400');
-                if (cb) cb.checked = true;
+                row.style.opacity = '';
+                if (circle) { circle.style.background = '#34C759'; circle.style.borderColor = '#34C759'; }
+                if (icon)   icon.classList.remove('hidden');
+                if (name)   { name.style.textDecoration = ''; name.style.color = ''; }
+                if (cb)     cb.checked = true;
             } else {
-                row.classList.add('opacity-40');
-                if (circle) { circle.classList.remove('bg-green-500', 'border-green-500'); circle.classList.add('border-gray-300', 'bg-white'); }
-                if (icon) icon.classList.add('hidden');
-                if (name) name.classList.add('line-through', 'text-gray-400');
-                if (cb) cb.checked = false;
+                row.style.opacity = '0.4';
+                if (circle) { circle.style.background = 'var(--ios-fill)'; circle.style.borderColor = 'var(--ios-separator)'; }
+                if (icon)   icon.classList.add('hidden');
+                if (name)   { name.style.textDecoration = 'line-through'; name.style.color = 'var(--ios-label-2)'; }
+                if (cb)     cb.checked = false;
             }
         }
 
@@ -186,46 +172,40 @@
             setRowState(row, !cb.checked);
         });
 
-        // Search
         var searchInput = document.getElementById('ingredientSearch');
-        if (searchInput) {
-            searchInput.addEventListener('input', function () {
-                var term = this.value.toLowerCase().trim();
-                document.querySelectorAll('.section-group').forEach(function (group) {
-                    var visibleCount = 0;
-                    group.querySelectorAll('.ingredient-row').forEach(function (row) {
-                        var matches = !term || row.dataset.name.includes(term);
-                        row.classList.toggle('hidden', !matches);
-                        if (matches) visibleCount++;
-                    });
-                    group.classList.toggle('hidden', visibleCount === 0);
+        searchInput?.addEventListener('input', function () {
+            var term = this.value.toLowerCase().trim();
+            document.querySelectorAll('.section-group').forEach(function (group) {
+                var visibleCount = 0;
+                group.querySelectorAll('.ingredient-row').forEach(function (row) {
+                    var matches = !term || row.dataset.name.includes(term);
+                    row.classList.toggle('hidden', !matches);
+                    if (matches) visibleCount++;
                 });
+                group.classList.toggle('hidden', visibleCount === 0);
             });
-        }
+        });
 
-        // Bulk toggles
         var pantryKeywords = [
-            'olive oil', 'vegetable oil', 'canola oil', 'cooking oil',
-            'salt', 'pepper', 'black pepper',
-            'garlic powder', 'onion powder', 'baking powder', 'baking soda',
-            'brown sugar', 'sugar', 'flour', 'cornstarch',
-            'vinegar', 'soy sauce', 'butter', 'water',
-            'paprika', 'cumin', 'oregano', 'basil', 'thyme', 'cinnamon', 'oil'
+            'olive oil','vegetable oil','canola oil','cooking oil',
+            'salt','pepper','black pepper',
+            'garlic powder','onion powder','baking powder','baking soda',
+            'brown sugar','sugar','flour','cornstarch',
+            'vinegar','soy sauce','butter','water',
+            'paprika','cumin','oregano','basil','thyme','cinnamon','oil'
         ];
 
         document.getElementById('selectAllBtn')?.addEventListener('click', function () {
             document.querySelectorAll('.ingredient-row').forEach(function (row) { setRowState(row, true); });
         });
-
         document.getElementById('clearAllBtn')?.addEventListener('click', function () {
             document.querySelectorAll('.ingredient-row').forEach(function (row) { setRowState(row, false); });
         });
-
         document.getElementById('pantryBtn')?.addEventListener('click', function () {
             document.querySelectorAll('.ingredient-row').forEach(function (row) {
-                var name = row.dataset.name;
-                var isPantry = pantryKeywords.some(function (kw) { return name.includes(kw); });
-                if (isPantry) setRowState(row, false);
+                if (pantryKeywords.some(function (kw) { return row.dataset.name.includes(kw); })) {
+                    setRowState(row, false);
+                }
             });
         });
     });

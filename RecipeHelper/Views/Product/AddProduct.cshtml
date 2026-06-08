@@ -1,182 +1,123 @@
-﻿@model RecipeHelper.Models.Products.ProductSearchVM
+@model RecipeHelper.Models.Products.ProductSearchVM
 
 @{
-    ViewData["Title"] = "Search Products";
+    ViewData["Title"]    = "Add Product";
+    ViewData["NavTitle"] = "Add Product";
+    ViewData["BackLink"] = Url.Action("Products", "Product");
+    ViewData["BackLabel"] = "Products";
     var imgBase = "https://www.kroger.com/product/images/large/front/";
 }
 
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-20 space-y-4">
+<div class="pt-2 pb-32">
 
-    <!-- Header -->
-    <div class="sticky top-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-white/90 backdrop-blur border-b border-gray-200">
-        <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-                <h1 class="text-lg sm:text-2xl font-bold text-gray-900 leading-tight">Product search</h1>
-                <p class="text-sm text-gray-600">Search Kroger and add items to your database</p>
-            </div>
-
-            <a href="@Url.Action("Products", "Product")"
-               class="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                ← Back
-            </a>
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div id="toastSuccess" class="mx-4 mb-3 rounded-2xl px-4 py-3 text-[14px]"
+             style="background: #E8F8E8; color: #1A6B1A;">
+            @TempData["SuccessMessage"]?.ToString()
         </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div id="toastError" class="mx-4 mb-3 rounded-2xl px-4 py-3 text-[14px]"
+             style="background: #FFF0F0; color: var(--ios-red);">
+            @TempData["ErrorMessage"]?.ToString()
+        </div>
+    }
 
-        <!-- Alerts -->
-        @if (TempData["SuccessMessage"] != null)
-        {
-            <div id="toastSuccess" class="mt-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <span class="font-semibold">Success: </span>@TempData["SuccessMessage"]?.ToString()
-                </div>
-                <button type="button"
-                        class="shrink-0 rounded-lg px-2 py-1 text-green-900/70 hover:bg-green-100"
-                        onclick="document.getElementById('toastSuccess')?.remove()">
-                    ✕
-                </button>
+    <!-- Search form -->
+    <form asp-action="SearchProduct" asp-controller="Product" method="post" class="px-4 pb-3">
+        <div class="flex gap-2 items-center">
+            <div class="ios-search-wrap flex-1">
+                <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input id="searchTerm" type="text" name="SearchTerm"
+                       value="@Model.SearchTerm"
+                       placeholder="Search Kroger products…"
+                       required autocomplete="off"
+                       class="ios-search-input" />
             </div>
-        }
-
-        @if (TempData["ErrorMessage"] != null)
-        {
-            <div id="toastError" class="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <span class="font-semibold">Error: </span>@TempData["ErrorMessage"]?.ToString()
-                </div>
-                <button type="button"
-                        class="shrink-0 rounded-lg px-2 py-1 text-red-900/70 hover:bg-red-100"
-                        onclick="document.getElementById('toastError')?.remove()">
-                    ✕
-                </button>
-            </div>
-        }
-
-        <!-- Search form -->
-        <form asp-action="SearchProduct" asp-controller="Product" method="post" class="mt-3">
-            <div class="flex flex-col sm:flex-row gap-2">
-                <div class="relative flex-1">
-                    <input id="searchTerm"
-                           type="text"
-                           name="SearchTerm"
-                           value="@Model.SearchTerm"
-                           placeholder="Search products…"
-                           required
-                           autocomplete="off"
-                           class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 pl-10 text-sm text-gray-900 placeholder:text-gray-400 focus:border-red-700 focus:ring-2 focus:ring-red-700" />
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
-                </div>
-
-                <button type="submit"
-                        class="inline-flex items-center justify-center rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900">
-                    Search
-                </button>
-            </div>
-
-            <p class="mt-2 text-[0.75rem] text-gray-500">
-                Tip: Search broad terms first (e.g., “chicken”, “broth”, “yogurt”).
-            </p>
-        </form>
-    </div>
+            <button type="submit" class="ios-btn-text font-semibold" style="font-size:15px; white-space:nowrap;">Search</button>
+        </div>
+        <p class="text-[12px] mt-2 px-1" style="color: var(--ios-label-2);">
+            Tip: Search broad terms — "chicken", "broth", "yogurt".
+        </p>
+    </form>
 
     @if (Model.ProductSearchResults != null && Model.ProductSearchResults.Any())
     {
-        <form asp-action="AddSelectedProducts" asp-controller="Product" method="post" id="resultsForm" class="space-y-3">
-            <div class="flex items-center justify-between">
-                <h2 class="text-base sm:text-lg font-semibold text-gray-900">
-                    Results
-                    <span class="text-sm font-normal text-gray-500">(@Model.ProductSearchResults.Count())</span>
-                </h2>
-
-                <button type="button"
-                        id="clearSelections"
-                        class="hidden sm:inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                    Clear selections
-                </button>
+        <form asp-action="AddSelectedProducts" asp-controller="Product" method="post" id="resultsForm">
+            <div class="flex items-center justify-between px-4 pb-2">
+                <p class="text-[13px]" style="color: var(--ios-label-2);">
+                    @Model.ProductSearchResults.Count() result@(Model.ProductSearchResults.Count() == 1 ? "" : "s")
+                </p>
+                <button type="button" id="clearSelections" class="hidden ios-btn-text-sm">Clear selections</button>
             </div>
 
-            <div class="grid grid-cols-1 gap-3">
+            <div class="px-4 space-y-2">
                 @foreach (var product in Model.ProductSearchResults)
                 {
                     var upc = product.upc ?? "";
                     var name = product.name ?? "";
                     var price = product.regularPrice;
 
-                    <label class="group flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm hover:shadow-md transition cursor-pointer">
-                        <div class="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 border border-gray-200">
+                    <label class="ios-card flex items-center gap-3 p-3 cursor-pointer active:opacity-75 transition-opacity">
+                        <div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl" style="background: var(--ios-fill);">
                             <img src="@(imgBase + upc)"
                                  alt="@name"
                                  class="h-full w-full object-cover"
                                  loading="lazy"
                                  onerror="this.onerror=null; this.src='@Url.Content("~/images/default-product.png")';" />
                         </div>
-
                         <div class="min-w-0 flex-1">
-                            <div class="text-sm sm:text-base font-semibold text-gray-900 leading-snug line-clamp-2">
-                                @name
-                            </div>
-                            <div class="mt-1 text-sm text-gray-600">
-                                $@price.ToString("0.00")
-                            </div>
+                            <p class="text-[15px] font-semibold leading-snug line-clamp-2" style="color: var(--ios-label);">@name</p>
+                            <p class="text-[13px] mt-0.5" style="color: var(--ios-label-2);">$@price.ToString("0.00")</p>
                         </div>
-
-                        <div class="flex items-center gap-2">
-                            <input type="checkbox"
-                                   class="product-checkbox h-5 w-5 rounded border-gray-300 text-red-800 focus:ring-red-700"
-                                   data-upc="@upc" />
-
-                            <!-- These are enabled only when checked (matches your current server handling) -->
-                            <input type="hidden" name="selectedProducts" value="@upc" disabled>
-                            <input type="hidden" name="productNames[@upc]" value="@name" disabled>
-                            <input type="hidden" name="productPrices[@upc]" value="@price" disabled>
-                        </div>
+                        <input type="checkbox" class="product-checkbox h-6 w-6 rounded-full shrink-0"
+                               style="accent-color: var(--ios-red);"
+                               data-upc="@upc" />
+                        <input type="hidden" name="selectedProducts" value="@upc" disabled>
+                        <input type="hidden" name="productNames[@upc]" value="@name" disabled>
+                        <input type="hidden" name="productPrices[@upc]" value="@price" disabled>
                     </label>
                 }
-            </div>
-
-            <!-- Sticky bottom action bar (only shows when selections exist) -->
-            <div id="actionBar"
-                 class="fixed left-0 right-0 bottom-0 z-20 hidden">
-                <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
-                    <div class="rounded-2xl border border-gray-200 bg-white/95 backdrop-blur shadow-lg p-3 flex items-center justify-between gap-3">
-                        <div class="text-sm text-gray-700">
-                            <span class="font-semibold" id="selectedCount">0</span> selected
-                        </div>
-
-                        <div class="flex gap-2">
-                            <button type="button"
-                                    id="clearSelectionsMobile"
-                                    class="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                                Clear
-                            </button>
-
-                            <button type="submit"
-                                    class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-                                Add selected
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </form>
     }
     else if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
     {
-        <div class="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-            <div class="text-lg font-semibold text-gray-900">No results</div>
-            <p class="mt-1 text-sm text-gray-600">Try a different search term.</p>
+        <div class="mx-4 ios-card p-8 text-center">
+            <p class="text-[15px] font-semibold" style="color: var(--ios-label);">No results</p>
+            <p class="text-[13px] mt-1" style="color: var(--ios-label-2);">Try a different search term.</p>
         </div>
     }
     else
     {
-        <div class="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-            <div class="text-lg font-semibold text-gray-900">Search for a product</div>
-            <p class="mt-1 text-sm text-gray-600">Enter a product name above to see results.</p>
+        <div class="mx-4 ios-card p-8 text-center">
+            <p class="text-[15px] font-semibold" style="color: var(--ios-label);">Search for a product</p>
+            <p class="text-[13px] mt-1" style="color: var(--ios-label-2);">Enter a product name above to see Kroger results.</p>
         </div>
     }
 </div>
 
+<!-- Sticky action bar -->
+<div id="actionBar" class="hidden fixed inset-x-0 z-30 px-4 py-3"
+     style="bottom: calc(49px + env(safe-area-inset-bottom));
+            background: rgba(249,249,249,0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 0.5px solid var(--ios-separator);">
+    <div class="flex items-center gap-3">
+        <span class="text-[14px]" style="color: var(--ios-label-2);"><span id="selectedCount">0</span> selected</span>
+        <button type="button" id="clearSelectionsMobile" class="ios-btn-text-sm">Clear</button>
+        <button type="submit" form="resultsForm" class="btn-primary flex-1">Add selected</button>
+    </div>
+</div>
+
 <script>
     (function () {
-        // Auto-dismiss toasts
         const success = document.getElementById('toastSuccess');
         const error = document.getElementById('toastError');
         if (success) setTimeout(() => success.remove(), 6000);
@@ -219,8 +160,6 @@
                 updateHiddenInputsFor(cb);
                 updateActionBar();
             });
-
-            // initial state
             updateHiddenInputsFor(cb);
         });
 

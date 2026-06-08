@@ -112,10 +112,15 @@
     <!-- Instructions -->
     @if (hasInstructions)
     {
-        <p class="ios-section-hdr">
-            Instructions
-            <span class="ios-badge ios-badge-gray ml-1">@Model.Instructions.Count step@(Model.Instructions.Count == 1 ? "" : "s")</span>
-        </p>
+        <div class="ios-section-hdr" style="display:flex; align-items:center; justify-content:space-between; padding-right:16px;">
+            <span>
+                Instructions
+                <span class="ios-badge ios-badge-gray ml-1">@Model.Instructions.Count step@(Model.Instructions.Count == 1 ? "" : "s")</span>
+            </span>
+            <button type="button" id="startCookingBtn" class="ios-btn-text-sm">
+                Start Cooking
+            </button>
+        </div>
         <div class="ios-group">
             <ol id="stepsOl">
                 @for (var i = 0; i < Model.Instructions.Count; i++)
@@ -135,6 +140,105 @@
         </div>
     }
 </div>
+
+<!-- ═══ COOK MODE OVERLAY ══════════════════════════════════════════════ -->
+<div id="cookOverlay"
+     style="display:none; position:fixed; inset:0; z-index:110; background:var(--ios-bg); flex-direction:column;">
+
+    <!-- Header -->
+    <div style="flex-shrink:0; padding-top:env(safe-area-inset-top); background:rgba(249,249,249,0.94); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:0.5px solid var(--ios-separator);">
+        <div style="height:44px; display:flex; align-items:center; gap:8px; padding:0 16px;">
+            <span id="cookCounter" style="font-size:13px; color:var(--ios-label-2); flex-shrink:0; white-space:nowrap;"></span>
+            <span style="font-size:15px; font-weight:600; color:var(--ios-label); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center;">@Model.RecipeName</span>
+            <button type="button" id="cookClose"
+                    style="flex-shrink:0; width:32px; height:32px; border-radius:50%; background:var(--ios-fill); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;">
+                <svg style="width:16px;height:16px;color:var(--ios-label-2);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" pointer-events="none">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Body: step text -->
+    <div id="cookBody"
+         style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:32px 24px 16px; display:flex; align-items:flex-start;">
+        <p id="cookStepText"
+           style="font-size:22px; font-weight:400; line-height:1.55; color:var(--ios-label); width:100%;"></p>
+    </div>
+
+    <!-- Footer -->
+    <div style="flex-shrink:0; padding:12px 16px; padding-bottom:calc(env(safe-area-inset-bottom) + 16px); background:rgba(249,249,249,0.94); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-top:0.5px solid var(--ios-separator);">
+        <div style="display:flex; gap:12px; margin-bottom:10px;">
+            <button type="button" id="cookPrev" class="btn-secondary" style="flex:1;">← Prev</button>
+            <button type="button" id="cookNext" class="btn-primary" style="flex:1;">Next →</button>
+        </div>
+        @if (hasIngredients)
+        {
+            <div style="text-align:center;">
+                <button type="button" id="cookShowIngredients" class="ios-btn-text-sm">View Ingredients</button>
+            </div>
+        }
+    </div>
+
+    <!-- Nested ingredient bottom sheet -->
+    @if (hasIngredients)
+    {
+        <div id="cookIngrSheet"
+             style="position:absolute; inset:0; z-index:1; background-color:transparent; pointer-events:none; transition:background-color 0.25s ease; display:flex; align-items:flex-end;">
+            <div id="cookIngrCard"
+                 style="width:100%; background:var(--ios-surface); border-radius:20px 20px 0 0; max-height:80svh; display:flex; flex-direction:column; transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.32,0.72,0,1); will-change:transform; padding-bottom:env(safe-area-inset-bottom);">
+                <!-- Drag pill -->
+                <div style="display:flex; justify-content:center; padding:10px 0 4px;">
+                    <div style="width:36px; height:4px; border-radius:2px; background:var(--ios-separator);"></div>
+                </div>
+                <!-- Sheet header -->
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 16px 12px; border-bottom:0.5px solid var(--ios-separator);">
+                    <span style="font-size:17px; font-weight:600; color:var(--ios-label);">
+                        Ingredients
+                        <span class="ios-badge ios-badge-gray" style="margin-left:4px;">@Model.Ingredients.Count</span>
+                    </span>
+                    <button type="button" id="cookIngrClose"
+                            style="width:32px; height:32px; border-radius:50%; background:var(--ios-fill); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;">
+                        <svg style="width:16px;height:16px;color:var(--ios-label-2);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" pointer-events="none">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <!-- Ingredient list -->
+                <div style="overflow-y:auto; -webkit-overflow-scrolling:touch; flex:1;">
+                    <div class="ios-group" style="margin:0; border-radius:0;">
+                        @{
+                            string? cookLastSection = null;
+                        }
+                        @foreach (var ingredient in Model.Ingredients)
+                        {
+                            if (ingredient.Section != cookLastSection)
+                            {
+                                cookLastSection = ingredient.Section;
+                                if (!string.IsNullOrEmpty(cookLastSection))
+                                {
+                                    <div class="px-4 py-2 text-[12px] font-semibold uppercase tracking-wide"
+                                         style="color:var(--ios-label-2); background:rgba(242,242,247,0.6); border-bottom:0.5px solid var(--ios-separator);">
+                                        @cookLastSection
+                                    </div>
+                                }
+                            }
+                            <div class="ios-cell">
+                                <span class="text-[15px] font-semibold min-w-[72px]" style="color:var(--ios-label);">
+                                    @ingredient.DisplayQuantity @ingredient.DisplayMeasurement
+                                </span>
+                                <span class="text-[15px] flex-1" style="color:var(--ios-label-2);">
+                                    @ingredient.Name
+                                </span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+<!-- ═══ END COOK MODE OVERLAY ══════════════════════════════════════════ -->
 
 @section Scripts {
     <script>
@@ -162,6 +266,116 @@
                 const num = li.querySelector('.step-number');
                 if (num) { num.style.background = '#CC2F26'; num.style.transform = 'scale(1.1)'; }
             });
+        })();
+
+        // ── Cook Mode ──────────────────────────────────────────────────────
+        (function () {
+            var steps = @Json.Serialize(Model.Instructions);
+            if (!steps || steps.length === 0) return;
+
+            var cookStep = 0;
+            var wakeLock = null;
+            var cookOpen = false;
+
+            var overlay    = document.getElementById('cookOverlay');
+            var stepText   = document.getElementById('cookStepText');
+            var counter    = document.getElementById('cookCounter');
+            var prevBtn    = document.getElementById('cookPrev');
+            var nextBtn    = document.getElementById('cookNext');
+            var closeBtn   = document.getElementById('cookClose');
+            var startBtn   = document.getElementById('startCookingBtn');
+            var cookBody   = document.getElementById('cookBody');
+            var ingrSheet  = document.getElementById('cookIngrSheet');
+            var ingrCard   = document.getElementById('cookIngrCard');
+            var showIngrBtn  = document.getElementById('cookShowIngredients');
+            var ingrCloseBtn = document.getElementById('cookIngrClose');
+
+            function renderStep() {
+                stepText.textContent = steps[cookStep];
+                counter.textContent  = 'Step ' + (cookStep + 1) + ' of ' + steps.length;
+                prevBtn.disabled     = cookStep === 0;
+                prevBtn.style.opacity = cookStep === 0 ? '0.4' : '';
+                nextBtn.textContent  = cookStep === steps.length - 1 ? 'Done ✓' : 'Next →';
+            }
+
+            function openCookMode() {
+                cookStep = 0;
+                renderStep();
+                overlay.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                cookOpen = true;
+                requestWakeLock();
+            }
+
+            function closeCookMode() {
+                if (ingrSheet) closeIngrSheet();
+                overlay.style.display = 'none';
+                document.body.style.overflow = '';
+                cookOpen = false;
+                releaseWakeLock();
+            }
+
+            function goNext() {
+                if (cookStep < steps.length - 1) { cookStep++; renderStep(); }
+                else closeCookMode();
+            }
+
+            function goPrev() {
+                if (cookStep > 0) { cookStep--; renderStep(); }
+            }
+
+            async function requestWakeLock() {
+                try {
+                    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+                } catch (e) {}
+            }
+
+            function releaseWakeLock() {
+                try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {}
+            }
+
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible' && cookOpen) requestWakeLock();
+            });
+
+            function openIngrSheet() {
+                ingrSheet.style.backgroundColor = 'rgba(0,0,0,0.4)';
+                ingrSheet.style.pointerEvents = 'auto';
+                ingrCard.style.transform = 'translateY(0)';
+            }
+
+            function closeIngrSheet() {
+                ingrSheet.style.backgroundColor = 'transparent';
+                ingrSheet.style.pointerEvents = 'none';
+                ingrCard.style.transform = 'translateY(100%)';
+            }
+
+            // Swipe left/right on step text to navigate
+            if (cookBody) {
+                var swX = 0, swY = 0;
+                cookBody.addEventListener('touchstart', function (e) {
+                    swX = e.touches[0].clientX; swY = e.touches[0].clientY;
+                }, { passive: true });
+                cookBody.addEventListener('touchend', function (e) {
+                    var dx = e.changedTouches[0].clientX - swX;
+                    var dy = e.changedTouches[0].clientY - swY;
+                    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+                        if (dx < 0) goNext(); else goPrev();
+                    }
+                }, { passive: true });
+            }
+
+            if (startBtn)    startBtn.addEventListener('click', openCookMode);
+            if (closeBtn)    closeBtn.addEventListener('click', closeCookMode);
+            if (prevBtn)     prevBtn.addEventListener('click', goPrev);
+            if (nextBtn)     nextBtn.addEventListener('click', goNext);
+            if (showIngrBtn) showIngrBtn.addEventListener('click', openIngrSheet);
+            if (ingrCloseBtn) ingrCloseBtn.addEventListener('click', closeIngrSheet);
+            if (ingrSheet) {
+                ingrSheet.addEventListener('click', function (e) {
+                    if (e.target === ingrSheet) closeIngrSheet();
+                });
+            }
         })();
     </script>
 }

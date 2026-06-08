@@ -180,6 +180,38 @@ html {
   color: #fff;
 }
 
+.ios-choice-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ios-choice-pill {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--ios-fill);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ios-label);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ios-choice-input:checked + .ios-choice-pill {
+  background: var(--ios-red);
+  color: #fff;
+}
+
+.ios-choice-input:focus-visible + .ios-choice-pill {
+  outline: 2px solid rgba(255, 59, 48, 0.3);
+  outline-offset: 2px;
+}
+
 /* ─── Badge ─── */
 .ios-badge {
   display: inline-flex;

@@ -29,7 +29,6 @@
                 <span asp-validation-for="Title" class="text-[12px]" style="color: var(--ios-red);"></span>
             </div>
             <div class="ios-cell flex-col items-stretch gap-1 py-3">
-                <label class="text-[13px]" style="color: var(--ios-label-2);">Image (optional)</label>
                 <div class="flex items-center gap-3 flex-wrap">
                     <label for="recipeImageFile" class="ios-file-trigger">Choose Photo</label>
                     <span id="recipeImageFileName" class="ios-file-name">No photo selected</span>
@@ -43,14 +42,14 @@
         <!-- Category -->
         <p class="ios-section-hdr">Category</p>
         <div class="ios-group">
-            <div class="ios-cell flex-wrap gap-x-5 gap-y-3 py-3">
+            <div class="ios-cell flex-wrap gap-2 py-3">
                 @foreach (var cat in new[] { "Dinner", "Lunch", "Breakfast", "Side", "Dessert", "Snack", "Appetizer" })
                 {
-                    <label class="flex items-center gap-2 text-[15px] cursor-pointer" style="color: var(--ios-label);">
-                        <input type="radio" name="DinnerCategory" value="@cat"
-                               style="accent-color: var(--ios-red);" />
-                        @cat
-                    </label>
+                    var inputId = $"create-category-{cat.ToLowerInvariant()}";
+                    <div class="relative">
+                        <input id="@inputId" class="ios-choice-input" type="radio" name="DinnerCategory" value="@cat" />
+                        <label for="@inputId" class="ios-choice-pill">@cat</label>
+                    </div>
                 }
             </div>
         </div>

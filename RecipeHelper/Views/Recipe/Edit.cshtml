@@ -50,15 +50,15 @@
         <!-- Category -->
         <p class="ios-section-hdr">Category</p>
         <div class="ios-group">
-            <div class="ios-cell flex-wrap gap-x-5 gap-y-3 py-3">
+            <div class="ios-cell flex-wrap gap-2 py-3">
                 @foreach (var cat in new[] { "Dinner", "Lunch", "Breakfast", "Side", "Dessert", "Snack", "Appetizer" })
                 {
-                    <label class="flex items-center gap-2 text-[15px] cursor-pointer" style="color: var(--ios-label);">
-                        <input type="radio" name="DinnerCategory" value="@cat"
-                               style="accent-color: var(--ios-red);"
+                    var inputId = $"edit-category-{cat.ToLowerInvariant()}";
+                    <div class="relative">
+                        <input id="@inputId" class="ios-choice-input" type="radio" name="DinnerCategory" value="@cat"
                                @(Model.DinnerCategory == cat ? "checked" : "") />
-                        @cat
-                    </label>
+                        <label for="@inputId" class="ios-choice-pill">@cat</label>
+                    </div>
                 }
             </div>
         </div>

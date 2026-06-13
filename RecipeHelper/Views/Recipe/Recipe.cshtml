@@ -6,7 +6,7 @@
 @model List<ViewRecipeVM>
 
 @section NavRight {
-    <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="ios-btn-text text-[28px] leading-none font-light">+</a>
+    <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="ios-btn-text inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-[28px] leading-none font-light">+</a>
 }
 
 <div class="pt-2 pb-4">
@@ -42,7 +42,7 @@
     else
     {
         <!-- Sticky search + filter bar -->
-        <div class="sticky sticky-below-status z-30 pb-2"
+        <div class="sticky sticky-below-nav z-30 pb-2"
              style="background: rgba(242,242,247,0.94); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
 
             <!-- Search row -->
@@ -124,41 +124,6 @@
             </button>
         </div>
     }
-</div>
-
-<div id="recipeQuickAddSheet"
-     class="ios-action-sheet-backdrop hidden"
-     aria-hidden="true">
-    <div class="ios-action-sheet" role="dialog" aria-modal="true" aria-labelledby="recipeQuickAddTitle">
-        <div class="flex justify-center pt-2.5 pb-1 sm:hidden">
-            <div class="w-9 h-1 rounded-full" style="background: var(--ios-separator);"></div>
-        </div>
-        <div class="px-4 pt-2 pb-3 text-center">
-            <p id="recipeQuickAddTitle" class="text-[17px] font-semibold" style="color: var(--ios-label);">Add a recipe</p>
-            <p class="mt-1 text-[13px]" style="color: var(--ios-label-2);">Choose how you want to start.</p>
-        </div>
-        <div class="px-4 pb-4 space-y-2">
-            <a asp-controller="Recipe"
-               asp-action="CreateEditRecipe"
-               class="ios-action-sheet-option">
-                <span class="font-semibold" style="color: var(--ios-label);">Create manually</span>
-                <span style="color: var(--ios-label-2);">Start with a blank recipe.</span>
-            </a>
-            <a asp-controller="Import"
-               asp-action="ImportRecipe"
-               class="ios-action-sheet-option">
-                <span class="font-semibold" style="color: var(--ios-label);">Import from link</span>
-                <span style="color: var(--ios-label-2);">Paste a recipe URL to pull it in.</span>
-            </a>
-            <button type="button"
-                    class="ios-action-sheet-option ios-action-sheet-option-disabled"
-                    disabled>
-                <span class="font-semibold" style="color: var(--ios-label-2);">Import from photo</span>
-                <span style="color: var(--ios-label-2);">Coming soon.</span>
-            </button>
-            <button type="button" id="recipeQuickAddCancel" class="btn-secondary w-full">Cancel</button>
-        </div>
-    </div>
 </div>
 
 @section Scripts {

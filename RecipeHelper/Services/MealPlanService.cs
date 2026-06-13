@@ -110,6 +110,14 @@ namespace RecipeHelper.Services
                 await _context.SaveChangesAsync();
             }
 
+            if (plan.Entries.Any(e => e.RecipeId == recipeId))
+            {
+                return await _context.MealPlans
+                    .Include(p => p.Entries)
+                        .ThenInclude(e => e.Recipe)
+                    .FirstAsync(p => p.Id == plan.Id);
+            }
+
             plan.Entries.Add(new MealPlanEntry
             {
                 MealPlanId = plan.Id,
@@ -123,6 +131,26 @@ namespace RecipeHelper.Services
                 .Include(p => p.Entries)
                     .ThenInclude(e => e.Recipe)
                 .FirstAsync(p => p.Id == plan.Id);
+        }
+
+        public async Task<MealPlan?> MoveEntryAsync(int entryId, int dayOfWeek)
+        {
+            if (dayOfWeek < 0 || dayOfWeek > 6)
+                throw new ArgumentOutOfRangeException(nameof(dayOfWeek));
+
+            var entry = await _context.MealPlanEntries
+                .Include(e => e.MealPlan)
+                .FirstOrDefaultAsync(e => e.Id == entryId);
+
+            if (entry == null) return null;
+
+            entry.DayOfWeek = dayOfWeek;
+            await _context.SaveChangesAsync();
+
+            return await _context.MealPlans
+                .Include(p => p.Entries)
+                    .ThenInclude(e => e.Recipe)
+                .FirstAsync(p => p.Id == entry.MealPlanId);
         }
 
         // Removes a single entry by id. Deletes the plan when the last entry is cleared.

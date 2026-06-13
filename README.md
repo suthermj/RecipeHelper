@@ -107,6 +107,21 @@ Open [https://localhost:7127](https://localhost:7127)
 bash deploy/deploy.sh
 ```
 
+## UI Testing
+
+The app is designed as a mobile-first iOS PWA, so UI changes must be verified on a phone-sized viewport. [Playwright](https://playwright.dev/) is used for this with an `iPhone 14` device profile.
+
+```bash
+# From RecipeHelper/ — install once
+npm install --save-dev @playwright/test
+npx playwright install chromium
+
+# Run tests (interactive visual mode recommended)
+npx playwright test --ui
+```
+
+See `CLAUDE.md` for the full iOS-specific checklist (safe area, tab bar, touch targets, z-index layers, etc.).
+
 ## Key Flows
 
 ### Recipe Import

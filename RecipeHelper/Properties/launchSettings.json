@@ -37,6 +37,15 @@
         "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Basic MTY2NTU0MzpnbGNfZXlKdklqb2lNVGM0TmpRME55SXNJbTRpT2lKeVpXTnBjR1V0YUdWc2NHVnlJaXdpYXlJNklqZHlhamN3ZURaV2FqVllOelIyYkRGTWJWWk9aa2N4TnlJc0ltMGlPbnNpY2lJNkluQnliMlF0ZFhNdFpXRnpkQzB6SW4xOQ=="
       }
     },
+    "Production (local)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "https://localhost:7127;http://localhost:5074",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Production"
+      }
+    },
     "IIS Express": {
       "commandName": "IISExpress",
       "launchBrowser": true,

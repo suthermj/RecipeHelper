@@ -37,6 +37,11 @@ html {
   top: var(--ios-nav-offset);
 }
 
+/* ─── Sticky just below the status bar (no nav bar present) ─── */
+.sticky-below-status {
+  top: env(safe-area-inset-top);
+}
+
 /* ─── iOS Navigation Bar ─── */
 .ios-nav {
   position: sticky;

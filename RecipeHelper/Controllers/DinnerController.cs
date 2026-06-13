@@ -73,6 +73,15 @@ namespace RecipeHelper.Controllers
             return Json(BuildPlanJson(plan));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MoveEntry(int entryId, int dayOfWeek)
+        {
+            var plan = await _mealPlanService.MoveEntryAsync(entryId, dayOfWeek);
+            if (plan == null) return NotFound();
+            return Json(BuildPlanJson(plan));
+        }
+
         // POST: Dinner/DeletePlan/5
         [HttpPost]
         [ValidateAntiForgeryToken]

@@ -31,32 +31,38 @@
 
 <div class="pt-2 pb-4">
 
-    <!-- Large title + week nav -->
+    <!-- Week nav -->
     <div class="px-4 pb-3">
-        <h1 class="ios-large-title mb-3">Meal Plan</h1>
-
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 rounded-2xl px-2 py-2"
+             style="background: linear-gradient(135deg, rgba(255,59,48,0.12), rgba(255,149,0,0.10)); border: 0.5px solid rgba(255,59,48,0.14); box-shadow: 0 2px 8px rgba(255,59,48,0.08);">
             <a asp-action="Index" asp-route-weekStart="@prevWeek.ToString("yyyy-MM-dd")"
-               class="flex items-center justify-center h-9 w-9 rounded-full transition active:opacity-50"
-               style="background: var(--ios-fill);" title="Previous week">
+               class="flex items-center justify-center h-10 w-10 rounded-full transition active:opacity-50 shrink-0"
+               style="background: rgba(255,255,255,0.68); color: var(--ios-label); box-shadow: 0 1px 3px rgba(0,0,0,0.06);" aria-label="Previous week">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                 </svg>
             </a>
 
             <div class="text-center flex-1 min-w-0">
-                <p class="text-[15px] font-semibold truncate" style="color: var(--ios-label);">
+                <p class="text-[13px] font-medium leading-tight" style="color: var(--ios-label-2);">
+                    @(isCurrentWeek ? "Current week" : "Viewing week")
+                </p>
+                <p class="text-[16px] font-semibold truncate leading-tight mt-0.5" style="color: var(--ios-label);">
                     @WeekRange(weekStart, weekEnd)
                 </p>
                 @if (!isCurrentWeek)
                 {
-                    <a asp-action="Index" class="text-[13px]" style="color: var(--ios-red);">← Current week</a>
+                    <a asp-action="Index"
+                       class="inline-flex items-center justify-center mt-1 px-3 h-7 rounded-full text-[13px] font-semibold"
+                       style="background: rgba(255,255,255,0.72); color: var(--ios-red); text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                        Current week
+                    </a>
                 }
             </div>
 
             <a asp-action="Index" asp-route-weekStart="@nextWeek.ToString("yyyy-MM-dd")"
-               class="flex items-center justify-center h-9 w-9 rounded-full transition active:opacity-50"
-               style="background: var(--ios-fill);" title="Next week">
+               class="flex items-center justify-center h-10 w-10 rounded-full transition active:opacity-50 shrink-0"
+               style="background: rgba(255,255,255,0.68); color: var(--ios-label); box-shadow: 0 1px 3px rgba(0,0,0,0.06);" aria-label="Next week">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                 </svg>
@@ -89,7 +95,7 @@
                     <div class="day-entries space-y-1" data-day="@d">
                         @foreach (var entry in dayEntries)
                         {
-                            <div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="@entry.Id">
+                            <div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="@entry.Id" data-recipe-id="@entry.RecipeId">
                                 <div class="w-14 h-10 rounded-lg overflow-hidden shrink-0" style="background: var(--ios-fill);">
                                     <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
                                          alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
@@ -178,6 +184,27 @@
     }
     #recipePickerOverlay.picker-open #recipePickerCard {
         transform: translateY(0);
+    }
+    #recipePickerOverlay.keyboard-open #recipePickerCard {
+        max-height: 72svh;
+    }
+    #daySlots [data-day].drag-target {
+        outline: 2px solid var(--ios-red);
+        outline-offset: 2px;
+        background: rgba(255, 59, 48, 0.08) !important;
+    }
+    .meal-drag-ghost {
+        position: fixed;
+        pointer-events: none;
+        z-index: 280;
+        border-radius: 12px;
+        background: var(--ios-surface);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+        opacity: 0.96;
+        transform: translate3d(-9999px, -9999px, 0) scale(1.03);
+    }
+    .meal-dragging {
+        opacity: 0.35;
     }
     @@media (min-width: 640px) {
         #recipePickerCard {
@@ -288,9 +315,12 @@
     const defaultImg         = '@DefaultImg';
     const addDayRecipeUrl    = '@Url.Action("AddDayRecipe", "Dinner")';
     const removeEntryUrl     = '@Url.Action("RemoveEntry", "Dinner")';
+    const moveEntryUrl       = '@Url.Action("MoveEntry", "Dinner")';
     const pickerBaseBottom   = 'calc(49px + env(safe-area-inset-bottom))';
     let activeDay = null;
     let hideTimeout = null;
+    let selectedRecipeIds = new Set([@string.Join(",", allEntries.Select(e => e.RecipeId))]);
+    let mealDrag = null;
 
     function getToken() {
         return document.querySelector('input[name="__RequestVerificationToken"]').value;
@@ -302,6 +332,7 @@
         recipeSearch.value = '';
         clearSearch.classList.add('hidden');
         clearSearch.classList.remove('flex');
+        updateRecipeAvailability();
         filterRecipes('');
         document.getElementById('recipeList').scrollTop = 0;
         overlay.style.bottom = pickerBaseBottom;
@@ -311,6 +342,7 @@
 
     function closePicker() {
         overlay.classList.remove('picker-open');
+        overlay.classList.remove('keyboard-open');
         overlay.style.bottom = pickerBaseBottom;
         pickerCard.style.maxHeight = '';
         activeDay = null;
@@ -323,10 +355,12 @@
         const keyboardHeight = window.innerHeight - vv.offsetTop - vv.height;
         if (keyboardHeight > 50) {
             overlay.style.bottom      = keyboardHeight + 'px';
-            pickerCard.style.maxHeight = (vv.height * 0.95) + 'px';
+            pickerCard.style.maxHeight = Math.max(260, vv.height - 16) + 'px';
+            overlay.classList.add('keyboard-open');
         } else {
             overlay.style.bottom       = pickerBaseBottom;
             pickerCard.style.maxHeight = '';
+            overlay.classList.remove('keyboard-open');
         }
     }
     if (window.visualViewport) {
@@ -369,11 +403,13 @@
     function filterRecipes(term) {
         let visible = 0;
         document.querySelectorAll('.recipe-option').forEach(btn => {
-            const show = !term || btn.dataset.name.toLowerCase().includes(term);
+            const alreadySelected = selectedRecipeIds.has(parseInt(btn.dataset.id));
+            const show = !alreadySelected && (!term || btn.dataset.name.toLowerCase().includes(term));
             btn.classList.toggle('hidden', !show);
             if (show) visible++;
         });
         noResults.classList.toggle('hidden', visible > 0);
+        noResults.textContent = term ? 'No recipes match your search' : 'All recipes are already planned this week';
     }
 
     document.querySelectorAll('.recipe-option').forEach(btn => {
@@ -388,7 +424,7 @@
 
     function entryRowHtml(entry) {
         const img = entry.img || defaultImg;
-        return `<div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="${entry.entryId}">
+        return `<div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="${entry.entryId}" data-recipe-id="${entry.recipeId}">
             <div class="w-14 h-10 rounded-lg overflow-hidden shrink-0" style="background:var(--ios-fill);">
                 <img src="${img}" alt="" class="w-full h-full object-cover" />
             </div>
@@ -407,6 +443,7 @@
         const byDay = {};
         for (let d = 0; d < 7; d++) byDay[d] = [];
         (data.entries || []).forEach(e => byDay[e.dayOfWeek].push(e));
+        selectedRecipeIds = new Set((data.entries || []).map(e => e.recipeId));
 
         document.querySelectorAll('.day-entries').forEach(container => {
             const day = parseInt(container.dataset.day);
@@ -414,6 +451,8 @@
         });
 
         bindClearButtons();
+        bindMoveGestures();
+        updateRecipeAvailability();
 
         reviewHiddenInputs.innerHTML = '';
         (data.entries || []).forEach(e => {
@@ -435,6 +474,134 @@
     }
 
     bindClearButtons();
+
+    function updateRecipeAvailability() {
+        document.querySelectorAll('.recipe-option').forEach(btn => {
+            btn.disabled = selectedRecipeIds.has(parseInt(btn.dataset.id));
+        });
+    }
+
+    function bindMoveGestures() {
+        document.querySelectorAll('.entry-row').forEach(row => {
+            let pressTimer = null;
+            let startX = 0;
+            let startY = 0;
+            let startTouchId = null;
+
+            function cancelPress() {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+            }
+
+            function startDrag(touch) {
+                const dayCard = row.closest('[data-day]');
+                const rect = row.getBoundingClientRect();
+                const ghost = row.cloneNode(true);
+                ghost.classList.add('meal-drag-ghost');
+                ghost.style.width = rect.width + 'px';
+                ghost.style.left = '0px';
+                ghost.style.top = '0px';
+                document.body.appendChild(ghost);
+                row.classList.add('meal-dragging');
+                mealDrag = {
+                    entryId: parseInt(row.dataset.entryId),
+                    sourceDay: parseInt(dayCard.dataset.day),
+                    targetDay: parseInt(dayCard.dataset.day),
+                    row,
+                    ghost
+                };
+                moveDragGhost(touch.clientX, touch.clientY);
+                updateDragTarget(touch.clientX, touch.clientY);
+            }
+
+            function moveDragGhost(x, y) {
+                if (!mealDrag?.ghost) return;
+                mealDrag.ghost.style.transform = `translate3d(${x + 12}px, ${y + 12}px, 0) scale(1.03)`;
+            }
+
+            function updateDragTarget(x, y) {
+                if (!mealDrag) return;
+                const el = document.elementFromPoint(x, y);
+                const dayCard = el?.closest?.('#daySlots [data-day]');
+                document.querySelectorAll('#daySlots [data-day].drag-target')
+                    .forEach(card => card.classList.remove('drag-target'));
+                if (!dayCard) {
+                    mealDrag.targetDay = null;
+                    return;
+                }
+                mealDrag.targetDay = parseInt(dayCard.dataset.day);
+                dayCard.classList.add('drag-target');
+            }
+
+            function finishDrag() {
+                if (!mealDrag) return;
+                const { entryId, sourceDay, targetDay, row: draggedRow, ghost } = mealDrag;
+                document.querySelectorAll('#daySlots [data-day].drag-target')
+                    .forEach(card => card.classList.remove('drag-target'));
+                draggedRow.classList.remove('meal-dragging');
+                ghost.remove();
+                mealDrag = null;
+                if (targetDay !== null && targetDay !== sourceDay) {
+                    postMove(entryId, targetDay);
+                }
+            }
+
+            row.addEventListener('touchstart', e => {
+                if (e.target.closest('.clear-btn')) return;
+                const touch = e.touches[0];
+                startTouchId = touch.identifier;
+                startX = touch.clientX;
+                startY = touch.clientY;
+                pressTimer = setTimeout(() => {
+                    pressTimer = null;
+                    startDrag(touch);
+                }, 450);
+            }, { passive: true });
+
+            row.addEventListener('touchmove', e => {
+                const touch = Array.from(e.changedTouches).find(t => t.identifier === startTouchId) || e.touches[0];
+                if (!touch) return;
+                if (mealDrag) {
+                    e.preventDefault();
+                    moveDragGhost(touch.clientX, touch.clientY);
+                    updateDragTarget(touch.clientX, touch.clientY);
+                    return;
+                }
+                if (Math.abs(touch.clientX - startX) > 12 || Math.abs(touch.clientY - startY) > 12) {
+                    cancelPress();
+                }
+            }, { passive: false });
+            row.addEventListener('touchend', e => {
+                const touch = Array.from(e.changedTouches).find(t => t.identifier === startTouchId);
+                cancelPress();
+                if (mealDrag && touch) {
+                    e.preventDefault();
+                    updateDragTarget(touch.clientX, touch.clientY);
+                    finishDrag();
+                }
+                startTouchId = null;
+            }, { passive: false });
+            row.addEventListener('touchcancel', () => {
+                cancelPress();
+                if (mealDrag) {
+                    document.querySelectorAll('#daySlots [data-day].drag-target')
+                        .forEach(card => card.classList.remove('drag-target'));
+                    mealDrag.row.classList.remove('meal-dragging');
+                    mealDrag.ghost.remove();
+                    mealDrag = null;
+                }
+                startTouchId = null;
+            }, { passive: true });
+            row.addEventListener('contextmenu', e => {
+                e.preventDefault();
+            });
+        });
+    }
+
+    bindMoveGestures();
+    updateRecipeAvailability();
 
     function dimCard(card) {
         if (card) { card.style.opacity = '0.5'; card.style.pointerEvents = 'none'; }
@@ -481,6 +648,28 @@
             renderAll(await resp.json());
         } catch (err) {
             alert('Could not remove recipe. Please try again.');
+        } finally {
+            undimCard(card);
+        }
+    }
+
+    async function postMove(entryId, day) {
+        const row = document.querySelector(`[data-entry-id="${entryId}"]`);
+        const card = row?.closest('[data-day]');
+        dimCard(card);
+        const body = new URLSearchParams();
+        body.append('entryId', String(entryId));
+        body.append('dayOfWeek', String(day));
+        try {
+            const resp = await fetch(moveEntryUrl, {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': getToken(), 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                body: body.toString()
+            });
+            if (!resp.ok) throw new Error('Move failed: ' + resp.status);
+            renderAll(await resp.json());
+        } catch (err) {
+            alert('Could not move recipe. Please try again.');
         } finally {
             undimCard(card);
         }

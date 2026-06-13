@@ -182,13 +182,13 @@
     </nav>
 
     <!-- Add Recipe action sheet -->
-    <div id="addSheetBackdrop" class="ios-action-sheet-backdrop" aria-hidden="true"></div>
-    <div id="addSheet" class="ios-action-sheet" role="dialog" aria-modal="true" aria-label="Add recipe">
+    <div id="addSheetBackdrop" class="ios-action-sheet-backdrop" aria-hidden="true" hidden></div>
+    <div id="addSheet" class="ios-action-sheet" role="dialog" aria-modal="true" aria-label="Add recipe" aria-hidden="true" hidden>
         <div class="ios-action-sheet-group">
             <a asp-controller="Import" asp-action="ImportRecipe" class="ios-action-sheet-option">Import recipe</a>
             <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="ios-action-sheet-option">Create from scratch</a>
         </div>
-        <button id="addSheetCancel" class="ios-action-sheet-cancel">Cancel</button>
+        <button id="addSheetCancel" type="button" class="ios-action-sheet-cancel">Cancel</button>
     </div>
     <script>
         (function () {
@@ -196,20 +196,45 @@
             var sheet    = document.getElementById('addSheet');
             var backdrop = document.getElementById('addSheetBackdrop');
             var cancel   = document.getElementById('addSheetCancel');
+            var hideTimer = null;
             if (!btn || !sheet || !backdrop) return;
 
             function openSheet() {
-                sheet.classList.add('is-open');
-                backdrop.classList.add('is-open');
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                    hideTimer = null;
+                }
+                sheet.hidden = false;
+                backdrop.hidden = false;
+                sheet.setAttribute('aria-hidden', 'false');
+                backdrop.setAttribute('aria-hidden', 'false');
+                requestAnimationFrame(function () {
+                    sheet.classList.add('is-open');
+                    backdrop.classList.add('is-open');
+                    sheet.querySelector('a, button')?.focus();
+                });
             }
             function closeSheet() {
                 sheet.classList.remove('is-open');
                 backdrop.classList.remove('is-open');
+                sheet.setAttribute('aria-hidden', 'true');
+                backdrop.setAttribute('aria-hidden', 'true');
+                hideTimer = setTimeout(function () {
+                    sheet.hidden = true;
+                    backdrop.hidden = true;
+                    hideTimer = null;
+                }, 300);
+                btn.focus();
             }
 
             btn.addEventListener('click', openSheet);
             backdrop.addEventListener('click', closeSheet);
             cancel.addEventListener('click', closeSheet);
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && sheet.classList.contains('is-open')) {
+                    closeSheet();
+                }
+            });
         })();
     </script>
 

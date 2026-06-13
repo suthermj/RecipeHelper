@@ -288,6 +288,7 @@
     const defaultImg         = '@DefaultImg';
     const addDayRecipeUrl    = '@Url.Action("AddDayRecipe", "Dinner")';
     const removeEntryUrl     = '@Url.Action("RemoveEntry", "Dinner")';
+    const pickerBaseBottom   = 'calc(49px + env(safe-area-inset-bottom))';
     let activeDay = null;
     let hideTimeout = null;
 
@@ -303,13 +304,14 @@
         clearSearch.classList.remove('flex');
         filterRecipes('');
         document.getElementById('recipeList').scrollTop = 0;
+        overlay.style.bottom = pickerBaseBottom;
         overlay.style.display = 'flex';
         requestAnimationFrame(() => overlay.classList.add('picker-open'));
     }
 
     function closePicker() {
         overlay.classList.remove('picker-open');
-        overlay.style.bottom = '';
+        overlay.style.bottom = pickerBaseBottom;
         pickerCard.style.maxHeight = '';
         activeDay = null;
         hideTimeout = setTimeout(() => { overlay.style.display = 'none'; hideTimeout = null; }, 350);
@@ -323,7 +325,7 @@
             overlay.style.bottom      = keyboardHeight + 'px';
             pickerCard.style.maxHeight = (vv.height * 0.95) + 'px';
         } else {
-            overlay.style.bottom       = '';
+            overlay.style.bottom       = pickerBaseBottom;
             pickerCard.style.maxHeight = '';
         }
     }

@@ -330,6 +330,117 @@ html {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+/* ─── iOS Action Sheet ─── */
+.ios-action-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.ios-action-sheet-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ios-action-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 260;
+  padding: 0 8px 8px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+}
+.ios-action-sheet.is-open {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.ios-action-sheet-group {
+  background: rgba(249, 249, 249, 0.97);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.ios-action-sheet-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 57px;
+  padding: 12px 16px;
+  font-size: 20px;
+  font-weight: 400;
+  color: #007AFF;
+  background: none;
+  border: none;
+  border-bottom: 0.5px solid var(--ios-separator);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+  text-align: center;
+}
+.ios-action-sheet-option:last-child {
+  border-bottom: none;
+}
+.ios-action-sheet-option:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+.ios-action-sheet-option-destructive {
+  color: var(--ios-red);
+}
+.ios-action-sheet-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 57px;
+  margin-top: 8px;
+  padding: 12px 16px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #007AFF;
+  background: rgba(249, 249, 249, 0.97);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ios-action-sheet-cancel:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* ─── Tab bar center + FAB ─── */
+.ios-tab-plus-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--ios-red);
+  border: none;
+  cursor: pointer;
+  margin-top: 7px;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 8px rgba(255, 59, 48, 0.4);
+}
+.ios-tab-plus-btn:active {
+  opacity: 0.8;
+}
+
 /* ─── Expand/Collapse animation ─── */
 .detail-panel {
   max-height: 0;

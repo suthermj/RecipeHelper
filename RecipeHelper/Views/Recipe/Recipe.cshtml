@@ -5,17 +5,11 @@
 
 @model List<ViewRecipeVM>
 
-@section NavRight {
-    <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="ios-btn-text inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-[28px] leading-none font-light">+</a>
-}
-
 <div class="pt-2 pb-4">
 
-    <!-- Large title + import link -->
-    <div class="flex items-end justify-between px-4 pb-3">
+    <!-- Large title -->
+    <div class="px-4 pb-3">
         <h1 class="ios-large-title">Recipes</h1>
-        <a asp-controller="Import" asp-action="ImportRecipe"
-           class="ios-btn-text-sm pb-1">Import</a>
     </div>
 
     @if (Model == null || !Model.Any())

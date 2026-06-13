@@ -22,9 +22,8 @@
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
     var isRecipes  = controller == "Recipe" || controller == "Import";
     var isMealPlan = controller == "Dinner";
-    var isProducts = controller == "Product";
     var isLists    = controller == "ShoppingList" || controller == "Cart";
-    var isSettings = controller == "Settings";
+    var isSettings = controller == "Settings" || controller == "Product";
 }
 
 <body class="min-h-screen flex flex-col"
@@ -133,17 +132,14 @@
                 <span class="ios-tab-label" style="font-weight: @(isMealPlan ? "600" : "400");">Meal Plan</span>
             </a>
 
-            <!-- Products -->
-            <a asp-controller="Product" asp-action="Products"
-               class="ios-tab-item"
-               style="color: @(isProducts ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                <svg class="h-[26px] w-[26px]" fill="@(isProducts ? "#FF3B30" : "none")"
-                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isProducts ? "0" : "1.5")">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                          d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
-                </svg>
-                <span class="ios-tab-label" style="font-weight: @(isProducts ? "600" : "400");">Products</span>
-            </a>
+            <!-- Center + FAB -->
+            <div class="flex items-start justify-center" style="padding-top: 0;">
+                <button id="tabPlusBtn" class="ios-tab-plus-btn" aria-label="Add recipe">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                </button>
+            </div>
 
             <!-- Lists -->
             <a asp-controller="ShoppingList" asp-action="Index"
@@ -171,6 +167,38 @@
             </a>
         </div>
     </nav>
+
+    <!-- Add Recipe action sheet -->
+    <div id="addSheetBackdrop" class="ios-action-sheet-backdrop" aria-hidden="true"></div>
+    <div id="addSheet" class="ios-action-sheet" role="dialog" aria-modal="true" aria-label="Add recipe">
+        <div class="ios-action-sheet-group">
+            <a asp-controller="Import" asp-action="ImportRecipe" class="ios-action-sheet-option">Import recipe</a>
+            <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="ios-action-sheet-option">Create from scratch</a>
+        </div>
+        <button id="addSheetCancel" class="ios-action-sheet-cancel">Cancel</button>
+    </div>
+    <script>
+        (function () {
+            var btn      = document.getElementById('tabPlusBtn');
+            var sheet    = document.getElementById('addSheet');
+            var backdrop = document.getElementById('addSheetBackdrop');
+            var cancel   = document.getElementById('addSheetCancel');
+            if (!btn || !sheet || !backdrop) return;
+
+            function openSheet() {
+                sheet.classList.add('is-open');
+                backdrop.classList.add('is-open');
+            }
+            function closeSheet() {
+                sheet.classList.remove('is-open');
+                backdrop.classList.remove('is-open');
+            }
+
+            btn.addEventListener('click', openSheet);
+            backdrop.addEventListener('click', closeSheet);
+            cancel.addEventListener('click', closeSheet);
+        })();
+    </script>
 
     <!-- Loading overlay (shown on .loading-form submit) -->
     <div id="loadingOverlay"

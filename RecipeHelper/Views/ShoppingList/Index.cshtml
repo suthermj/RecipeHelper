@@ -1,116 +1,123 @@
 @model List<RecipeHelper.Models.Lists.ShoppingList>
 
 @{
-    ViewData["Title"] = "Shopping Lists";
+    ViewData["Title"]    = "Shopping Lists";
+    ViewData["NavTitle"] = "";
 }
 
-<div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
-    <!-- Title row: title + primary action only -->
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-gray-900">Shopping Lists</h1>
-        <button type="button" id="newListBtn"
-                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            New List
-        </button>
+@section NavRight {
+    <button type="button" id="newListBtnNav" class="ios-btn-text text-[28px] leading-none font-light">+</button>
+}
+
+<div class="pt-2 pb-4">
+
+    <!-- Large title row -->
+    <div class="flex items-end justify-between px-4 pb-3">
+        <h1 class="ios-large-title">Lists</h1>
+        @if (Model.Count > 0)
+        {
+            <div class="flex items-center gap-4 pb-1">
+                <button type="button" id="selectBtn" class="ios-btn-text-sm">Select</button>
+                <form asp-action="DeleteAll" method="post" id="deleteAllForm">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="ios-btn-text-destructive" style="font-size:15px;">Delete all</button>
+                </form>
+            </div>
+        }
     </div>
-    <!-- Secondary actions row (only when lists exist) -->
-    @if (Model.Count > 0)
-    {
-        <div class="flex items-center gap-4">
-            <button type="button" id="selectBtn"
-                    class="text-sm font-medium text-gray-500 hover:text-gray-700 transition">
-                Select
-            </button>
-            <form asp-action="DeleteAll" method="post" id="deleteAllForm">
-                @Html.AntiForgeryToken()
-                <button type="submit"
-                        class="text-sm font-medium text-red-600 hover:text-red-800 transition">
-                    Delete all
-                </button>
-            </form>
-        </div>
-    }
 
     @if (Model.Count == 0)
     {
-        <div class="text-center py-16">
-            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
+        <!-- Empty state -->
+        <div class="mx-4 rounded-2xl p-10 text-center"
+             style="background: var(--ios-surface); box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+            <svg class="mx-auto h-14 w-14 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                 stroke-width="1" style="color: var(--ios-label-3);">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
             </svg>
-            <p class="mt-3 text-sm text-gray-500">No shopping lists yet.</p>
-            <p class="text-sm text-gray-400">Create one or generate from a meal plan.</p>
+            <h2 class="text-[17px] font-semibold mb-1" style="color: var(--ios-label);">No lists yet</h2>
+            <p class="text-[15px] mb-5" style="color: var(--ios-label-2);">Create a list or generate one from your meal plan.</p>
+            <button type="button" id="newListBtnEmpty" class="btn-primary">Create a list</button>
         </div>
     }
     else
     {
         <form id="multiDeleteForm" asp-action="DeleteMultiple" method="post">
             @Html.AntiForgeryToken()
-            <div class="space-y-3" id="listContainer">
+
+            <div class="ios-group" id="listContainer">
                 @foreach (var list in Model)
                 {
-                    var itemCount = list.Items?.Count ?? 0;
+                    var itemCount    = list.Items?.Count ?? 0;
                     var pendingCount = list.Items?.Count(i => !i.IsCompleted) ?? 0;
-                    <div class="list-row flex items-center gap-3">
+
+                    <div class="list-row flex items-center" style="border-bottom: 0.5px solid var(--ios-separator);">
                         <!-- Checkbox (hidden until select mode) -->
-                        <label class="select-checkbox hidden items-center justify-center">
+                        <label class="select-checkbox hidden items-center pl-4">
                             <input type="checkbox" name="ids" value="@list.Id"
-                                   class="h-5 w-5 rounded border-gray-300 text-red-800 focus:ring-red-700 cursor-pointer" />
+                                   class="h-5 w-5 rounded-full cursor-pointer accent-red-500" />
                         </label>
-                        <!-- List card -->
+
+                        <!-- List cell -->
                         <a asp-action="ViewList" asp-route-id="@list.Id"
-                           class="list-card flex-1 block rounded-xl border border-gray-200 bg-white p-4 hover:border-gray-300 hover:shadow-sm transition">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h2 class="font-semibold text-gray-900">@list.Name</h2>
-                                    <p class="text-xs text-gray-500 mt-0.5">
-                                        @list.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")
-                                        &middot;
-                                        @pendingCount @(pendingCount == 1 ? "item" : "items") remaining
-                                        @if (itemCount != pendingCount)
-                                        {
-                                            <span class="text-gray-400">(@(itemCount - pendingCount) done)</span>
-                                        }
-                                    </p>
-                                </div>
-                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                                </svg>
+                           class="list-card flex-1 flex items-center gap-3 px-4 py-3 transition-opacity active:opacity-50"
+                           style="text-decoration: none; min-height: 56px;">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[16px] font-semibold truncate" style="color: var(--ios-label);">@list.Name</p>
+                                <p class="text-[13px] mt-0.5" style="color: var(--ios-label-2);">
+                                    @list.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")
+                                    &middot;
+                                    @pendingCount @(pendingCount == 1 ? "item" : "items") remaining
+                                    @if (itemCount != pendingCount)
+                                    {
+                                        <span>(@(itemCount - pendingCount) done)</span>
+                                    }
+                                </p>
                             </div>
+                            <svg class="h-4 w-4 shrink-0 ios-disclosure" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                            </svg>
                         </a>
                     </div>
                 }
             </div>
 
             <!-- Delete bar (shown in select mode) -->
-            <div id="deleteBar" class="hidden fixed bottom-20 inset-x-0 px-4 pb-2 z-40">
-                <div class="max-w-3xl mx-auto">
-                    <button type="submit" id="deleteSelectedBtn"
-                            class="w-full py-3 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-40"
-                            disabled>
-                        Delete Selected
-                    </button>
-                </div>
+            <div id="deleteBar" class="hidden fixed inset-x-0 px-4 pb-2 z-40"
+                 style="bottom: calc(49px + env(safe-area-inset-bottom) + 8px);">
+                <button type="submit" id="deleteSelectedBtn"
+                        class="btn-primary w-full" disabled
+                        style="background: #FF3B30;">
+                    Delete Selected
+                </button>
             </div>
         </form>
     }
 </div>
 
-<!-- New list modal -->
-<div id="newListModal" class="fixed inset-0 hidden items-center justify-center bg-black/50 z-50 p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Create Shopping List</h3>
-        <form asp-action="Create" method="post">
+<!-- New list modal (bottom sheet style) -->
+<div id="newListModal"
+     class="fixed inset-0 hidden items-end sm:items-center justify-center z-[200]"
+     style="background: rgba(0,0,0,0.4);">
+    <div class="w-full sm:max-w-sm sm:rounded-2xl overflow-hidden"
+         style="background: var(--ios-surface); border-radius: 20px 20px 0 0; padding-bottom: env(safe-area-inset-bottom);">
+        <div class="flex justify-center pt-2.5 pb-1 sm:hidden">
+            <div class="w-9 h-1 rounded-full" style="background: var(--ios-separator);"></div>
+        </div>
+        <div class="px-4 pt-3 pb-2" style="border-bottom: 0.5px solid var(--ios-separator);">
+            <h3 class="text-[17px] font-semibold text-center" style="color: var(--ios-label);">New List</h3>
+        </div>
+        <form asp-action="Create" method="post" class="p-4 space-y-4">
             @Html.AntiForgeryToken()
-            <input name="name" type="text" required placeholder="List name..."
-                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:ring-2 focus:ring-red-700" />
-            <div class="flex justify-end gap-2 mt-4">
+            <input name="name" type="text" required placeholder="List name…"
+                   autofocus
+                   class="field-input w-full" />
+            <div class="flex gap-3">
                 <button type="button" id="cancelNewList"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">Cancel</button>
+                        class="btn-secondary flex-1">Cancel</button>
                 <button type="submit"
-                        class="px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">Create</button>
+                        class="btn-primary flex-1">Create</button>
             </div>
         </form>
     </div>
@@ -118,50 +125,47 @@
 
 @section Scripts {
 <script>
-    // Delete all confirmation
     document.getElementById('deleteAllForm')?.addEventListener('submit', (e) => {
         if (!confirm('Delete all shopping lists?')) e.preventDefault();
     });
 
-    // New list modal
     const modal = document.getElementById('newListModal');
-    document.getElementById('newListBtn')?.addEventListener('click', () => {
+    function openModal() {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
-        modal.querySelector('input').focus();
-    });
-    document.getElementById('cancelNewList')?.addEventListener('click', () => {
+        modal.querySelector('input')?.focus();
+    }
+    function closeModal() {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
-    });
-    modal?.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-    });
+    }
 
-    // Select mode
-    const selectBtn = document.getElementById('selectBtn');
-    const deleteBar = document.getElementById('deleteBar');
+    document.getElementById('newListBtnNav')?.addEventListener('click', openModal);
+    document.getElementById('newListBtnEmpty')?.addEventListener('click', openModal);
+    document.getElementById('cancelNewList')?.addEventListener('click', closeModal);
+    modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    const selectBtn        = document.getElementById('selectBtn');
+    const deleteBar        = document.getElementById('deleteBar');
     const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-    const checkboxes = document.querySelectorAll('input[type="checkbox"][name="ids"]');
-    const checkboxLabels = document.querySelectorAll('.select-checkbox');
-    const listCards = document.querySelectorAll('.list-card');
+    const checkboxes       = document.querySelectorAll('input[type="checkbox"][name="ids"]');
+    const checkboxLabels   = document.querySelectorAll('.select-checkbox');
+    const listCards        = document.querySelectorAll('.list-card');
     let selectMode = false;
 
     function updateDeleteBtn() {
         const anyChecked = [...checkboxes].some(c => c.checked);
-        deleteSelectedBtn.disabled = !anyChecked;
+        if (deleteSelectedBtn) deleteSelectedBtn.disabled = !anyChecked;
     }
 
     selectBtn?.addEventListener('click', () => {
         selectMode = !selectMode;
         selectBtn.textContent = selectMode ? 'Cancel' : 'Select';
-        checkboxLabels.forEach(l => l.classList.toggle('hidden', !selectMode));
-        checkboxLabels.forEach(l => l.classList.toggle('flex', selectMode));
+        checkboxLabels.forEach(l => {
+            l.classList.toggle('hidden', !selectMode);
+            l.classList.toggle('flex', selectMode);
+        });
         deleteBar?.classList.toggle('hidden', !selectMode);
-        // Disable card links in select mode
         listCards.forEach(a => {
             if (selectMode) {
                 if (!a.dataset.href) a.dataset.href = a.getAttribute('href');

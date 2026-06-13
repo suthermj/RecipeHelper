@@ -1,7 +1,10 @@
 @model RecipeHelper.Models.Lists.ShoppingList
 
 @{
-    ViewData["Title"] = Model.Name;
+    ViewData["Title"]     = Model.Name;
+    ViewData["NavTitle"]  = Model.Name;
+    ViewData["BackLink"]  = Url.Action("Index", "ShoppingList");
+    ViewData["BackLabel"] = "Lists";
 
     var krogerBrands = new[] { "kroger", "simple truth", "private selection", "hemisfares" };
     bool IsKrogerBrand(string? brand) =>
@@ -13,16 +16,14 @@
         return IsKrogerBrand(item.Brand) ? Math.Round(basePrice * 0.9m, 2) : basePrice;
     }
 
-    var pending = Model.Items.Where(i => !i.IsCompleted).ToList();
+    var pending   = Model.Items.Where(i => !i.IsCompleted).ToList();
     var completed = Model.Items.Where(i => i.IsCompleted).ToList();
 
-    // Special sections pulled out first
     var produce = pending.Where(i => i.AisleDescription?.Contains("PRODUCE", StringComparison.OrdinalIgnoreCase) == true).ToList();
-    var meat    = pending.Where(i => i.AisleDescription?.Contains("MEAT", StringComparison.OrdinalIgnoreCase) == true).ToList();
-    var dairy   = pending.Where(i => i.AisleDescription?.Contains("DAIRY", StringComparison.OrdinalIgnoreCase) == true).ToList();
+    var meat    = pending.Where(i => i.AisleDescription?.Contains("MEAT",    StringComparison.OrdinalIgnoreCase) == true).ToList();
+    var dairy   = pending.Where(i => i.AisleDescription?.Contains("DAIRY",   StringComparison.OrdinalIgnoreCase) == true).ToList();
     var special = produce.Concat(meat).Concat(dairy).Select(i => i.Id).ToHashSet();
 
-    // Remaining items grouped by aisle number, sorted numerically
     var byAisle = pending
         .Where(i => !special.Contains(i.Id) && i.AisleNumber != null)
         .GroupBy(i => i.AisleNumber!)
@@ -31,82 +32,74 @@
 
     var noAisle = pending.Where(i => !special.Contains(i.Id) && i.AisleNumber == null).ToList();
 
-    // Estimated subtotal (pending items only)
     var subtotal = pending.Where(i => i.Price.HasValue || i.PromoPrice.HasValue)
-                          .Sum(i => GetDisplayPrice(i) * i.Quantity);
+                         .Sum(i => GetDisplayPrice(i) * i.Quantity);
 }
 
 <style>
   body.shopping-mode [data-shopping-mode-hide] { display: none !important; }
 </style>
 
-<div class="max-w-3xl mx-auto px-4 py-6 space-y-4 pb-32">
-    <!-- Header -->
-    <div>
-        <a asp-action="Index"
-           class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3 transition">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            All Lists
-        </a>
-        <div data-shopping-mode-hide>
-            <form asp-action="Rename" method="post" class="flex items-center gap-2" id="renameForm">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="id" value="@Model.Id" />
-                <input name="name" type="text" value="@Model.Name"
-                       class="text-2xl font-bold text-gray-900 bg-transparent border-0 border-b-2 border-transparent focus:border-red-700 focus:ring-0 p-0 flex-1 min-w-0"
-                       id="listNameInput" />
-                <button type="submit" id="renameBtn"
-                        class="hidden text-sm text-red-800 font-semibold hover:text-red-900 whitespace-nowrap">Save</button>
-            </form>
-            <div class="flex items-center justify-between mt-1.5">
-                <p class="text-xs text-gray-500">@Model.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</p>
-                <div class="flex items-center gap-3">
-                    <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this list?');">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium">Delete</button>
-                    </form>
-                    <button id="startShoppingBtn"
-                            data-current-store-id="@ViewData["CurrentStoreId"]"
-                            class="px-4 py-2 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
-                        Shop mode
-                    </button>
-                </div>
-            </div>
-        </div>
+<div class="pt-2 pb-32">
 
-        <!-- Shopping mode header (shown only when in shopping mode) -->
-        <div id="shoppingModeHeader" class="hidden">
-            <h1 class="text-2xl font-bold text-gray-900">@Model.Name</h1>
-            <div class="flex items-center gap-2 mt-0.5">
-                <p class="text-sm text-gray-500" id="shopModeStoreName">@ViewData["CurrentStoreName"]</p>
-                <button id="changeStoreBtn" class="text-xs text-blue-600 hover:text-blue-800 font-medium transition">Change store</button>
+    <!-- List meta + actions -->
+    <div class="px-4 pb-3" data-shopping-mode-hide>
+        <form asp-action="Rename" method="post" class="flex items-center gap-2" id="renameForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <input name="name" type="text" value="@Model.Name"
+                   id="listNameInput"
+                   class="text-[22px] font-bold bg-transparent border-0 border-b-2 border-transparent focus:outline-none flex-1 min-w-0 py-0"
+                   style="color: var(--ios-label); border-bottom: 2px solid transparent;"
+                   onfocus="this.style.borderBottomColor='var(--ios-red)'"
+                   onblur="this.style.borderBottomColor='transparent'" />
+            <button type="submit" id="renameBtn"
+                    class="hidden ios-btn-text-sm font-semibold whitespace-nowrap">Save</button>
+        </form>
+
+        <div class="flex items-center justify-between mt-2">
+            <p class="text-[13px]" style="color: var(--ios-label-2);">@Model.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</p>
+            <div class="flex items-center gap-4">
+                <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this list?');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button type="submit" class="ios-btn-text-destructive" style="font-size:14px;">Delete</button>
+                </form>
+                <button id="startShoppingBtn"
+                        data-current-store-id="@ViewData["CurrentStoreId"]"
+                        class="ios-btn-text font-semibold" style="font-size:14px; color: #34C759;">
+                    Shop mode
+                </button>
             </div>
-            <button id="exitShoppingBtn"
-                    class="mt-3 px-4 py-2 rounded-full text-sm font-semibold bg-gray-700 text-white hover:bg-gray-800 transition">
-                Exit shopping
-            </button>
         </div>
     </div>
 
+    <!-- Shopping mode header -->
+    <div id="shoppingModeHeader" class="hidden px-4 pb-3">
+        <h1 class="text-[22px] font-bold" style="color: var(--ios-label);">@Model.Name</h1>
+        <div class="flex items-center gap-2 mt-0.5">
+            <p class="text-[14px]" id="shopModeStoreName" style="color: var(--ios-label-2);">@ViewData["CurrentStoreName"]</p>
+            <button id="changeStoreBtn" class="ios-btn-text-sm">Change store</button>
+        </div>
+        <button id="exitShoppingBtn" class="mt-3 btn-secondary" style="min-height:40px; padding:8px 20px; font-size:14px;">
+            Exit shopping
+        </button>
+    </div>
+
     <!-- Add item -->
-    <form asp-action="AddItem" method="post" class="flex gap-2" data-shopping-mode-hide>
+    <form asp-action="AddItem" method="post" class="px-4 pb-4 flex gap-2" data-shopping-mode-hide>
         @Html.AntiForgeryToken()
         <input type="hidden" name="listId" value="@Model.Id" />
-        <input name="name" type="text" required placeholder="Add an item..."
-               class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:ring-2 focus:ring-red-700" />
+        <input name="name" type="text" required placeholder="Add an item…" class="field-input flex-1" />
         <input name="quantity" type="number" value="1" min="1"
-               class="w-16 rounded-lg border border-gray-300 px-2 py-2 text-sm text-center focus:border-red-700 focus:ring-2 focus:ring-red-700" />
-        <button type="submit"
-                class="px-4 py-2 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 transition">Add</button>
+               class="field-input w-16 text-center" />
+        <button type="submit" class="ios-btn-text font-semibold" style="font-size:15px; white-space:nowrap;">Add</button>
     </form>
 
     @if (pending.Count == 0 && completed.Count == 0)
     {
-        <div class="text-center py-12">
-            <p class="text-sm text-gray-500">This list is empty. Add items above.</p>
+        <div class="text-center py-14">
+            <p class="text-[15px]" style="color: var(--ios-label-2);">This list is empty. Add items above.</p>
         </div>
     }
     else
@@ -115,10 +108,8 @@
         @foreach (var aisleGroup in byAisle)
         {
             <div data-section-wrapper>
-                <div class="bg-gray-700 text-white font-bold text-base px-4 py-2 rounded-t-lg">
-                    Aisle @aisleGroup.Key
-                </div>
-                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                <p class="ios-section-hdr" style="padding-top:16px;">Aisle @aisleGroup.Key</p>
+                <div class="ios-group">
                     @foreach (var item in aisleGroup)
                     {
                         @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
@@ -135,10 +126,8 @@
         }.Where(s => s.Item2.Count > 0))
         {
             <div data-section-wrapper>
-                <div class="bg-gray-700 text-white font-bold text-base px-4 py-2 rounded-t-lg">
-                    @label
-                </div>
-                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                <p class="ios-section-hdr" style="padding-top:16px;">@label</p>
+                <div class="ios-group">
                     @foreach (var item in items)
                     {
                         @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
@@ -147,14 +136,12 @@
             </div>
         }
 
-        <!-- No aisle info -->
+        <!-- Other (no aisle) -->
         @if (noAisle.Count > 0)
         {
             <div data-section-wrapper>
-                <div class="bg-gray-500 text-white font-bold text-base px-4 py-2 rounded-t-lg">
-                    Other
-                </div>
-                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+                <p class="ios-section-hdr" style="padding-top:16px;">Other</p>
+                <div class="ios-group">
                     @foreach (var item in noAisle)
                     {
                         @await Html.PartialAsync("_ShoppingListItem", item, new ViewDataDictionary(ViewData) { { "listId", Model.Id } })
@@ -166,119 +153,121 @@
         <!-- Completed -->
         @if (completed.Count > 0)
         {
-            <div>
-                <div class="bg-gray-200 text-gray-600 font-bold text-base px-4 py-2 rounded-t-lg">
-                    Completed (@completed.Count)
-                </div>
-                <div class="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
-                    @foreach (var item in completed)
-                    {
-                        <div class="flex items-center gap-3 bg-gray-50 px-4 py-3.5">
-                            <form asp-action="UpdateItem" method="post" class="flex items-center" data-complete-form>
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="itemId" value="@item.Id" />
-                                <input type="hidden" name="listId" value="@Model.Id" />
-                                <input type="hidden" name="isCompleted" value="false" />
-                                <button type="submit" class="h-6 w-6 rounded border-2 border-green-500 bg-green-500 flex-shrink-0 flex items-center justify-center p-0.5">
-                                    <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </button>
-                            </form>
-                            <div class="flex-1">
-                                <span class="text-sm text-gray-400 line-through">@item.Name</span>
-                                <p class="text-xs text-gray-400">QTY @item.Quantity</p>
-                            </div>
-                            <form asp-action="RemoveItem" method="post">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="itemId" value="@item.Id" />
-                                <input type="hidden" name="listId" value="@Model.Id" />
-                                <button type="submit" class="text-gray-300 hover:text-red-600 transition">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </form>
+            <p class="ios-section-hdr" style="padding-top:16px;">Completed (@completed.Count)</p>
+            <div class="ios-group">
+                @foreach (var item in completed)
+                {
+                    <div class="ios-cell justify-between">
+                        <form asp-action="UpdateItem" method="post" class="flex items-center shrink-0" data-complete-form>
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="itemId"      value="@item.Id" />
+                            <input type="hidden" name="listId"      value="@Model.Id" />
+                            <input type="hidden" name="isCompleted" value="false" />
+                            <button type="submit"
+                                    class="h-6 w-6 rounded-full border-2 flex items-center justify-center"
+                                    style="background: #34C759; border-color: #34C759;">
+                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </button>
+                        </form>
+                        <div class="flex-1 min-w-0 ml-3">
+                            <span class="text-[15px] line-through" style="color: var(--ios-label-2);">@item.Name</span>
+                            <p class="text-[12px]" style="color: var(--ios-label-3);">Qty @item.Quantity</p>
                         </div>
-                    }
-                </div>
+                        <form asp-action="RemoveItem" method="post" class="shrink-0">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="itemId" value="@item.Id" />
+                            <input type="hidden" name="listId" value="@Model.Id" />
+                            <button type="submit" class="flex items-center justify-center h-7 w-7 rounded-full transition active:opacity-50"
+                                    style="color: var(--ios-label-3);">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
+                }
             </div>
         }
     }
 </div>
 
-<!-- Estimated Subtotal bar -->
+<!-- Estimated subtotal bar -->
 @if (subtotal > 0)
 {
-    <div class="fixed bottom-16 inset-x-0 bg-white border-t border-gray-200 px-4 py-3 z-30" data-shopping-mode-hide>
+    <div class="fixed inset-x-0 z-30 px-4 py-3" data-shopping-mode-hide
+         style="bottom: calc(49px + env(safe-area-inset-bottom));
+                background: rgba(249,249,249,0.94);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border-top: 0.5px solid var(--ios-separator);">
         <div class="max-w-3xl mx-auto flex items-center justify-between">
-            <span class="text-sm font-semibold text-gray-700">Estimated Subtotal</span>
-            <span class="text-sm font-bold text-gray-900">$@subtotal.ToString("0.00")</span>
+            <span class="text-[15px] font-medium" style="color: var(--ios-label-2);">Estimated Subtotal</span>
+            <span class="text-[15px] font-bold" style="color: var(--ios-label);">$@subtotal.ToString("0.00")</span>
         </div>
     </div>
 }
 
 <!-- Store mismatch modal -->
-<div id="storeMismatchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
-        <h2 class="text-lg font-bold text-gray-900">Closer store found</h2>
-        <div class="text-sm space-y-2">
+<div id="storeMismatchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+     style="background: rgba(0,0,0,0.4);">
+    <div class="ios-card max-w-sm w-full p-6 space-y-4">
+        <h2 class="text-[17px] font-bold" style="color: var(--ios-label);">Closer store found</h2>
+        <div class="space-y-3 text-[14px]">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Current store</p>
-                <p class="text-gray-700 font-medium">@ViewData["CurrentStoreName"]</p>
+                <p class="section-label mb-1">Current store</p>
+                <p style="color: var(--ios-label);">@ViewData["CurrentStoreName"]</p>
             </div>
             <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Closer store</p>
-                <p class="text-gray-700 font-semibold" id="nearbyStoreName"></p>
-                <p class="text-gray-500 text-xs" id="nearbyStoreAddress"></p>
+                <p class="section-label mb-1">Closer store</p>
+                <p class="font-semibold" id="nearbyStoreName" style="color: var(--ios-label);"></p>
+                <p class="text-[13px]" id="nearbyStoreAddress" style="color: var(--ios-label-2);"></p>
             </div>
         </div>
-        <p class="text-sm text-gray-600">Switch stores so aisle locations stay accurate?</p>
-        <div class="flex gap-3 pt-1">
-            <button id="switchStoreBtn"
-                    class="flex-1 py-2 rounded-full text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition">
-                Switch to this store
-            </button>
-            <button id="keepStoreBtn"
-                    class="flex-1 py-2 rounded-full text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition">
-                Keep current store
-            </button>
+        <p class="text-[14px]" style="color: var(--ios-label-2);">Switch stores so aisle locations stay accurate?</p>
+        <div class="flex gap-3">
+            <button id="switchStoreBtn" class="btn-primary flex-1" style="font-size:14px; min-height:44px;">Switch</button>
+            <button id="keepStoreBtn"   class="btn-secondary flex-1" style="font-size:14px; min-height:44px;">Keep current</button>
         </div>
     </div>
 </div>
 
-<!-- Change store modal (shop mode) -->
-<div id="changeStoreModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+<!-- Change store modal -->
+<div id="changeStoreModal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+     style="background: rgba(0,0,0,0.4);">
+    <div class="ios-card max-w-sm w-full p-5 space-y-4">
         <div class="flex items-center justify-between">
-            <h2 class="text-lg font-bold text-gray-900">Change store</h2>
-            <button id="closeChangeStoreBtn" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            <h2 class="text-[17px] font-bold" style="color: var(--ios-label);">Change Store</h2>
+            <button id="closeChangeStoreBtn"
+                    class="flex items-center justify-center h-7 w-7 rounded-full"
+                    style="background: var(--ios-fill); color: var(--ios-label-2);">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
         </div>
         <div class="flex gap-2">
             <input id="storeZipInput" type="text" placeholder="ZIP code"
-                   class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500" />
-            <button id="storeZipSearchBtn"
-                    class="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition">
-                Search
-            </button>
+                   class="field-input flex-1" />
+            <button id="storeZipSearchBtn" class="ios-btn-text font-semibold" style="font-size:15px;">Search</button>
         </div>
-        <button id="storeUseLocationBtn"
-                class="w-full py-2 rounded-lg text-sm text-blue-600 hover:text-blue-800 font-medium transition flex items-center justify-center gap-1">
+        <button id="storeUseLocationBtn" class="ios-btn-text-sm flex items-center gap-1.5">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             Use my location
         </button>
-        <p id="changeStoreLoading" class="hidden text-sm text-gray-500 text-center">Searching…</p>
+        <p id="changeStoreLoading" class="hidden text-[14px] text-center" style="color: var(--ios-label-2);">Searching…</p>
         <div id="changeStoreResults" class="space-y-2 max-h-52 overflow-y-auto"></div>
     </div>
 </div>
 
 @section Scripts {
 <script>
-    const nameInput = document.getElementById('listNameInput');
-    const renameBtn = document.getElementById('renameBtn');
+    const nameInput  = document.getElementById('listNameInput');
+    const renameBtn  = document.getElementById('renameBtn');
     const originalName = nameInput.value;
 
     nameInput.addEventListener('input', () => {
@@ -286,18 +275,13 @@
         renameBtn.classList.toggle('hidden', !changed);
     });
 
-    // Restore scroll position after complete-toggle reload
     const savedScroll = sessionStorage.getItem('shoppingScrollY');
     if (savedScroll) { window.scrollTo(0, +savedScroll); sessionStorage.removeItem('shoppingScrollY'); }
 
-    // Save scroll before complete-toggle (full page reload)
     document.querySelectorAll('[data-complete-form]').forEach(function (form) {
-        form.addEventListener('submit', function () {
-            sessionStorage.setItem('shoppingScrollY', window.scrollY);
-        });
+        form.addEventListener('submit', function () { sessionStorage.setItem('shoppingScrollY', window.scrollY); });
     });
 
-    // AJAX: quantity +/-
     document.querySelectorAll('[data-qty-form]').forEach(function (form) {
         form.addEventListener('submit', async function (e) {
             e.preventDefault();
@@ -308,7 +292,6 @@
                 const res = await fetch(this.action, { method: 'POST', body: fd });
                 if (!res.ok) throw new Error();
             } catch { location.reload(); return; }
-
             const row = document.getElementById('item-' + itemId);
             if (!row) return;
             row.querySelector('[data-qty-display]').textContent = newQty;
@@ -322,7 +305,6 @@
         });
     });
 
-    // AJAX: remove item
     document.querySelectorAll('[data-remove-form]').forEach(function (form) {
         form.addEventListener('submit', async function (e) {
             e.preventDefault();
@@ -332,22 +314,18 @@
                 const res = await fetch(this.action, { method: 'POST', body: fd });
                 if (!res.ok) throw new Error();
             } catch { location.reload(); return; }
-
             const row = document.getElementById('item-' + itemId);
             if (!row) return;
             const section = row.closest('[data-section-wrapper]');
             row.remove();
-            if (section && section.querySelectorAll('[id^="item-"]').length === 0) {
-                section.remove();
-            }
+            if (section && section.querySelectorAll('[id^="item-"]').length === 0) section.remove();
         });
     });
 
-    // Shopping mode
-    const startShoppingBtn = document.getElementById('startShoppingBtn');
-    const exitShoppingBtn  = document.getElementById('exitShoppingBtn');
+    const startShoppingBtn   = document.getElementById('startShoppingBtn');
+    const exitShoppingBtn    = document.getElementById('exitShoppingBtn');
     const shoppingModeHeader = document.getElementById('shoppingModeHeader');
-    const storeModal = document.getElementById('storeMismatchModal');
+    const storeModal         = document.getElementById('storeMismatchModal');
     const nearbyStoreNameEl    = document.getElementById('nearbyStoreName');
     const nearbyStoreAddressEl = document.getElementById('nearbyStoreAddress');
     const switchStoreBtn = document.getElementById('switchStoreBtn');
@@ -355,37 +333,24 @@
     const currentStoreId = startShoppingBtn.dataset.currentStoreId;
     let pendingNearbyStore = null;
 
-    function enterShoppingMode() {
-        document.body.classList.add('shopping-mode');
-        shoppingModeHeader.classList.remove('hidden');
-    }
-
-    function exitShoppingMode() {
-        document.body.classList.remove('shopping-mode');
-        shoppingModeHeader.classList.add('hidden');
-    }
+    function enterShoppingMode() { document.body.classList.add('shopping-mode'); shoppingModeHeader.classList.remove('hidden'); }
+    function exitShoppingMode()  { document.body.classList.remove('shopping-mode'); shoppingModeHeader.classList.add('hidden'); }
 
     startShoppingBtn.addEventListener('click', function () {
         if (!navigator.geolocation) { enterShoppingMode(); return; }
         navigator.geolocation.getCurrentPosition(
             async function (position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
                 try {
-                    const res = await fetch('/Settings/SearchStoresByLocation?latitude=' + lat + '&longitude=' + lng);
+                    const res = await fetch('/Settings/SearchStoresByLocation?latitude=' + position.coords.latitude + '&longitude=' + position.coords.longitude);
                     if (!res.ok) throw new Error();
                     const results = await res.json();
                     if (results && results.length > 0 && results[0].locationId !== currentStoreId) {
                         pendingNearbyStore = results[0];
-                        nearbyStoreNameEl.textContent    = results[0].name ?? '';
+                        nearbyStoreNameEl.textContent    = results[0].name    ?? '';
                         nearbyStoreAddressEl.textContent = results[0].address ?? '';
                         storeModal.classList.remove('hidden');
-                    } else {
-                        enterShoppingMode();
-                    }
-                } catch {
-                    enterShoppingMode();
-                }
+                    } else { enterShoppingMode(); }
+                } catch { enterShoppingMode(); }
             },
             function () { enterShoppingMode(); }
         );
@@ -393,36 +358,30 @@
 
     exitShoppingBtn.addEventListener('click', exitShoppingMode);
 
-    // Change store (manual, inside shop mode)
-    const changeStoreBtn     = document.getElementById('changeStoreBtn');
-    const changeStoreModal   = document.getElementById('changeStoreModal');
+    const changeStoreBtn      = document.getElementById('changeStoreBtn');
+    const changeStoreModal    = document.getElementById('changeStoreModal');
     const closeChangeStoreBtn = document.getElementById('closeChangeStoreBtn');
-    const storeZipInput      = document.getElementById('storeZipInput');
-    const storeZipSearchBtn  = document.getElementById('storeZipSearchBtn');
+    const storeZipInput       = document.getElementById('storeZipInput');
+    const storeZipSearchBtn   = document.getElementById('storeZipSearchBtn');
     const storeUseLocationBtn = document.getElementById('storeUseLocationBtn');
-    const changeStoreLoading = document.getElementById('changeStoreLoading');
-    const changeStoreResults = document.getElementById('changeStoreResults');
+    const changeStoreLoading  = document.getElementById('changeStoreLoading');
+    const changeStoreResults  = document.getElementById('changeStoreResults');
 
     changeStoreBtn.addEventListener('click', function () {
         changeStoreModal.classList.remove('hidden');
         changeStoreResults.innerHTML = '';
         storeZipInput.value = '';
     });
-
-    closeChangeStoreBtn.addEventListener('click', function () {
-        changeStoreModal.classList.add('hidden');
-    });
+    closeChangeStoreBtn.addEventListener('click', function () { changeStoreModal.classList.add('hidden'); });
 
     async function selectStoreAndRefresh(store) {
         const fd = new FormData();
         fd.append('locationId', store.locationId);
-        fd.append('storeName', store.name);
+        fd.append('storeName',  store.name);
         if (store.latitude  != null) fd.append('latitude',  store.latitude);
         if (store.longitude != null) fd.append('longitude', store.longitude);
         try { await fetch('/Settings/SelectStore', { method: 'POST', body: fd }); } catch {}
-        try {
-            await fetch('/ShoppingList/RefreshAisles?id=@Model.Id&storeId=' + encodeURIComponent(store.locationId), { method: 'POST' });
-        } catch {}
+        try { await fetch('/ShoppingList/RefreshAisles?id=@Model.Id&storeId=' + encodeURIComponent(store.locationId), { method: 'POST' }); } catch {}
         location.reload();
     }
 
@@ -430,17 +389,18 @@
         changeStoreLoading.classList.add('hidden');
         changeStoreResults.innerHTML = '';
         if (!stores || stores.length === 0) {
-            changeStoreResults.innerHTML = '<p class="text-sm text-gray-500 text-center">No stores found.</p>';
+            changeStoreResults.innerHTML = '<p class="text-[14px] text-center" style="color:var(--ios-label-2)">No stores found.</p>';
             return;
         }
         stores.forEach(function (store) {
             const btn = document.createElement('button');
-            btn.className = 'w-full text-left px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition text-sm';
-            btn.innerHTML = '<span class="font-semibold text-gray-800">' + store.name + '</span>' +
-                (store.address ? '<br><span class="text-xs text-gray-500">' + store.address + '</span>' : '');
+            btn.className = 'w-full text-left px-3 py-2.5 rounded-xl border transition text-[14px]';
+            btn.style.borderColor = 'var(--ios-separator)';
+            btn.innerHTML = '<span class="font-semibold" style="color:var(--ios-label)">' + store.name + '</span>' +
+                (store.address ? '<br><span style="color:var(--ios-label-2);font-size:12px">' + store.address + '</span>' : '');
             btn.addEventListener('click', async function () {
                 btn.disabled = true;
-                btn.innerHTML = '<span class="text-gray-400">Switching & updating aisles…</span>';
+                btn.innerHTML = '<span style="color:var(--ios-label-2)">Switching…</span>';
                 await selectStoreAndRefresh(store);
             });
             changeStoreResults.appendChild(btn);
@@ -457,13 +417,11 @@
             renderChangeStoreResults(await res.json());
         } catch {
             changeStoreLoading.classList.add('hidden');
-            changeStoreResults.innerHTML = '<p class="text-sm text-red-500 text-center">Error searching. Try again.</p>';
+            changeStoreResults.innerHTML = '<p style="color:var(--ios-red);font-size:14px;text-align:center">Error. Try again.</p>';
         }
     });
 
-    storeZipInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') storeZipSearchBtn.click();
-    });
+    storeZipInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') storeZipSearchBtn.click(); });
 
     storeUseLocationBtn.addEventListener('click', function () {
         if (!navigator.geolocation) return;
@@ -476,37 +434,29 @@
                     renderChangeStoreResults(await res.json());
                 } catch {
                     changeStoreLoading.classList.add('hidden');
-                    changeStoreResults.innerHTML = '<p class="text-sm text-red-500 text-center">Error searching. Try again.</p>';
+                    changeStoreResults.innerHTML = '<p style="color:var(--ios-red);font-size:14px;text-align:center">Error. Try again.</p>';
                 }
             },
             function () {
                 changeStoreLoading.classList.add('hidden');
-                changeStoreResults.innerHTML = '<p class="text-sm text-red-500 text-center">Location access denied.</p>';
+                changeStoreResults.innerHTML = '<p style="color:var(--ios-red);font-size:14px;text-align:center">Location access denied.</p>';
             }
         );
     });
 
-    keepStoreBtn.addEventListener('click', function () {
-        storeModal.classList.add('hidden');
-        enterShoppingMode();
-    });
+    keepStoreBtn.addEventListener('click', function () { storeModal.classList.add('hidden'); enterShoppingMode(); });
 
     switchStoreBtn.addEventListener('click', async function () {
         if (!pendingNearbyStore) return;
         switchStoreBtn.disabled = true;
-        switchStoreBtn.textContent = 'Updating aisle locations…';
-
+        switchStoreBtn.textContent = 'Updating aisles…';
         const fd = new FormData();
         fd.append('locationId', pendingNearbyStore.locationId);
         fd.append('storeName',  pendingNearbyStore.name);
         if (pendingNearbyStore.latitude  != null) fd.append('latitude',  pendingNearbyStore.latitude);
         if (pendingNearbyStore.longitude != null) fd.append('longitude', pendingNearbyStore.longitude);
         try { await fetch('/Settings/SelectStore', { method: 'POST', body: fd }); } catch {}
-
-        try {
-            await fetch('/ShoppingList/RefreshAisles?id=@Model.Id&storeId=' + encodeURIComponent(pendingNearbyStore.locationId), { method: 'POST' });
-        } catch {}
-
+        try { await fetch('/ShoppingList/RefreshAisles?id=@Model.Id&storeId=' + encodeURIComponent(pendingNearbyStore.locationId), { method: 'POST' }); } catch {}
         location.reload();
     });
 </script>

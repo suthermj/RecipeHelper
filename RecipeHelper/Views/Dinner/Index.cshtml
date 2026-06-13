@@ -3,14 +3,15 @@
 @model MealPlanIndexVM
 
 @{
-    ViewData["Title"] = "Meal Plan";
+    ViewData["Title"]    = "Meal Plan";
+    ViewData["NavTitle"] = "";
 
-    var weekStart = Model.WeekStart;
-    var weekEnd = weekStart.AddDays(6);
-    var prevWeek = weekStart.AddDays(-7);
-    var nextWeek = weekStart.AddDays(7);
+    var weekStart        = Model.WeekStart;
+    var weekEnd          = weekStart.AddDays(6);
+    var prevWeek         = weekStart.AddDays(-7);
+    var nextWeek         = weekStart.AddDays(7);
     var currentWeekStart = MealPlanService.GetWeekStart(MealPlanService.LocalToday());
-    var isCurrentWeek = weekStart == currentWeekStart;
+    var isCurrentWeek    = weekStart == currentWeekStart;
 
     string WeekRange(DateTime s, DateTime e) =>
         s.Year == e.Year
@@ -28,59 +29,77 @@
 
 @Html.AntiForgeryToken()
 
-<div class="max-w-xl mx-auto px-4 py-6 space-y-5">
+<div class="pt-2 pb-4">
 
-    <!-- Week navigation header -->
-    <div class="flex items-center justify-between gap-2">
-        <a asp-action="Index" asp-route-weekStart="@prevWeek.ToString("yyyy-MM-dd")"
-           class="p-2.5 rounded-full text-gray-500 hover:bg-gray-100 transition shrink-0"
-           title="Previous week">
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-        </a>
-        <div class="text-center flex-1 min-w-0">
-            <p class="text-lg font-bold text-gray-900 truncate">@WeekRange(weekStart, weekEnd)</p>
-            @if (!isCurrentWeek)
-            {
-                <a asp-action="Index" class="text-xs text-red-700 font-medium hover:underline underline-offset-2">← Current week</a>
-            }
+    <!-- Large title + week nav -->
+    <div class="px-4 pb-3">
+        <h1 class="ios-large-title mb-3">Meal Plan</h1>
+
+        <div class="flex items-center justify-between gap-2">
+            <a asp-action="Index" asp-route-weekStart="@prevWeek.ToString("yyyy-MM-dd")"
+               class="flex items-center justify-center h-9 w-9 rounded-full transition active:opacity-50"
+               style="background: var(--ios-fill);" title="Previous week">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+            </a>
+
+            <div class="text-center flex-1 min-w-0">
+                <p class="text-[15px] font-semibold truncate" style="color: var(--ios-label);">
+                    @WeekRange(weekStart, weekEnd)
+                </p>
+                @if (!isCurrentWeek)
+                {
+                    <a asp-action="Index" class="text-[13px]" style="color: var(--ios-red);">← Current week</a>
+                }
+            </div>
+
+            <a asp-action="Index" asp-route-weekStart="@nextWeek.ToString("yyyy-MM-dd")"
+               class="flex items-center justify-center h-9 w-9 rounded-full transition active:opacity-50"
+               style="background: var(--ios-fill);" title="Next week">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+            </a>
         </div>
-        <a asp-action="Index" asp-route-weekStart="@nextWeek.ToString("yyyy-MM-dd")"
-           class="p-2.5 rounded-full text-gray-500 hover:bg-gray-100 transition shrink-0"
-           title="Next week">
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-        </a>
     </div>
 
-    <!-- 7 day cards (always interactive) -->
-    <div class="space-y-3" id="daySlots">
+    <!-- 7 day cards -->
+    <div class="space-y-2 px-4" id="daySlots">
         @for (int d = 0; d < 7; d++)
         {
             var dayEntries = entriesByDay[d];
-            var dayDate = weekStart.AddDays(d);
-            var isToday = dayDate == MealPlanService.LocalToday();
+            var dayDate    = weekStart.AddDays(d);
+            var isToday    = dayDate == MealPlanService.LocalToday();
 
-            <div class="bg-white rounded-2xl border @(isToday ? "border-red-200" : "border-gray-200") shadow-sm overflow-hidden transition-opacity duration-150" data-day="@d">
-                <div class="px-4 pt-3 pb-1 flex items-baseline justify-between">
-                    <p class="text-sm font-bold @(isToday ? "text-red-700" : "text-gray-800")">@dayNames[d]</p>
-                    <p class="text-xs tabular-nums @(isToday ? "text-red-400" : "text-gray-400")">@dayDate.ToString("MMM d")</p>
+            <div class="rounded-2xl overflow-hidden transition-opacity duration-150"
+                 style="background: var(--ios-surface); box-shadow: 0 1px 4px rgba(0,0,0,0.07); @(isToday ? "border-left: 4px solid var(--ios-red);" : "")"
+                 data-day="@d">
+
+                <div class="px-4 pt-3 pb-1 flex items-center justify-between">
+                    <p class="text-[15px] font-bold" style="color: @(isToday ? "var(--ios-red)" : "var(--ios-label)");">
+                        @dayNames[d]
+                    </p>
+                    <p class="text-[13px]" style="color: @(isToday ? "var(--ios-red)" : "var(--ios-label-2)");">
+                        @dayDate.ToString("MMM d")
+                    </p>
                 </div>
 
-                <div class="px-3 pb-3 space-y-2">
-                    <div class="day-entries space-y-1.5" data-day="@d">
+                <div class="px-3 pb-3">
+                    <div class="day-entries space-y-1" data-day="@d">
                         @foreach (var entry in dayEntries)
                         {
-                            <div class="entry-row flex items-center gap-3 py-1" data-entry-id="@entry.Id">
-                                <div class="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                            <div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="@entry.Id">
+                                <div class="w-14 h-10 rounded-lg overflow-hidden shrink-0" style="background: var(--ios-fill);">
                                     <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
                                          alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
                                 </div>
-                                <p class="flex-1 text-sm font-semibold text-gray-900 truncate">@(entry.Recipe?.Name ?? "")</p>
+                                <p class="flex-1 text-[14px] font-medium truncate" style="color: var(--ios-label);">
+                                    @(entry.Recipe?.Name ?? "")
+                                </p>
                                 <button type="button"
-                                        class="clear-btn shrink-0 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+                                        class="clear-btn shrink-0 flex items-center justify-center h-7 w-7 rounded-full transition active:opacity-50"
+                                        style="color: var(--ios-label-3);"
                                         data-entry-id="@entry.Id"
                                         title="Remove">
                                     <svg class="h-4 w-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -92,21 +111,22 @@
                     </div>
 
                     <button type="button"
-                            class="add-btn w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-gray-200 text-xs text-gray-400 hover:border-red-300 hover:text-red-600 transition mt-1"
+                            class="add-btn w-full flex items-center justify-center gap-1.5 py-2 mt-1 rounded-xl border border-dashed transition active:opacity-50"
+                            style="border-color: var(--ios-separator); color: var(--ios-label-2);"
                             data-day="@d">
                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
-                        Add recipe
+                        <span class="text-[13px]">Add recipe</span>
                     </button>
                 </div>
             </div>
         }
     </div>
 
-    <!-- Actions (visible only when ≥1 day filled) -->
-    <div id="planActions" class="space-y-2 pt-1 @(hasEntries ? "" : "hidden")">
-        <form asp-action="SubmitDinnerSelections" method="post" id="reviewForm">
+    <!-- Actions (visible when ≥1 day filled) -->
+    <div id="planActions" class="px-4 pt-4 space-y-3 @(hasEntries ? "" : "hidden")">
+        <form asp-action="SubmitDinnerSelections" method="post">
             @Html.AntiForgeryToken()
             <div id="reviewHiddenInputs">
                 @foreach (var entry in allEntries)
@@ -114,8 +134,7 @@
                     <input type="hidden" name="selectedRecipes" value="@entry.RecipeId" />
                 }
             </div>
-            <button type="submit"
-                    class="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-full text-sm font-semibold bg-red-800 text-white hover:bg-red-900 shadow-sm transition">
+            <button type="submit" class="btn-primary w-full gap-2">
                 Review ingredients
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -124,14 +143,12 @@
         </form>
 
         <form asp-action="DeletePlan" method="post"
-              id="deleteForm"
               onsubmit="return confirm('Delete this meal plan?')">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" id="deletePlanId" value="@(Model.Plan?.Id ?? 0)" />
             <input type="hidden" name="weekStart" value="@weekStart.ToString("yyyy-MM-dd")" />
             <div class="flex justify-center">
-                <button type="submit"
-                        class="text-xs text-gray-400 hover:text-red-600 underline-offset-2 hover:underline transition py-1">
+                <button type="submit" class="ios-btn-text-destructive py-2 text-[14px]">
                     Delete plan
                 </button>
             </div>
@@ -147,7 +164,7 @@
         transition: background-color 0.25s ease;
     }
     #recipePickerOverlay.picker-open {
-        background-color: rgba(0,0,0,0.5);
+        background-color: rgba(0, 0, 0, 0.4);
         pointer-events: auto;
     }
     #recipePickerCard {
@@ -171,67 +188,83 @@
     }
 </style>
 
-<!-- Recipe picker (bottom sheet on mobile, centered card on sm+) -->
+<!-- Recipe picker — bottom sheet on mobile, centered card on sm+ -->
 <div id="recipePickerOverlay"
-     class="fixed inset-x-0 top-0 bottom-14 z-[200] flex items-end sm:inset-0 sm:items-center sm:justify-center sm:p-4"
+     class="fixed inset-x-0 top-0 z-[200] flex items-end sm:inset-0 sm:items-center sm:justify-center sm:p-4"
+     style="display:none; bottom: calc(49px + env(safe-area-inset-bottom));"
      aria-modal="true">
+
     <div id="recipePickerCard"
-         class="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden max-h-[88svh]">
-        <!-- Drag pill + header — swipe target -->
+         class="w-full sm:max-w-sm flex flex-col overflow-hidden"
+         style="background: var(--ios-surface);
+                border-radius: 20px 20px 0 0;
+                max-height: 88svh;">
+
+        <!-- Drag pill + header -->
         <div id="pickerHandle" class="shrink-0">
-            <div class="flex justify-center pt-3 pb-1 sm:hidden">
-                <div class="w-8 h-1 rounded-full bg-gray-200"></div>
+            <div class="flex justify-center pt-2.5 pb-1 sm:hidden">
+                <div class="w-9 h-1 rounded-full" style="background: var(--ios-separator);"></div>
             </div>
-            <div class="flex items-center justify-between px-4 pt-2 pb-3 border-b border-gray-100">
-                <h2 class="text-base font-semibold text-gray-900">Pick a recipe</h2>
+            <div class="flex items-center justify-between px-4 pt-2 pb-3"
+                 style="border-bottom: 0.5px solid var(--ios-separator);">
+                <h2 class="text-[17px] font-semibold" style="color: var(--ios-label);">Pick a recipe</h2>
                 <button type="button" id="closeModal"
-                        class="p-3 min-h-[44px] min-w-[44px] rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
-                    <svg class="h-5 w-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <!-- Search -->
-        <div class="px-4 py-3 border-b border-gray-100 shrink-0">
-            <div class="relative">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                </svg>
-                <input type="text" id="recipeSearch"
-                       placeholder="Search recipes…"
-                       autocomplete="off"
-                       inputmode="search"
-                       class="w-full pl-9 pr-9 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-700 focus:border-transparent" />
-                <button type="button" id="clearSearch"
-                        class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hidden">
+                        class="flex items-center justify-center h-8 w-8 rounded-full transition active:opacity-50"
+                        style="background: var(--ios-fill); color: var(--ios-label-2);">
                     <svg class="h-4 w-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
         </div>
+
+        <!-- Search -->
+        <div class="px-4 py-3 shrink-0" style="border-bottom: 0.5px solid var(--ios-separator);">
+            <div class="ios-search-wrap">
+                <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input type="text" id="recipeSearch"
+                       placeholder="Search recipes…"
+                       autocomplete="off"
+                       inputmode="search"
+                       class="ios-search-input" />
+                <button type="button" id="clearSearch"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full hidden items-center justify-center"
+                        style="background: var(--ios-label-2); color: white;">
+                    <svg class="h-3.5 w-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
         <!-- Recipe list -->
-        <div id="recipeList" class="overflow-y-auto overscroll-contain min-h-0 divide-y divide-gray-100">
+        <div id="recipeList" class="overflow-y-auto overscroll-contain min-h-0"
+             style="border-top: none;">
             @foreach (var recipe in Model.AllRecipes)
             {
                 <button type="button"
-                        class="recipe-option w-full flex items-center gap-3 px-4 py-3 text-left active:bg-red-50 focus:outline-none focus:bg-red-50 transition-colors"
+                        class="recipe-option w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:opacity-60"
+                        style="border-bottom: 0.5px solid var(--ios-separator); background: none;"
                         data-id="@recipe.Id"
                         data-name="@recipe.RecipeName"
                         data-img="@(string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)">
-                    <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                    <div class="w-12 h-12 rounded-xl overflow-hidden shrink-0" style="background: var(--ios-fill);">
                         <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)"
                              alt="" loading="lazy" decoding="async"
                              class="w-full h-full object-cover" />
                     </div>
-                    <p class="flex-1 text-sm font-medium text-gray-900 leading-snug line-clamp-2">@recipe.RecipeName</p>
-                    <svg class="h-4 w-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <p class="flex-1 text-[15px] font-medium leading-snug line-clamp-2 text-left"
+                       style="color: var(--ios-label);">@recipe.RecipeName</p>
+                    <svg class="h-4 w-4 shrink-0 ios-disclosure" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                     </svg>
                 </button>
             }
-            <p id="noResults" class="hidden px-4 py-10 text-center text-sm text-gray-400">No recipes match your search</p>
+            <p id="noResults" class="hidden px-4 py-10 text-center text-[15px]" style="color: var(--ios-label-2);">
+                No recipes match your search
+            </p>
         </div>
     </div>
 </div>
@@ -247,22 +280,26 @@
     const planActions  = document.getElementById('planActions');
     const reviewHiddenInputs = document.getElementById('reviewHiddenInputs');
     const deletePlanIdInput  = document.getElementById('deletePlanId');
-    const weekStart       = '@weekStart.ToString("yyyy-MM-dd")';
-    const defaultImg      = '@DefaultImg';
-    const addDayRecipeUrl = '@Url.Action("AddDayRecipe", "Dinner")';
-    const removeEntryUrl  = '@Url.Action("RemoveEntry", "Dinner")';
+    const weekStart          = '@weekStart.ToString("yyyy-MM-dd")';
+    const defaultImg         = '@DefaultImg';
+    const addDayRecipeUrl    = '@Url.Action("AddDayRecipe", "Dinner")';
+    const removeEntryUrl     = '@Url.Action("RemoveEntry", "Dinner")';
     let activeDay = null;
+    let hideTimeout = null;
 
     function getToken() {
         return document.querySelector('input[name="__RequestVerificationToken"]').value;
     }
 
     function openPicker(day) {
+        if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
         activeDay = day;
         recipeSearch.value = '';
         clearSearch.classList.add('hidden');
+        clearSearch.classList.remove('flex');
         filterRecipes('');
         document.getElementById('recipeList').scrollTop = 0;
+        overlay.style.display = 'flex';
         requestAnimationFrame(() => overlay.classList.add('picker-open'));
     }
 
@@ -271,15 +308,15 @@
         overlay.style.bottom = '';
         pickerCard.style.maxHeight = '';
         activeDay = null;
+        hideTimeout = setTimeout(() => { overlay.style.display = 'none'; hideTimeout = null; }, 350);
     }
 
-    // Keep picker above virtual keyboard on mobile
     function onViewportResize() {
         if (!overlay.classList.contains('picker-open')) return;
         const vv = window.visualViewport;
         const keyboardHeight = window.innerHeight - vv.offsetTop - vv.height;
         if (keyboardHeight > 50) {
-            overlay.style.bottom       = keyboardHeight + 'px';
+            overlay.style.bottom      = keyboardHeight + 'px';
             pickerCard.style.maxHeight = (vv.height * 0.95) + 'px';
         } else {
             overlay.style.bottom       = '';
@@ -300,7 +337,6 @@
         if (e.target === overlay) closePicker();
     });
 
-    // Swipe down on handle only — keeps list scroll from accidentally dismissing
     (function () {
         let startY = 0;
         pickerHandle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
@@ -312,12 +348,14 @@
     recipeSearch.addEventListener('input', () => {
         const term = recipeSearch.value.toLowerCase().trim();
         clearSearch.classList.toggle('hidden', !term);
+        clearSearch.classList.toggle('flex', !!term);
         filterRecipes(term);
     });
 
     clearSearch.addEventListener('click', () => {
         recipeSearch.value = '';
         clearSearch.classList.add('hidden');
+        clearSearch.classList.remove('flex');
         filterRecipes('');
         recipeSearch.focus();
     });
@@ -344,12 +382,13 @@
 
     function entryRowHtml(entry) {
         const img = entry.img || defaultImg;
-        return `<div class="entry-row flex items-center gap-3 py-1" data-entry-id="${entry.entryId}">
-            <div class="w-16 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+        return `<div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="${entry.entryId}">
+            <div class="w-14 h-10 rounded-lg overflow-hidden shrink-0" style="background:var(--ios-fill);">
                 <img src="${img}" alt="" class="w-full h-full object-cover" />
             </div>
-            <p class="flex-1 text-sm font-semibold text-gray-900 truncate">${entry.name}</p>
-            <button type="button" class="clear-btn shrink-0 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+            <p class="flex-1 text-[14px] font-medium truncate" style="color:var(--ios-label);">${entry.name}</p>
+            <button type="button" class="clear-btn shrink-0 flex items-center justify-center h-7 w-7 rounded-full transition active:opacity-50"
+                    style="color:var(--ios-label-3);"
                     data-entry-id="${entry.entryId}" title="Remove">
                 <svg class="h-4 w-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -373,8 +412,8 @@
         reviewHiddenInputs.innerHTML = '';
         (data.entries || []).forEach(e => {
             const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'selectedRecipes';
+            input.type  = 'hidden';
+            input.name  = 'selectedRecipes';
             input.value = e.recipeId;
             reviewHiddenInputs.appendChild(input);
         });
@@ -392,7 +431,7 @@
     bindClearButtons();
 
     function dimCard(card) {
-        if (card) { card.style.opacity = '0.55'; card.style.pointerEvents = 'none'; }
+        if (card) { card.style.opacity = '0.5'; card.style.pointerEvents = 'none'; }
     }
     function undimCard(card) {
         if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
@@ -405,15 +444,10 @@
         body.append('weekStart', weekStart);
         body.append('dayOfWeek', String(day));
         body.append('recipeId', String(recipeId));
-
         try {
             const resp = await fetch(addDayRecipeUrl, {
                 method: 'POST',
-                headers: {
-                    'RequestVerificationToken': getToken(),
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json'
-                },
+                headers: { 'RequestVerificationToken': getToken(), 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
                 body: body.toString()
             });
             if (!resp.ok) throw new Error('Add failed: ' + resp.status);
@@ -426,20 +460,15 @@
     }
 
     async function postRemove(entryId) {
-        const row = document.querySelector(`[data-entry-id="${entryId}"]`);
+        const row  = document.querySelector(`[data-entry-id="${entryId}"]`);
         const card = row?.closest('[data-day]');
         dimCard(card);
         const body = new URLSearchParams();
         body.append('entryId', String(entryId));
-
         try {
             const resp = await fetch(removeEntryUrl, {
                 method: 'POST',
-                headers: {
-                    'RequestVerificationToken': getToken(),
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json'
-                },
+                headers: { 'RequestVerificationToken': getToken(), 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
                 body: body.toString()
             });
             if (!resp.ok) throw new Error('Remove failed: ' + resp.status);

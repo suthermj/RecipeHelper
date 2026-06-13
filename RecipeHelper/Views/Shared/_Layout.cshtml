@@ -22,13 +22,9 @@
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
     var isRecipes  = controller == "Recipe" || controller == "Import";
     var isMealPlan = controller == "Dinner";
+    var isProducts = controller == "Product";
     var isLists    = controller == "ShoppingList" || controller == "Cart";
-    var isSettings = controller == "Settings" || controller == "Product";
-    var hasCenterTabAction = IsSectionDefined("TabBarCenterAction");
-    var hasNavRight = IsSectionDefined("NavRight");
-    var navTitle = ViewData["NavTitle"]?.ToString() ?? "";
-    var hasBackLink = ViewData["BackLink"] != null;
-    var shouldRenderHeader = hasBackLink || hasNavRight || !string.IsNullOrWhiteSpace(navTitle);
+    var isSettings = controller == "Settings";
 }
 
 <body class="min-h-screen flex flex-col"
@@ -37,41 +33,38 @@
              color: #1C1C1E;
              -webkit-font-smoothing: antialiased;">
 
-    @if (shouldRenderHeader)
-    {
-        <!-- iOS Navigation Bar -->
-        <header class="ios-nav safe-top">
-            <div class="h-11 flex items-center justify-between px-4">
+    <!-- iOS Navigation Bar -->
+    <header class="ios-nav safe-top">
+        <div class="h-11 flex items-center justify-between px-4">
 
-                <!-- Left: back button or spacer -->
-                @if (hasBackLink)
-                {
-                    <a href="@ViewData["BackLink"]"
-                       class="ios-btn-text flex items-center gap-0.5 min-w-[60px]">
-                        <svg class="h-[18px] w-[18px] flex-shrink-0 -ml-0.5" fill="none" viewBox="0 0 24 24"
-                             stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                        </svg>
-                        <span class="truncate max-w-[80px] text-[17px]">@(ViewData["BackLabel"] ?? "Back")</span>
-                    </a>
-                }
-                else
-                {
-                    <div class="min-w-[60px]"></div>
-                }
+            <!-- Left: back button or spacer -->
+            @if (ViewData["BackLink"] != null)
+            {
+                <a href="@ViewData["BackLink"]"
+                   class="ios-btn-text flex items-center gap-0.5 min-w-[60px]">
+                    <svg class="h-[18px] w-[18px] flex-shrink-0 -ml-0.5" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                    </svg>
+                    <span class="truncate max-w-[80px] text-[17px]">@(ViewData["BackLabel"] ?? "Back")</span>
+                </a>
+            }
+            else
+            {
+                <div class="min-w-[60px]"></div>
+            }
 
-                <!-- Center: compact page title -->
-                <span class="text-[17px] font-semibold truncate max-w-[160px]" style="color: #1C1C1E;">
-                    @navTitle
-                </span>
+            <!-- Center: compact page title -->
+            <span class="text-[17px] font-semibold truncate max-w-[160px]" style="color: #1C1C1E;">
+                @(ViewData["NavTitle"]?.ToString() ?? "")
+            </span>
 
-                <!-- Right: per-page action injected by each view -->
-                <div class="min-w-[60px] flex justify-end">
-                    @await RenderSectionAsync("NavRight", required: false)
-                </div>
+            <!-- Right: per-page action injected by each view -->
+            <div class="min-w-[60px] flex justify-end">
+                @await RenderSectionAsync("NavRight", required: false)
             </div>
-        </header>
-    }
+        </div>
+    </header>
 
     <!-- Toast notification -->
     @{
@@ -114,121 +107,69 @@
 
     <!-- iOS Bottom Tab Bar -->
     <nav class="fixed bottom-0 inset-x-0 z-50 ios-tab safe-bottom">
-        @if (hasCenterTabAction)
-        {
-            <div class="ios-tab-items ios-tab-items-with-center">
+        <div class="flex justify-around ios-tab-items">
 
-                <div class="ios-tab-group">
-                    <!-- Recipes -->
-                    <a asp-controller="Recipe" asp-action="Recipe"
-                       class="ios-tab-item"
-                       style="color: @(isRecipes ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                        <svg class="h-[26px] w-[26px]" fill="@(isRecipes ? "#FF3B30" : "none")"
-                             viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isRecipes ? "0" : "1.5")">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                  d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-                        </svg>
-                        <span class="ios-tab-label" style="font-weight: @(isRecipes ? "600" : "400");">Recipes</span>
-                    </a>
+            <!-- Recipes -->
+            <a asp-controller="Recipe" asp-action="Recipe"
+               class="ios-tab-item"
+               style="color: @(isRecipes ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
+                <svg class="h-[26px] w-[26px]" fill="@(isRecipes ? "#FF3B30" : "none")"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isRecipes ? "0" : "1.5")">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                </svg>
+                <span class="ios-tab-label" style="font-weight: @(isRecipes ? "600" : "400");">Recipes</span>
+            </a>
 
-                    <!-- Meal Plan -->
-                    <a asp-controller="Dinner" asp-action="Index"
-                       class="ios-tab-item"
-                       style="color: @(isMealPlan ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                        <svg class="h-[26px] w-[26px]" fill="@(isMealPlan ? "#FF3B30" : "none")"
-                             viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isMealPlan ? "0" : "1.5")">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                        </svg>
-                        <span class="ios-tab-label" style="font-weight: @(isMealPlan ? "600" : "400");">Meal Plan</span>
-                    </a>
-                </div>
+            <!-- Meal Plan -->
+            <a asp-controller="Dinner" asp-action="Index"
+               class="ios-tab-item"
+               style="color: @(isMealPlan ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
+                <svg class="h-[26px] w-[26px]" fill="@(isMealPlan ? "#FF3B30" : "none")"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isMealPlan ? "0" : "1.5")">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                </svg>
+                <span class="ios-tab-label" style="font-weight: @(isMealPlan ? "600" : "400");">Meal Plan</span>
+            </a>
 
-                <div class="ios-tab-center-slot">
-                    @await RenderSectionAsync("TabBarCenterAction", required: false)
-                </div>
+            <!-- Products -->
+            <a asp-controller="Product" asp-action="Products"
+               class="ios-tab-item"
+               style="color: @(isProducts ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
+                <svg class="h-[26px] w-[26px]" fill="@(isProducts ? "#FF3B30" : "none")"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isProducts ? "0" : "1.5")">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                </svg>
+                <span class="ios-tab-label" style="font-weight: @(isProducts ? "600" : "400");">Products</span>
+            </a>
 
-                <div class="ios-tab-group">
-                    <!-- Lists -->
-                    <a asp-controller="ShoppingList" asp-action="Index"
-                       class="ios-tab-item"
-                       style="color: @(isLists ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                        <svg class="h-[26px] w-[26px]" fill="@(isLists ? "#FF3B30" : "none")"
-                             viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isLists ? "0" : "1.5")">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                  d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
-                        </svg>
-                        <span class="ios-tab-label" style="font-weight: @(isLists ? "600" : "400");">Lists</span>
-                    </a>
+            <!-- Lists -->
+            <a asp-controller="ShoppingList" asp-action="Index"
+               class="ios-tab-item"
+               style="color: @(isLists ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
+                <svg class="h-[26px] w-[26px]" fill="@(isLists ? "#FF3B30" : "none")"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isLists ? "0" : "1.5")">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
+                </svg>
+                <span class="ios-tab-label" style="font-weight: @(isLists ? "600" : "400");">Lists</span>
+            </a>
 
-                    <!-- Settings -->
-                    <a asp-controller="Settings" asp-action="Index"
-                       class="ios-tab-item"
-                       style="color: @(isSettings ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                        <svg class="h-[26px] w-[26px]" fill="@(isSettings ? "#FF3B30" : "none")"
-                             viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isSettings ? "0" : "1.5")">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                  d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                        </svg>
-                        <span class="ios-tab-label" style="font-weight: @(isSettings ? "600" : "400");">Settings</span>
-                    </a>
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="flex justify-around ios-tab-items">
-                <!-- Recipes -->
-                <a asp-controller="Recipe" asp-action="Recipe"
-                   class="ios-tab-item"
-                   style="color: @(isRecipes ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                    <svg class="h-[26px] w-[26px]" fill="@(isRecipes ? "#FF3B30" : "none")"
-                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isRecipes ? "0" : "1.5")">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-                    </svg>
-                    <span class="ios-tab-label" style="font-weight: @(isRecipes ? "600" : "400");">Recipes</span>
-                </a>
-
-                <!-- Meal Plan -->
-                <a asp-controller="Dinner" asp-action="Index"
-                   class="ios-tab-item"
-                   style="color: @(isMealPlan ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                    <svg class="h-[26px] w-[26px]" fill="@(isMealPlan ? "#FF3B30" : "none")"
-                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isMealPlan ? "0" : "1.5")">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                    </svg>
-                    <span class="ios-tab-label" style="font-weight: @(isMealPlan ? "600" : "400");">Meal Plan</span>
-                </a>
-
-                <!-- Lists -->
-                <a asp-controller="ShoppingList" asp-action="Index"
-                   class="ios-tab-item"
-                   style="color: @(isLists ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                    <svg class="h-[26px] w-[26px]" fill="@(isLists ? "#FF3B30" : "none")"
-                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isLists ? "0" : "1.5")">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
-                    </svg>
-                    <span class="ios-tab-label" style="font-weight: @(isLists ? "600" : "400");">Lists</span>
-                </a>
-
-                <!-- Settings -->
-                <a asp-controller="Settings" asp-action="Index"
-                   class="ios-tab-item"
-                   style="color: @(isSettings ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                    <svg class="h-[26px] w-[26px]" fill="@(isSettings ? "#FF3B30" : "none")"
-                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isSettings ? "0" : "1.5")">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    </svg>
-                    <span class="ios-tab-label" style="font-weight: @(isSettings ? "600" : "400");">Settings</span>
-                </a>
-            </div>
-        }
+            <!-- Settings -->
+            <a asp-controller="Settings" asp-action="Index"
+               class="ios-tab-item"
+               style="color: @(isSettings ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
+                <svg class="h-[26px] w-[26px]" fill="@(isSettings ? "#FF3B30" : "none")"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isSettings ? "0" : "1.5")">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+                <span class="ios-tab-label" style="font-weight: @(isSettings ? "600" : "400");">Settings</span>
+            </a>
+        </div>
     </nav>
 
     <!-- Loading overlay (shown on .loading-form submit) -->

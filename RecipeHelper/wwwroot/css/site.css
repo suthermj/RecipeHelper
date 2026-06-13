@@ -69,30 +69,6 @@ html {
   padding-top: 7px;
 }
 
-.ios-tab-items-with-center {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 4px;
-  padding-left: 6px;
-  padding-right: 6px;
-}
-
-.ios-tab-group {
-  display: flex;
-  min-width: 0;
-  flex: 1 1 0;
-  justify-content: space-around;
-}
-
-.ios-tab-center-slot {
-  display: flex;
-  width: 72px;
-  flex: 0 0 72px;
-  align-items: flex-start;
-  justify-content: center;
-}
-
 .ios-tab-item {
   display: flex;
   min-width: 58px;
@@ -109,26 +85,6 @@ html {
   line-height: 1.1;
   letter-spacing: 0;
   white-space: nowrap;
-}
-
-.ios-tab-plus-btn {
-  display: inline-flex;
-  height: 44px;
-  width: 44px;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 9999px;
-  background: var(--ios-red);
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(255, 59, 48, 0.28);
-  transform: translateY(-10px);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ios-tab-plus-btn:focus-visible {
-  outline: 2px solid rgba(255, 59, 48, 0.32);
-  outline-offset: 3px;
 }
 
 /* ─── Large Title ─── */
@@ -372,73 +328,6 @@ html {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.ios-action-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  opacity: 0;
-  align-items: flex-end;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.3);
-  pointer-events: none;
-  transition: opacity 0.22s ease;
-}
-
-.ios-action-sheet {
-  width: min(100%, 30rem);
-  border-radius: 24px 24px 0 0;
-  background: rgba(249, 249, 249, 0.98);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.14);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  transform: translateY(28px);
-  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
-}
-
-.ios-action-sheet-backdrop.is-open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.ios-action-sheet-backdrop.is-open .ios-action-sheet {
-  transform: translateY(0);
-}
-
-.ios-action-sheet-option {
-  display: flex;
-  width: 100%;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  border: none;
-  border-radius: 18px;
-  background: var(--ios-surface);
-  padding: 14px 16px;
-  text-align: left;
-  text-decoration: none;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ios-action-sheet-option-disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-
-@media (min-width: 640px) {
-  .ios-action-sheet-backdrop {
-    align-items: center;
-    padding: 16px;
-  }
-
-  .ios-action-sheet {
-    border-radius: 24px;
-    padding-bottom: 12px;
-  }
 }
 
 /* ─── Expand/Collapse animation ─── */

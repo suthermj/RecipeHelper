@@ -48,6 +48,7 @@
     "lru-cache": "^10.4.3",
     "merge2": "^1.4.1",
     "micromatch": "^4.0.8",
+    "mime": "^4.1.0",
     "minimatch": "^9.0.5",
     "minipass": "^7.1.2",
     "mz": "^2.7.0",

@@ -1,144 +1,129 @@
-﻿@using RecipeHelper.Models.Kroger
+@using RecipeHelper.Models.Kroger
 @model AddToCartPreviewVM
 
 @{
-    ViewData["Title"] = "Review Kroger Items";
+    ViewData["Title"]    = "Add to Cart";
+    ViewData["NavTitle"] = "Add to Cart";
+    ViewData["BackLink"] = Url.Action("ReviewDinnerSelections", "Dinner");
+    ViewData["BackLabel"] = "Ingredients";
     var totalItems = Model.Items.Sum(i => i.QuantityToAdd);
 }
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-6 space-y-6">
-    <header class="space-y-1">
-        <h1 class="text-xl font-bold text-gray-900 sm:text-2xl">
-            Review Kroger items
-        </h1>
-        <p class="text-sm text-gray-600">
-            These are the specific Kroger products and quantities that will be added to your cart.
-            Uncheck any items you don’t want to include.
-        </p>
-    </header>
+<div class="pt-2 pb-32">
 
     @if (!Model.Items.Any())
     {
-        <div class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700">
-            No items to add. Please go back and select your recipes again.
+        <div class="mx-4 ios-card p-6 text-center">
+            <p class="text-[15px]" style="color: var(--ios-label-2);">No items to add. Go back and select your recipes.</p>
         </div>
     }
     else
     {
-        <section class="space-y-4">
-            <form asp-action="BeginAddToCart" asp-controller="Cart" method="post" class="loading-form" data-loading-text="Adding items to Kroger cart...">
-                @Html.AntiForgeryToken()
+        <form asp-action="BeginAddToCart" asp-controller="Cart" method="post" id="cartForm"
+              class="loading-form" data-loading-text="Adding items to Kroger cart...">
+            @Html.AntiForgeryToken()
 
-                <div class="flex items-center gap-3 rounded-t-2xl border border-gray-200 bg-gray-50 px-4 py-2">
-                    <input type="checkbox" id="select-all" class="h-4 w-4 rounded border-gray-300" />
-                    <span class="text-sm font-medium text-gray-600">Select all</span>
-                </div>
+            <!-- Select all -->
+            <div class="ios-group mx-4 mb-4">
+                <label class="ios-cell cursor-pointer select-none" style="border-bottom: 0.5px solid var(--ios-separator);">
+                    <input type="checkbox" id="select-all" checked
+                           class="h-5 w-5 rounded-full" style="accent-color: var(--ios-red);" />
+                    <span class="flex-1 text-[15px] font-semibold" style="color: var(--ios-label);">Select all</span>
+                    <span class="text-[13px]" style="color: var(--ios-label-2);">@totalItems item@(totalItems == 1 ? "" : "s")</span>
+                </label>
+            </div>
 
-                <div class="divide-y divide-gray-100 rounded-b-2xl border border-t-0 border-gray-200 bg-white shadow-sm">
-                    @for (var i = 0; i < Model.Items.Count; i++)
-                    {
-                        var item = Model.Items[i];
-                        <div class="flex gap-3 px-4 py-3">
-                            <div class="flex-shrink-0 pt-1">
-                                <input type="checkbox"
-                                       class="row-include h-4 w-4 rounded border-gray-300"
-                                       name="Items[@i].Include"
-                                       value="true"
-                                       checked />
-                                <input type="hidden" name="Items[@i].Include" value="false" />
-                                <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
-                            </div>
+            <!-- Cart items -->
+            <div class="ios-group">
+                @for (var i = 0; i < Model.Items.Count; i++)
+                {
+                    var item = Model.Items[i];
+                    <div class="ios-cell gap-3" style="border-bottom: 0.5px solid var(--ios-separator); align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
 
-                            <div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                                <img src="https://www.kroger.com/product/images/medium/front/@item.Upc"
-                                     alt="@item.Name"
-                                     class="h-full w-full object-cover" />
-                            </div>
+                        <div class="pt-0.5 shrink-0">
+                            <input type="checkbox"
+                                   class="row-include h-5 w-5 rounded-full"
+                                   style="accent-color: var(--ios-red);"
+                                   name="Items[@i].Include"
+                                   value="true"
+                                   checked />
+                            <input type="hidden" name="Items[@i].Include" value="false" />
+                            <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
+                        </div>
 
-                            <div class="flex-1 min-w-0 space-y-1">
-                                <div class="font-semibold text-sm text-gray-900">@item.Name</div>
+                        <div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl" style="background: var(--ios-fill);">
+                            <img src="https://www.kroger.com/product/images/medium/front/@item.Upc"
+                                 alt="@item.Name"
+                                 class="h-full w-full object-cover" />
+                        </div>
 
-                                @if (!string.IsNullOrWhiteSpace(item.Brand))
+                        <div class="flex-1 min-w-0 space-y-1">
+                            <p class="text-[15px] font-semibold leading-snug" style="color: var(--ios-label);">@item.Name</p>
+                            @if (!string.IsNullOrWhiteSpace(item.Brand))
+                            {
+                                <p class="text-[13px]" style="color: var(--ios-label-2);">@item.Brand</p>
+                            }
+                            <div class="flex flex-wrap items-center gap-2">
+                                @if (!string.IsNullOrWhiteSpace(item.Size))
+                                { <span class="text-[12px]" style="color: var(--ios-label-2);">@item.Size</span> }
+                                @if (item.OnSale && item.PromoPrice > 0)
                                 {
-                                    <div class="text-xs text-gray-500">@item.Brand</div>
+                                    <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@item.PromoPrice.ToString("C")</span>
+                                    <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@item.RegularPrice.ToString("C")</span>
+                                    <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
                                 }
-
-                                <div class="flex flex-wrap items-center gap-2 text-xs">
-                                    @if (!string.IsNullOrWhiteSpace(item.Size))
-                                    {
-                                        <span class="text-gray-600">@item.Size</span>
-                                    }
-
-                                    @if (item.OnSale && item.PromoPrice > 0)
-                                    {
-                                        <span class="font-semibold text-gray-900">@item.PromoPrice.ToString("C")</span>
-                                        <span class="line-through text-gray-400">@item.RegularPrice.ToString("C")</span>
-                                        <span class="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[0.65rem] text-rose-700">On sale</span>
-                                    }
-                                    else if (item.RegularPrice > 0)
-                                    {
-                                        <span class="font-semibold text-gray-900">@item.RegularPrice.ToString("C")</span>
-                                    }
-                                </div>
-
-                                <div class="flex flex-wrap items-center gap-2">
-                                    @if (!string.IsNullOrWhiteSpace(item.StockLevel))
-                                    {
-                                        <span class="inline-flex rounded-full px-2 py-0.5 text-[0.65rem] font-medium @GetStockLevelBadgeClasses(item.StockLevel)">
-                                            @item.StockLevel
-                                        </span>
-                                    }
-
-                                    @if (!string.IsNullOrWhiteSpace(item.OriginalIngredient))
-                                    {
-                                        <span class="text-[0.65rem] text-gray-400">Needed: @item.OriginalIngredient</span>
-                                    }
-                                </div>
-
-                                @if (!string.IsNullOrWhiteSpace(item.ConversionNote))
+                                else if (item.RegularPrice > 0)
                                 {
-                                    <div class="text-[0.65rem] text-amber-600">
-                                        &#9888; @item.ConversionNote
-                                    </div>
+                                    <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@item.RegularPrice.ToString("C")</span>
                                 }
-
-                                <div class="flex items-center gap-2 pt-1">
-                                    <label class="text-xs text-gray-500">Qty</label>
-                                    <input type="number"
-                                           name="Items[@i].QuantityToAdd"
-                                           value="@item.QuantityToAdd"
-                                           min="1"
-                                           class="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-right" />
-                                </div>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(item.StockLevel))
+                            {
+                                <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium @GetStockLevelBadgeClasses(item.StockLevel)">
+                                    @item.StockLevel
+                                </span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(item.OriginalIngredient))
+                            {
+                                <p class="text-[11px]" style="color: var(--ios-label-2);">Needed: @item.OriginalIngredient</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(item.ConversionNote))
+                            {
+                                <p class="text-[11px]" style="color: #FF9500;">&#9888; @item.ConversionNote</p>
+                            }
+                            <div class="flex items-center gap-2 pt-1">
+                                <label class="text-[12px]" style="color: var(--ios-label-2);">Qty</label>
+                                <input type="number"
+                                       name="Items[@i].QuantityToAdd"
+                                       value="@item.QuantityToAdd"
+                                       min="1"
+                                       class="field-input w-16 text-right py-1" style="font-size: 14px;" />
                             </div>
                         </div>
-                    }
-                </div>
-
-                <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p class="text-sm text-gray-600">
-                        @totalItems item@(totalItems == 1 ? "" : "s") will be added to your Kroger cart.
-                    </p>
-
-                    <div class="flex gap-2 justify-end">
-                        <a asp-controller="Dinner" asp-action="ReviewDinnerSelections"
-                           class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
-                            Back
-                        </a>
-                        <button type="submit"
-                                class="inline-flex items-center justify-center px-5 py-2 text-sm font-semibold rounded-md bg-green-600 text-white hover:bg-green-700">
-                            Add selected items to Kroger cart
-                        </button>
                     </div>
-                </div>
-            </form>
-        </section>
+                }
+            </div>
+        </form>
     }
 </div>
 
+<!-- Fixed bottom action bar -->
+@if (Model.Items.Any())
+{
+    <div class="fixed inset-x-0 z-30 px-4 py-3"
+         style="bottom: calc(49px + env(safe-area-inset-bottom));
+                background: rgba(249,249,249,0.94);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border-top: 0.5px solid var(--ios-separator);">
+        <button type="submit" form="cartForm" class="btn-primary w-full">
+            Add to Kroger Cart
+        </button>
+    </div>
+}
+
 @section Scripts {
     <script>
-        // Simple "select all" checkbox
         document.addEventListener('DOMContentLoaded', function () {
             var selectAll = document.getElementById('select-all');
             if (!selectAll) return;

@@ -5,24 +5,17 @@
 
 @model List<ViewRecipeVM>
 
-@section TabBarCenterAction {
-    <button type="button"
-            id="recipeQuickAddButton"
-            class="ios-tab-plus-btn"
-            aria-label="Add recipe options"
-            aria-haspopup="dialog"
-            aria-expanded="false">
-        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5.25v13.5M5.25 12h13.5" />
-        </svg>
-    </button>
+@section NavRight {
+    <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="ios-btn-text text-[28px] leading-none font-light">+</a>
 }
 
 <div class="pt-2 pb-4">
 
-    <!-- Large title -->
-    <div class="px-4 pb-3">
+    <!-- Large title + import link -->
+    <div class="flex items-end justify-between px-4 pb-3">
         <h1 class="ios-large-title">Recipes</h1>
+        <a asp-controller="Import" asp-action="ImportRecipe"
+           class="ios-btn-text-sm pb-1">Import</a>
     </div>
 
     @if (Model == null || !Model.Any())
@@ -171,60 +164,6 @@
 @section Scripts {
 <script>
     (function () {
-        const quickAddButton = document.getElementById('recipeQuickAddButton');
-        const quickAddSheet = document.getElementById('recipeQuickAddSheet');
-        const quickAddCancel = document.getElementById('recipeQuickAddCancel');
-        let quickAddCloseTimer;
-        let quickAddOpenRaf;
-
-        function setQuickAddOpen(open) {
-            if (!quickAddSheet || !quickAddButton) return;
-            window.clearTimeout(quickAddCloseTimer);
-            window.cancelAnimationFrame(quickAddOpenRaf);
-
-            if (open) {
-                quickAddSheet.classList.remove('hidden');
-                quickAddSheet.classList.add('flex');
-                quickAddSheet.setAttribute('aria-hidden', 'false');
-                quickAddButton.setAttribute('aria-expanded', 'true');
-                document.body.classList.add('overflow-hidden');
-                // Force the pre-open state to paint before enabling the animated state.
-                void quickAddSheet.offsetHeight;
-                quickAddOpenRaf = window.requestAnimationFrame(function () {
-                    quickAddOpenRaf = window.requestAnimationFrame(function () {
-                        quickAddSheet.classList.add('is-open');
-                    });
-                });
-                return;
-            }
-
-            quickAddSheet.classList.remove('is-open');
-            quickAddSheet.setAttribute('aria-hidden', 'true');
-            quickAddButton.setAttribute('aria-expanded', 'false');
-            document.body.classList.remove('overflow-hidden');
-            quickAddCloseTimer = window.setTimeout(function () {
-                quickAddSheet.classList.add('hidden');
-                quickAddSheet.classList.remove('flex');
-            }, 260);
-        }
-
-        quickAddButton?.addEventListener('click', function () {
-            const isOpen = quickAddSheet?.classList.contains('flex');
-            setQuickAddOpen(!isOpen);
-        });
-
-        quickAddCancel?.addEventListener('click', function () {
-            setQuickAddOpen(false);
-        });
-
-        quickAddSheet?.addEventListener('click', function (e) {
-            if (e.target === quickAddSheet) setQuickAddOpen(false);
-        });
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') setQuickAddOpen(false);
-        });
-
         const input      = document.getElementById('recipeSearch');
         const filterBtns = document.querySelectorAll('.category-filter-btn');
         const emptyEl    = document.getElementById('emptyResults');

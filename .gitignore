@@ -7,3 +7,5 @@
 RecipeHelper/appsettings.json
 RecipeHelper/appsettings.Production.json
 /publish
+/RecipeHelper/test-results
+/RecipeHelper/playwright-report

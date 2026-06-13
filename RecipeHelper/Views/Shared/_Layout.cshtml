@@ -22,9 +22,8 @@
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
     var isRecipes  = controller == "Recipe" || controller == "Import";
     var isMealPlan = controller == "Dinner";
-    var isProducts = controller == "Product";
     var isLists    = controller == "ShoppingList" || controller == "Cart";
-    var isSettings = controller == "Settings";
+    var isSettings = controller == "Settings" || controller == "Product";
 }
 
 <body class="min-h-screen flex flex-col"
@@ -33,38 +32,51 @@
              color: #1C1C1E;
              -webkit-font-smoothing: antialiased;">
 
-    <!-- iOS Navigation Bar -->
-    <header class="ios-nav safe-top">
-        <div class="h-11 flex items-center justify-between px-4">
+    @{
+        var hasNavBar = ViewData["BackLink"] != null
+                     || !string.IsNullOrEmpty(ViewData["NavTitle"]?.ToString())
+                     || IsSectionDefined("NavRight");
+    }
+    @if (hasNavBar)
+    {
+        <!-- iOS Navigation Bar -->
+        <header class="ios-nav safe-top">
+            <div class="h-11 flex items-center justify-between px-4">
 
-            <!-- Left: back button or spacer -->
-            @if (ViewData["BackLink"] != null)
-            {
-                <a href="@ViewData["BackLink"]"
-                   class="ios-btn-text flex items-center gap-0.5 min-w-[60px]">
-                    <svg class="h-[18px] w-[18px] flex-shrink-0 -ml-0.5" fill="none" viewBox="0 0 24 24"
-                         stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                    </svg>
-                    <span class="truncate max-w-[80px] text-[17px]">@(ViewData["BackLabel"] ?? "Back")</span>
-                </a>
-            }
-            else
-            {
-                <div class="min-w-[60px]"></div>
-            }
+                <!-- Left: back button or spacer -->
+                @if (ViewData["BackLink"] != null)
+                {
+                    <a href="@ViewData["BackLink"]"
+                       class="ios-btn-text flex items-center gap-0.5 min-w-[60px] min-h-[44px]">
+                        <svg class="h-[18px] w-[18px] flex-shrink-0 -ml-0.5" fill="none" viewBox="0 0 24 24"
+                             stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                        </svg>
+                        <span class="truncate max-w-[80px] text-[17px]">@(ViewData["BackLabel"] ?? "Back")</span>
+                    </a>
+                }
+                else
+                {
+                    <div class="min-w-[60px]"></div>
+                }
 
-            <!-- Center: compact page title -->
-            <span class="text-[17px] font-semibold truncate max-w-[160px]" style="color: #1C1C1E;">
-                @(ViewData["NavTitle"]?.ToString() ?? "")
-            </span>
+                <!-- Center: compact page title -->
+                <span class="text-[17px] font-semibold truncate max-w-[160px]" style="color: #1C1C1E;">
+                    @(ViewData["NavTitle"]?.ToString() ?? "")
+                </span>
 
-            <!-- Right: per-page action injected by each view -->
-            <div class="min-w-[60px] flex justify-end">
-                @await RenderSectionAsync("NavRight", required: false)
+                <!-- Right: per-page action injected by each view -->
+                <div class="min-w-[60px] flex justify-end">
+                    @await RenderSectionAsync("NavRight", required: false)
+                </div>
             </div>
-        </div>
-    </header>
+        </header>
+    }
+    else
+    {
+        <!-- Safe area spacer when no nav bar -->
+        <div class="safe-top"></div>
+    }
 
     <!-- Toast notification -->
     @{
@@ -133,17 +145,14 @@
                 <span class="ios-tab-label" style="font-weight: @(isMealPlan ? "600" : "400");">Meal Plan</span>
             </a>
 
-            <!-- Products -->
-            <a asp-controller="Product" asp-action="Products"
-               class="ios-tab-item"
-               style="color: @(isProducts ? "#FF3B30" : "rgba(60,60,67,0.5)"); text-decoration: none;">
-                <svg class="h-[26px] w-[26px]" fill="@(isProducts ? "#FF3B30" : "none")"
-                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="@(isProducts ? "0" : "1.5")">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                          d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
-                </svg>
-                <span class="ios-tab-label" style="font-weight: @(isProducts ? "600" : "400");">Products</span>
-            </a>
+            <!-- Center + FAB -->
+            <div class="ios-tab-item">
+                <button id="tabPlusBtn" class="ios-tab-plus-btn" aria-label="Add recipe">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                </button>
+            </div>
 
             <!-- Lists -->
             <a asp-controller="ShoppingList" asp-action="Index"
@@ -171,6 +180,63 @@
             </a>
         </div>
     </nav>
+
+    <!-- Add Recipe action sheet -->
+    <div id="addSheetBackdrop" class="ios-action-sheet-backdrop" aria-hidden="true" hidden></div>
+    <div id="addSheet" class="ios-action-sheet" role="dialog" aria-modal="true" aria-label="Add recipe" aria-hidden="true" hidden>
+        <div class="ios-action-sheet-group">
+            <a asp-controller="Import" asp-action="ImportRecipe" class="ios-action-sheet-option">Import recipe</a>
+            <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="ios-action-sheet-option">Create from scratch</a>
+        </div>
+        <button id="addSheetCancel" type="button" class="ios-action-sheet-cancel">Cancel</button>
+    </div>
+    <script>
+        (function () {
+            var btn      = document.getElementById('tabPlusBtn');
+            var sheet    = document.getElementById('addSheet');
+            var backdrop = document.getElementById('addSheetBackdrop');
+            var cancel   = document.getElementById('addSheetCancel');
+            var hideTimer = null;
+            if (!btn || !sheet || !backdrop) return;
+
+            function openSheet() {
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                    hideTimer = null;
+                }
+                sheet.hidden = false;
+                backdrop.hidden = false;
+                sheet.setAttribute('aria-hidden', 'false');
+                backdrop.setAttribute('aria-hidden', 'false');
+                requestAnimationFrame(function () {
+                    sheet.classList.add('is-open');
+                    backdrop.classList.add('is-open');
+                    sheet.querySelector('a, button')?.focus();
+                });
+            }
+            function closeSheet() {
+                sheet.classList.remove('is-open');
+                backdrop.classList.remove('is-open');
+                sheet.setAttribute('aria-hidden', 'true');
+                backdrop.setAttribute('aria-hidden', 'true');
+                hideTimer = setTimeout(function () {
+                    sheet.hidden = true;
+                    backdrop.hidden = true;
+                    hideTimer = null;
+                }, 300);
+                btn.focus();
+            }
+
+            btn.addEventListener('click', openSheet);
+            backdrop.addEventListener('click', closeSheet);
+            cancel.addEventListener('click', closeSheet);
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && sheet.classList.contains('is-open')) {
+                    closeSheet();
+                }
+            });
+        })();
+    </script>
 
     <!-- Loading overlay (shown on .loading-form submit) -->
     <div id="loadingOverlay"

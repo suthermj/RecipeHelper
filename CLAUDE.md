@@ -108,6 +108,52 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 - Amount inputs use `step="any"` and `inputmode="decimal"` — Spoonacular returns fractional quantities (1/3, 1/6) that fail `step="0.01"` browser validation and silently block form submission on mobile
 - Spoonacular `originalName` sometimes includes the raw quantity string (e.g. "30 g of sour cream") — `StripLeadingQuantity` in `FromSpoonacular()` strips these before display
 
+## UI Testing
+
+**After any UI change** (HTML structure, CSS, JS interactions, layout), use Playwright to verify the result on a mobile viewport before committing. This app is used exclusively on iPhone, so desktop-only testing is not sufficient.
+
+### Setup (first time, from `RecipeHelper/`)
+
+```bash
+npm install --save-dev @playwright/test
+npx playwright install chromium
+```
+
+Create `RecipeHelper/playwright.config.ts`:
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+export default defineConfig({
+  use: { baseURL: 'https://localhost:7127' },
+  projects: [{ name: 'iPhone 14', use: { ...devices['iPhone 14'] } }],
+  webServer: {
+    command: 'dotnet run',
+    url: 'https://localhost:7127',
+    reuseExistingServer: true,
+    ignoreHTTPSErrors: true,
+  },
+});
+```
+
+### Running
+
+```bash
+# From RecipeHelper/
+npx playwright test           # headless
+npx playwright test --ui      # interactive UI mode (recommended for visual review)
+```
+
+### iOS checklist — verify after every UI change
+
+- **Safe area**: content not obscured by iPhone status bar or home indicator
+- **Tab bar**: all tabs tappable, correct active highlight, center `+` FAB opens action sheet
+- **Nav bar**: only renders when there's a title, back button, or right action; absent on Recipes/Meal Plan pages
+- **Sticky elements**: stick at the right offset (`sticky-below-status` when no nav bar, `sticky-below-nav` when nav bar present)
+- **Touch targets**: all interactive elements ≥ 44px tall — confirm taps register
+- **Action sheets / modals**: animate in/out correctly, dismiss on backdrop tap and Cancel
+- **z-index layers**: overlays sit above nav (`z-50`) and loading overlay (`z-[100]`); pickers/modals at `z-[200]`+
+- **Navigation**: tab switches, back links, form submissions all route correctly on mobile
+
 ## Deployment
 
 - **Host:** Hetzner VPS, `178.105.73.57`

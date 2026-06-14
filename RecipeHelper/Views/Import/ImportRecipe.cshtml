@@ -5,42 +5,11 @@
     ViewData["BackLink"] = Url.Action("Recipe", "Recipe");
     ViewData["BackLabel"] = "Recipes";
     var hasResult = Model?.Preview != null;
+    var errorMsg  = Model?.Error;
+    var preferredTab = Model?.PreferredTab == "photo" ? "photo" : "url";
 }
 
 <div class="pt-2 pb-6">
-
-    <!-- URL import form -->
-    <div class="px-4 pb-3">
-        <form id="importForm" asp-action="ImportRecipe" method="get" novalidate>
-            <div class="flex gap-2 items-center">
-                <div class="ios-search-wrap flex-1">
-                    <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-                    </svg>
-                    <input asp-for="Url" type="url" required
-                           placeholder="Paste a recipe URL…"
-                           class="ios-search-input" />
-                </div>
-                <button id="importBtn" type="submit" class="ios-inline-action">
-                    <svg id="importBtnSpinner" class="hidden animate-spin h-4 w-4 inline" viewBox="0 0 24 24" fill="none">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
-                    </svg>
-                    <span id="importBtnText">Import</span>
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Clipboard paste banner -->
-    <div id="clipboardBanner" class="hidden mx-4 mb-3">
-        <div class="ios-cell rounded-xl gap-3" style="background: var(--ios-fill);">
-            <span class="flex-1 text-[14px]" style="color: var(--ios-label-2);">Have a recipe URL copied?</span>
-            <button type="button" class="clip-paste-btn ios-inline-action">Paste</button>
-            <button type="button" class="clip-dismiss-btn ios-btn-text-sm" style="color: var(--ios-label-2);">&times;</button>
-        </div>
-    </div>
 
     <!-- Loading overlay -->
     <div id="loadingOverlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center" style="background: rgba(0,0,0,0.3);">
@@ -49,20 +18,134 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
             </svg>
-            <span class="text-[15px]" style="color: var(--ios-label);">Importing recipe…</span>
+            <span id="loadingText" class="text-[15px]" style="color: var(--ios-label);">Importing recipe...</span>
         </div>
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(ViewBag.Error as string))
+    @if (!hasResult)
     {
-        <div class="mx-4 mb-3 rounded-2xl px-4 py-3 text-[14px]" style="background: #FFF0F0; color: var(--ios-red);">
-            @ViewBag.Error
+        <!-- Tab switcher -->
+        <div class="px-4 pb-3">
+            <div class="flex rounded-xl p-1 gap-1" style="background: var(--ios-fill);">
+                <button type="button" id="tabUrl" onclick="switchTab('url')"
+                        class="flex-1 py-2 rounded-lg text-[14px] font-medium transition-all"
+                        style="background: var(--ios-surface); color: var(--ios-label); box-shadow: 0 1px 3px rgba(0,0,0,0.12);">
+                    URL
+                </button>
+                <button type="button" id="tabPhoto" onclick="switchTab('photo')"
+                        class="flex-1 py-2 rounded-lg text-[14px] font-medium transition-all"
+                        style="color: var(--ios-label-2);">
+                    Photo
+                </button>
+            </div>
+        </div>
+
+        <!-- URL panel -->
+        <div id="panelUrl">
+            <div class="px-4 pb-3">
+                <form id="importForm" asp-action="ImportRecipe" method="get" novalidate>
+                    <div class="flex gap-2 items-center">
+                        <div class="ios-search-wrap flex-1">
+                            <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                      d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                            </svg>
+                            <input asp-for="Url" type="url" required
+                                   placeholder="Paste a recipe URL..."
+                                   class="ios-search-input" />
+                        </div>
+                        <button id="importBtn" type="submit" class="ios-inline-action">
+                            <svg id="importBtnSpinner" class="hidden animate-spin h-4 w-4 inline" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
+                            </svg>
+                            <span id="importBtnText">Import</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Clipboard paste banner -->
+            <div id="clipboardBanner" class="hidden mx-4 mb-3">
+                <div class="ios-cell rounded-xl gap-3" style="background: var(--ios-fill);">
+                    <span class="flex-1 text-[14px]" style="color: var(--ios-label-2);">Have a recipe URL copied?</span>
+                    <button type="button" class="clip-paste-btn ios-inline-action">Paste</button>
+                    <button type="button" class="clip-dismiss-btn ios-btn-text-sm" style="color: var(--ios-label-2);">&times;</button>
+                </div>
+            </div>
+
+            @if (string.IsNullOrWhiteSpace(errorMsg))
+            {
+                <div class="mx-4 ios-card p-8 text-center">
+                    <svg class="mx-auto h-12 w-12 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"
+                         style="color: var(--ios-label-2);">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                    </svg>
+                    <p class="text-[15px] font-semibold mb-1" style="color: var(--ios-label);">Paste a recipe URL</p>
+                    <p class="text-[13px]" style="color: var(--ios-label-2);">Fetch ingredients and steps, then review and save.</p>
+                </div>
+            }
+        </div>
+
+        <!-- Photo panel -->
+        <div id="panelPhoto" class="hidden">
+            <form id="photoForm" asp-action="ImportRecipeFromPhoto" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+
+                <div class="mx-4 mb-4">
+                    <label for="photoInput"
+                           class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed py-8 cursor-pointer"
+                           style="border-color: var(--ios-separator); background: var(--ios-fill);">
+                        <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"
+                             style="color: var(--ios-label-2);">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.04l-.821 1.315Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+                        </svg>
+                        <span class="text-[14px] font-medium" style="color: var(--ios-label);">Tap to choose photos</span>
+                        <span class="text-[12px]" style="color: var(--ios-label-2);">Up to 3 photos - JPEG, PNG, WebP, DNG</span>
+                        <span class="text-[12px]" style="color: var(--ios-label-2);">Max 15 MB each, or 120 MB for DNG</span>
+                    </label>
+                    <input type="file" id="photoInput" name="Photos"
+                           accept="image/jpeg,image/png,image/webp,image/x-adobe-dng,.jpg,.jpeg,.png,.webp,.dng"
+                           multiple class="hidden" />
+                </div>
+
+                <p id="photoError" class="hidden mx-4 mb-4 rounded-2xl px-4 py-3 text-[14px]"
+                   style="background: #FFF0F0; color: var(--ios-red);"></p>
+
+                <!-- Photo preview strip -->
+                <div id="photoPreviews" class="hidden mx-4 mb-4 flex gap-3 flex-wrap"></div>
+
+                <!-- Use first photo as cover image toggle -->
+                <div class="mx-4 mb-4">
+                    <label class="ios-cell rounded-2xl gap-3 cursor-pointer" style="background: var(--ios-fill);">
+                        <span class="flex-1 text-[14px]" style="color: var(--ios-label);">Use first photo as recipe cover image</span>
+                        <input type="checkbox" name="UsePhotoAsImage" value="true" checked class="w-5 h-5 rounded accent-red-500" />
+                        <input type="hidden" name="UsePhotoAsImage" value="false" />
+                    </label>
+                </div>
+
+                <div class="mx-4">
+                    <button type="submit" id="photoSubmitBtn" disabled
+                            class="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed">
+                        Extract Recipe from Photo
+                    </button>
+                </div>
+            </form>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMsg))
+    {
+        <div class="mx-4 mt-3 rounded-2xl px-4 py-3 text-[14px]" style="background: #FFF0F0; color: var(--ios-red);">
+            @errorMsg
         </div>
     }
 
     @if (hasResult)
     {
-        var img = string.IsNullOrWhiteSpace(Model.Preview!.Image)
+        var img = string.IsNullOrWhiteSpace(Model!.Preview!.Image)
             ? Url.Content("~/images/default-recipe.png")
             : Model.Preview.Image;
 
@@ -108,6 +191,11 @@
                                     @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
                                     {
                                         <span class="font-semibold">@ing.DisplayAmount</span>
+                                        @(" " + ing.Name)
+                                    }
+                                    else if (ing.Amount > 0)
+                                    {
+                                        <span class="font-semibold">@ing.Amount @ing.Unit</span>
                                         @(" " + ing.Name)
                                     }
                                     else { @ing.Name }
@@ -161,31 +249,49 @@
             </form>
         </div>
     }
-    else if (string.IsNullOrWhiteSpace(ViewBag.Error as string))
-    {
-        <div class="mx-4 ios-card p-8 text-center">
-            <svg class="mx-auto h-12 w-12 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"
-                 style="color: var(--ios-label-2);">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-            </svg>
-            <p class="text-[15px] font-semibold mb-1" style="color: var(--ios-label);">Paste a recipe URL</p>
-            <p class="text-[13px]" style="color: var(--ios-label-2);">Fetch ingredients and steps, then review and save.</p>
-        </div>
-    }
 </div>
 
 <script>
     (function () {
-        const form    = document.getElementById('importForm');
-        const btn     = document.getElementById('importBtn');
-        const spinner = document.getElementById('importBtnSpinner');
-        const btnText = document.getElementById('importBtnText');
-        const overlay = document.getElementById('loadingOverlay');
-        const urlInput = form.querySelector('input[name="Url"]');
+        const overlay     = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const initialTab  = '@preferredTab';
+
+        window.addEventListener('pageshow', function () {
+            if (!overlay) return;
+            overlay.classList.add('hidden');
+        });
+
+        // Tab switching
+        const panelUrl   = document.getElementById('panelUrl');
+        const panelPhoto = document.getElementById('panelPhoto');
+        const tabUrl     = document.getElementById('tabUrl');
+        const tabPhoto   = document.getElementById('tabPhoto');
+
+        window.switchTab = function (tab) {
+            const isUrl = tab === 'url';
+            panelUrl.classList.toggle('hidden', !isUrl);
+            panelPhoto.classList.toggle('hidden', isUrl);
+
+            const activeStyle   = 'background: var(--ios-surface); color: var(--ios-label); box-shadow: 0 1px 3px rgba(0,0,0,0.12);';
+            const inactiveStyle = 'color: var(--ios-label-2);';
+            tabUrl.style.cssText   = isUrl ? activeStyle : inactiveStyle;
+            tabPhoto.style.cssText = isUrl ? inactiveStyle : activeStyle;
+        };
+
+        if (panelUrl && panelPhoto) {
+            window.switchTab(initialTab);
+        }
+
+        // URL form
+        const importForm    = document.getElementById('importForm');
+        const importBtn     = document.getElementById('importBtn');
+        const importSpinner = document.getElementById('importBtnSpinner');
+        const importBtnText = document.getElementById('importBtnText');
+        const urlInput      = importForm && importForm.querySelector('input[name="Url"]');
 
         const clipBanner = document.getElementById('clipboardBanner');
-        if (clipBanner && !urlInput.value.trim()) {
+        if (clipBanner && urlInput && !urlInput.value.trim()) {
             clipBanner.querySelector('.clip-paste-btn').addEventListener('click', async function () {
                 try {
                     const text = await navigator.clipboard.readText();
@@ -202,13 +308,166 @@
             clipBanner.classList.remove('hidden');
         }
 
-        form.addEventListener('submit', function () {
-            if (!form.checkValidity()) return;
-            btn.disabled = true;
-            urlInput.readOnly = true;
-            spinner.classList.remove('hidden');
-            btnText.textContent = 'Importing…';
-            overlay.classList.remove('hidden');
-        });
+        if (importForm) {
+            importForm.addEventListener('submit', function () {
+                if (!importForm.checkValidity()) return;
+                importBtn.disabled = true;
+                urlInput.readOnly = true;
+                importSpinner.classList.remove('hidden');
+                importBtnText.textContent = 'Importing...';
+                loadingText.textContent = 'Importing recipe...';
+                overlay.classList.remove('hidden');
+            });
+        }
+
+        // Photo form
+        const photoForm      = document.getElementById('photoForm');
+        const photoInput     = document.getElementById('photoInput');
+        const photoPreviews  = document.getElementById('photoPreviews');
+        const photoSubmitBtn = document.getElementById('photoSubmitBtn');
+        const photoError     = document.getElementById('photoError');
+        const maxPhotoCount  = 3;
+        const maxPhotoBytes  = 15 * 1024 * 1024;
+        const maxRawPhotoBytes = 120 * 1024 * 1024;
+        const allowedPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+        const allowedPhotoExtensions = /\.(jpe?g|png|webp)$/i;
+        const rawPhotoExtensions = /\.dng$/i;
+
+        function setPhotoError(message) {
+            if (!photoError) return;
+            photoError.textContent = message || '';
+            photoError.classList.toggle('hidden', !message);
+        }
+
+        function syncPhotoInputFiles(files) {
+            if (typeof DataTransfer === 'undefined') {
+                return false;
+            }
+
+            const dt = new DataTransfer();
+            files.forEach(file => dt.items.add(file));
+            photoInput.files = dt.files;
+            return true;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, function (char) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[char];
+            });
+        }
+
+        function validatePhotoFiles(files) {
+            if (files.length > maxPhotoCount) {
+                return `Choose up to ${maxPhotoCount} photos.`;
+            }
+
+            for (const file of files) {
+                const hasAllowedType = allowedPhotoTypes.has((file.type || '').toLowerCase());
+                const hasAllowedExtension = allowedPhotoExtensions.test(file.name || '');
+                const isDng = rawPhotoExtensions.test(file.name || '') || (file.type || '').toLowerCase().includes('dng');
+
+                if (!isDng && !hasAllowedType && !hasAllowedExtension) {
+                    return `"${file.name}" is not supported. Use JPEG, PNG, WebP, or DNG.`;
+                }
+
+                const maxBytes = isDng ? maxRawPhotoBytes : maxPhotoBytes;
+                const maxMb = isDng ? 120 : 15;
+                if (file.size > maxBytes) {
+                    return `"${file.name}" exceeds the ${maxMb} MB limit.`;
+                }
+            }
+
+            return '';
+        }
+
+        if (photoInput) {
+            photoInput.addEventListener('change', function () {
+                const files = Array.from(photoInput.files || []);
+                photoPreviews.innerHTML = '';
+                setPhotoError('');
+
+                if (files.length === 0) {
+                    photoPreviews.classList.add('hidden');
+                    photoSubmitBtn.disabled = true;
+                    return;
+                }
+
+                const validationMessage = validatePhotoFiles(files);
+                if (validationMessage) {
+                    photoInput.value = '';
+                    photoPreviews.classList.add('hidden');
+                    photoSubmitBtn.disabled = true;
+                    setPhotoError(validationMessage);
+                    return;
+                }
+
+                photoPreviews.classList.remove('hidden');
+                files.forEach(function (file, idx) {
+                    const isDng = rawPhotoExtensions.test(file.name || '') || (file.type || '').toLowerCase().includes('dng');
+                    const url = isDng ? '' : URL.createObjectURL(file);
+                    const wrap = document.createElement('div');
+                    wrap.className = 'relative';
+                    const previewHtml = isDng
+                        ? '<div class="h-24 w-24 rounded-xl flex flex-col items-center justify-center px-2 text-center" style="background: var(--ios-fill); color: var(--ios-label-2);"><span class="text-[13px] font-semibold">DNG</span><span class="text-[10px] break-all">' + escapeHtml(file.name) + '</span></div>'
+                        : '<img src="' + url + '" class="h-24 w-24 object-cover rounded-xl" />';
+                    wrap.innerHTML =
+                        previewHtml +
+                        '<button type="button" data-idx="' + idx + '" ' +
+                        '        class="js-remove-photo absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-white text-[11px]" ' +
+                        '        style="background: var(--ios-red);">&times;</button>';
+                    photoPreviews.appendChild(wrap);
+                    wrap.querySelector('.js-remove-photo').addEventListener('click', function () {
+                        removePhoto(parseInt(this.dataset.idx));
+                    });
+                });
+
+                photoSubmitBtn.disabled = false;
+            });
+        }
+
+        function removePhoto(removeIdx) {
+            const remainingFiles = Array.from(photoInput.files || []).filter(function (_, i) {
+                return i !== removeIdx;
+            });
+
+            if (!syncPhotoInputFiles(remainingFiles)) {
+                photoInput.value = '';
+                photoPreviews.innerHTML = '';
+                photoPreviews.classList.add('hidden');
+                photoSubmitBtn.disabled = true;
+                setPhotoError('Photo removal is not supported by this browser. Choose photos again.');
+                return;
+            }
+
+            photoInput.dispatchEvent(new Event('change'));
+        }
+
+        if (photoForm) {
+            let photoLoadingTimer = null;
+
+            photoForm.addEventListener('submit', function (e) {
+                const files = Array.from(photoInput.files || []);
+                const validationMessage = validatePhotoFiles(files);
+                if (files.length === 0 || validationMessage) {
+                    e.preventDefault();
+                    setPhotoError(validationMessage || 'Please select at least one photo.');
+                    photoSubmitBtn.disabled = files.length === 0;
+                    return;
+                }
+
+                loadingText.textContent = 'Extracting recipe from photo...';
+                overlay.classList.remove('hidden');
+                photoSubmitBtn.disabled = true;
+                photoLoadingTimer = window.setTimeout(function () {
+                    loadingText.textContent = 'Still extracting. DNG photos may take longer to convert.';
+                }, 30000);
+            });
+        }
     })();
 </script>

@@ -11,19 +11,25 @@ namespace RecipeHelper.Controllers
 {
     public class ImportController : Controller
     {
+        private const long PhotoImportRequestSizeLimitBytes = 300L * 1024L * 1024L;
+
         private ImportService _importService;
         private RecipeService _recipeService;
         private readonly MeasurementService _measurementService;
         private ILogger<ImportController> _logger;
         private readonly SpoonacularService _spoonacularService;
+        private readonly StorageService _storageService;
+        private readonly IngredientsService _ingredientsService;
 
-        public ImportController(ImportService importService, ILogger<ImportController> logger, SpoonacularService spoonacularService, RecipeService recipeService, MeasurementService measurementService)
+        public ImportController(ImportService importService, ILogger<ImportController> logger, SpoonacularService spoonacularService, RecipeService recipeService, MeasurementService measurementService, StorageService storageService, IngredientsService ingredientsService)
         {
             _logger = logger;
             _spoonacularService = spoonacularService;
             _importService = importService;
             _recipeService = recipeService;
             _measurementService = measurementService;
+            _storageService = storageService;
+            _ingredientsService = ingredientsService;
         }
 
         [HttpGet]
@@ -63,6 +69,117 @@ namespace RecipeHelper.Controllers
         }
 
         // Returns MappedImportRecipeVm
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [RequestSizeLimit(PhotoImportRequestSizeLimitBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = PhotoImportRequestSizeLimitBytes)]
+        public async Task<IActionResult> ImportRecipeFromPhoto(PhotoImportPageVM vm)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var photoCount = vm.Photos?.Count ?? 0;
+            _logger.LogInformation(
+                "Photo import started. PhotoCount={PhotoCount}, UsePhotoAsImage={UsePhotoAsImage}",
+                photoCount,
+                vm.UsePhotoAsImage);
+
+            if (vm.Photos is not null)
+            {
+                for (var i = 0; i < vm.Photos.Count; i++)
+                {
+                    var photo = vm.Photos[i];
+                    _logger.LogInformation(
+                        "Photo import file received. Index={Index}, FileName={FileName}, ContentType={ContentType}, LengthBytes={LengthBytes}",
+                        i,
+                        photo.FileName,
+                        photo.ContentType,
+                        photo.Length);
+                }
+            }
+
+            try
+            {
+                var normalizedPhotos = await _ingredientsService.NormalizeRecipePhotosAsync(vm.Photos ?? new());
+                var preview = await _ingredientsService.ExtractRecipeFromNormalizedPhotosAsync(normalizedPhotos);
+                _logger.LogInformation(
+                    "Photo import extraction completed. ElapsedMs={ElapsedMs}, TitleLength={TitleLength}, IngredientCount={IngredientCount}, StepCount={StepCount}",
+                    stopwatch.ElapsedMilliseconds,
+                    preview.Title?.Length ?? 0,
+                    preview.Ingredients?.Count ?? 0,
+                    preview.Steps?.Count ?? 0);
+
+                if (vm.UsePhotoAsImage && vm.Photos?.Count > 0)
+                {
+                    try
+                    {
+                        var uploadStopwatch = System.Diagnostics.Stopwatch.StartNew();
+                        var suggestedCoverCrop = preview.SuggestedCoverSourceImageIndex is null ||
+                                                 preview.SuggestedCoverX is null ||
+                                                 preview.SuggestedCoverY is null ||
+                                                 preview.SuggestedCoverWidth is null ||
+                                                 preview.SuggestedCoverHeight is null
+                            ? null
+                            : new IngredientsService.RecipeCoverCrop(
+                                preview.SuggestedCoverSourceImageIndex.Value,
+                                preview.SuggestedCoverX.Value,
+                                preview.SuggestedCoverY.Value,
+                                preview.SuggestedCoverWidth.Value,
+                                preview.SuggestedCoverHeight.Value,
+                                preview.SuggestedCoverReason);
+                        var croppedCoverPhoto = _ingredientsService.CreateCroppedCoverPhoto(normalizedPhotos, suggestedCoverCrop);
+                        var coverPhoto = croppedCoverPhoto ?? normalizedPhotos[0];
+                        await using var coverStream = new MemoryStream(coverPhoto.Bytes);
+                        var blob = await _storageService.StoreRecipeImage(coverStream, coverPhoto.FileName, coverPhoto.MimeType);
+                        if (blob is null)
+                        {
+                            _logger.LogWarning(
+                                "Photo import cover upload returned no blob. FileName={FileName}, WasConverted={WasConverted}",
+                                coverPhoto.FileName,
+                                coverPhoto.WasConverted);
+                            return View("ImportRecipe", new ImportRecipePageVM { Preview = preview });
+                        }
+
+                        preview.Image = blob.BlobUri;
+                        _logger.LogInformation(
+                            "Photo import cover upload completed. ElapsedMs={ElapsedMs}, BlobName={BlobName}, WasConverted={WasConverted}, UsedSuggestedCrop={UsedSuggestedCrop}",
+                            uploadStopwatch.ElapsedMilliseconds,
+                            blob.BlobName,
+                            coverPhoto.WasConverted,
+                            croppedCoverPhoto is not null);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to upload recipe photo to blob storage");
+                    }
+                }
+
+                _logger.LogInformation("Photo import request completed. ElapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
+                return View("ImportRecipe", new ImportRecipePageVM { Preview = preview });
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Photo import validation failed. ElapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
+                return View("ImportRecipe", new ImportRecipePageVM { Error = ex.Message, PreferredTab = "photo" });
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "Photo import extraction timed out. ElapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
+                return View("ImportRecipe", new ImportRecipePageVM
+                {
+                    Error = "Recipe extraction is taking longer than expected. Try one clear photo at a time, or retake the photo closer to the recipe text.",
+                    PreferredTab = "photo"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Photo import extraction failed. ElapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
+                return View("ImportRecipe", new ImportRecipePageVM
+                {
+                    Error = "Could not extract the recipe from the photo. Try a clearer image or enter the recipe manually.",
+                    PreferredTab = "photo"
+                });
+            }
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> GetImportedRecipePreview(PreviewImportedRecipeVM vm)

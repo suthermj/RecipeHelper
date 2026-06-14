@@ -9,6 +9,7 @@ public class ImportRecipePageVM
 {
     public string? Url { get; set; }              // bound from ?Url=...
     public string? Error { get; set; }            // optional error message
+    public string PreferredTab { get; set; } = "url";
     public ImportRecipeVM? Preview { get; set; } // filled after fetch
 }
 

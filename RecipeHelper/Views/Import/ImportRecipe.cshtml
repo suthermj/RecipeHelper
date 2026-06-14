@@ -6,6 +6,7 @@
     ViewData["BackLabel"] = "Recipes";
     var hasResult = Model?.Preview != null;
     var errorMsg  = Model?.Error;
+    var preferredTab = Model?.PreferredTab == "photo" ? "photo" : "url";
 }
 
 <div class="pt-2 pb-6">
@@ -102,10 +103,11 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
                         </svg>
                         <span class="text-[14px] font-medium" style="color: var(--ios-label);">Tap to choose photos</span>
-                        <span class="text-[12px]" style="color: var(--ios-label-2);">Up to 3 photos - JPEG, PNG, WebP - max 15 MB each</span>
+                        <span class="text-[12px]" style="color: var(--ios-label-2);">Up to 3 photos - JPEG, PNG, WebP, DNG</span>
+                        <span class="text-[12px]" style="color: var(--ios-label-2);">Max 15 MB each, or 60 MB for DNG</span>
                     </label>
                     <input type="file" id="photoInput" name="Photos"
-                           accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                           accept="image/jpeg,image/png,image/webp,image/x-adobe-dng,.jpg,.jpeg,.png,.webp,.dng"
                            multiple class="hidden" />
                 </div>
 
@@ -253,6 +255,12 @@
     (function () {
         const overlay     = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
+        const initialTab  = '@preferredTab';
+
+        window.addEventListener('pageshow', function () {
+            if (!overlay) return;
+            overlay.classList.add('hidden');
+        });
 
         // Tab switching
         const panelUrl   = document.getElementById('panelUrl');
@@ -270,6 +278,10 @@
             tabUrl.style.cssText   = isUrl ? activeStyle : inactiveStyle;
             tabPhoto.style.cssText = isUrl ? inactiveStyle : activeStyle;
         };
+
+        if (panelUrl && panelPhoto) {
+            window.switchTab(initialTab);
+        }
 
         // URL form
         const importForm    = document.getElementById('importForm');
@@ -316,8 +328,10 @@
         const photoError     = document.getElementById('photoError');
         const maxPhotoCount  = 3;
         const maxPhotoBytes  = 15 * 1024 * 1024;
+        const maxRawPhotoBytes = 60 * 1024 * 1024;
         const allowedPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
         const allowedPhotoExtensions = /\.(jpe?g|png|webp)$/i;
+        const rawPhotoExtensions = /\.dng$/i;
 
         function setPhotoError(message) {
             if (!photoError) return;
@@ -336,6 +350,18 @@
             return true;
         }
 
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, function (char) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[char];
+            });
+        }
+
         function validatePhotoFiles(files) {
             if (files.length > maxPhotoCount) {
                 return `Choose up to ${maxPhotoCount} photos.`;
@@ -344,13 +370,16 @@
             for (const file of files) {
                 const hasAllowedType = allowedPhotoTypes.has((file.type || '').toLowerCase());
                 const hasAllowedExtension = allowedPhotoExtensions.test(file.name || '');
+                const isDng = rawPhotoExtensions.test(file.name || '') || (file.type || '').toLowerCase().includes('dng');
 
-                if (!hasAllowedType && !hasAllowedExtension) {
-                    return `"${file.name}" is not supported. Use JPEG, PNG, or WebP.`;
+                if (!isDng && !hasAllowedType && !hasAllowedExtension) {
+                    return `"${file.name}" is not supported. Use JPEG, PNG, WebP, or DNG.`;
                 }
 
-                if (file.size > maxPhotoBytes) {
-                    return `"${file.name}" exceeds the 15 MB limit.`;
+                const maxBytes = isDng ? maxRawPhotoBytes : maxPhotoBytes;
+                const maxMb = isDng ? 60 : 15;
+                if (file.size > maxBytes) {
+                    return `"${file.name}" exceeds the ${maxMb} MB limit.`;
                 }
             }
 
@@ -380,11 +409,15 @@
 
                 photoPreviews.classList.remove('hidden');
                 files.forEach(function (file, idx) {
-                    const url = URL.createObjectURL(file);
+                    const isDng = rawPhotoExtensions.test(file.name || '') || (file.type || '').toLowerCase().includes('dng');
+                    const url = isDng ? '' : URL.createObjectURL(file);
                     const wrap = document.createElement('div');
                     wrap.className = 'relative';
+                    const previewHtml = isDng
+                        ? '<div class="h-24 w-24 rounded-xl flex flex-col items-center justify-center px-2 text-center" style="background: var(--ios-fill); color: var(--ios-label-2);"><span class="text-[13px] font-semibold">DNG</span><span class="text-[10px] break-all">' + escapeHtml(file.name) + '</span></div>'
+                        : '<img src="' + url + '" class="h-24 w-24 object-cover rounded-xl" />';
                     wrap.innerHTML =
-                        '<img src="' + url + '" class="h-24 w-24 object-cover rounded-xl" />' +
+                        previewHtml +
                         '<button type="button" data-idx="' + idx + '" ' +
                         '        class="js-remove-photo absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-white text-[11px]" ' +
                         '        style="background: var(--ios-red);">&times;</button>';
@@ -416,6 +449,8 @@
         }
 
         if (photoForm) {
+            let photoLoadingTimer = null;
+
             photoForm.addEventListener('submit', function (e) {
                 const files = Array.from(photoInput.files || []);
                 const validationMessage = validatePhotoFiles(files);
@@ -429,6 +464,9 @@
                 loadingText.textContent = 'Extracting recipe from photo...';
                 overlay.classList.remove('hidden');
                 photoSubmitBtn.disabled = true;
+                photoLoadingTimer = window.setTimeout(function () {
+                    loadingText.textContent = 'Still extracting. DNG photos may take longer to convert.';
+                }, 30000);
             });
         }
     })();

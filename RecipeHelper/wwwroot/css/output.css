@@ -1445,6 +1445,10 @@ video {
   overflow-wrap: break-word;
 }
 
+.break-all {
+  word-break: break-all;
+}
+
 .rounded {
   border-radius: 0.25rem;
 }
@@ -1913,6 +1917,10 @@ video {
 
 .text-\[0\.7rem\] {
   font-size: 0.7rem;
+}
+
+.text-\[10px\] {
+  font-size: 10px;
 }
 
 .text-\[11px\] {

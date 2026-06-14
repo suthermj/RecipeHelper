@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using ImageMagick;
 using OpenAI;
 using OpenAI.Chat;
 using RecipeHelper.Models.IngredientModels;
@@ -241,6 +242,15 @@ namespace RecipeHelper.Services
             [property: JsonPropertyName("unit")] string? Unit,
             [property: JsonPropertyName("name")] string Name);
 
+        public sealed record NormalizedRecipePhoto(
+            string OriginalFileName,
+            string FileName,
+            string MimeType,
+            byte[] Bytes,
+            bool WasConverted,
+            string? PostedContentType,
+            long SourceLength);
+
         private static string? GetAllowedImageMimeType(IFormFile photo)
         {
             Span<byte> header = stackalloc byte[12];
@@ -284,25 +294,167 @@ namespace RecipeHelper.Services
             return null;
         }
 
-        public async Task<ImportRecipeVM> ExtractRecipeFromPhotosAsync(List<IFormFile> photos)
+        private static bool IsDngImage(IFormFile photo)
         {
-            if (photos == null || photos.Count == 0)
-                throw new ArgumentException("Please select at least one photo.");
-            if (photos.Count > 3)
-                throw new ArgumentException("Please select up to 3 photos.");
-            var photoMimeTypes = new Dictionary<IFormFile, string>();
-            foreach (var photo in photos)
+            var fileName = photo.FileName ?? string.Empty;
+            if (fileName.EndsWith(".dng", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var contentType = photo.ContentType ?? string.Empty;
+            if (contentType.Contains("dng", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
+        }
+
+        private NormalizedRecipePhoto ConvertDngToJpeg(IFormFile photo, int index)
+        {
+            var conversionStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try
             {
-                if (photo.Length > 15 * 1024 * 1024)
-                    throw new ArgumentException($"\"{photo.FileName}\" exceeds the 15 MB limit. Please use a smaller image.");
+                using var input = photo.OpenReadStream();
+                using var image = new MagickImage(input);
 
-                var mimeType = GetAllowedImageMimeType(photo);
-                if (mimeType is null)
-                    throw new ArgumentException($"\"{photo.FileName}\" does not appear to be a valid JPEG, PNG, or WebP image.");
+                image.AutoOrient();
+                image.Strip();
+                image.Format = MagickFormat.Jpeg;
+                image.Quality = 88;
 
-                photoMimeTypes[photo] = mimeType;
+                if (image.Width > 2000 || image.Height > 2000)
+                {
+                    image.Resize(new MagickGeometry(2000, 2000)
+                    {
+                        IgnoreAspectRatio = false
+                    });
+                }
+
+                using var output = new MemoryStream();
+                image.Write(output);
+
+                var convertedFileName = Path.ChangeExtension(photo.FileName, ".jpg") ?? $"photo-{index + 1}.jpg";
+                _logger.LogInformation(
+                    "Photo extraction converted DNG to JPEG. Index={Index}, FileName={FileName}, SourceLengthBytes={SourceLengthBytes}, ConvertedLengthBytes={ConvertedLengthBytes}, Width={Width}, Height={Height}, ElapsedMs={ElapsedMs}",
+                    index,
+                    photo.FileName,
+                    photo.Length,
+                    output.Length,
+                    image.Width,
+                    image.Height,
+                    conversionStopwatch.ElapsedMilliseconds);
+
+                return new NormalizedRecipePhoto(
+                    photo.FileName,
+                    convertedFileName,
+                    "image/jpeg",
+                    output.ToArray(),
+                    true,
+                    photo.ContentType,
+                    photo.Length);
+            }
+            catch (Exception ex) when (ex is MagickException or NotSupportedException or InvalidOperationException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Photo extraction failed to convert DNG. Index={Index}, FileName={FileName}, ContentType={ContentType}, LengthBytes={LengthBytes}, ElapsedMs={ElapsedMs}",
+                    index,
+                    photo.FileName,
+                    photo.ContentType,
+                    photo.Length,
+                    conversionStopwatch.ElapsedMilliseconds);
+                throw new ArgumentException($"\"{photo.FileName}\" could not be converted from DNG. Try retaking the photo without ProRAW or choose a JPEG version.");
+            }
+        }
+
+        public async Task<List<NormalizedRecipePhoto>> NormalizeRecipePhotosAsync(List<IFormFile> photos)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            if (photos == null || photos.Count == 0)
+            {
+                _logger.LogWarning("Photo extraction requested with no photos.");
+                throw new ArgumentException("Please select at least one photo.");
+            }
+            if (photos.Count > 3)
+            {
+                _logger.LogWarning("Photo extraction rejected too many photos. PhotoCount={PhotoCount}", photos.Count);
+                throw new ArgumentException("Please select up to 3 photos.");
             }
 
+            _logger.LogInformation("Photo extraction validation started. PhotoCount={PhotoCount}", photos.Count);
+            var normalizedPhotos = new List<NormalizedRecipePhoto>();
+            for (var i = 0; i < photos.Count; i++)
+            {
+                var photo = photos[i];
+                var isDng = IsDngImage(photo);
+                var maxBytes = isDng ? 60 * 1024 * 1024 : 15 * 1024 * 1024;
+                if (photo.Length > maxBytes)
+                {
+                    _logger.LogWarning(
+                        "Photo extraction rejected oversized file. Index={Index}, FileName={FileName}, LengthBytes={LengthBytes}, MaxBytes={MaxBytes}, IsDng={IsDng}",
+                        i,
+                        photo.FileName,
+                        photo.Length,
+                        maxBytes,
+                        isDng);
+                    var maxMb = maxBytes / 1024 / 1024;
+                    throw new ArgumentException($"\"{photo.FileName}\" exceeds the {maxMb} MB limit. Please use a smaller image.");
+                }
+
+                var mimeType = GetAllowedImageMimeType(photo);
+                if (mimeType is null && isDng)
+                {
+                    normalizedPhotos.Add(ConvertDngToJpeg(photo, i));
+                    continue;
+                }
+
+                if (mimeType is null)
+                {
+                    _logger.LogWarning(
+                        "Photo extraction rejected unsupported file signature. Index={Index}, FileName={FileName}, ContentType={ContentType}, LengthBytes={LengthBytes}",
+                        i,
+                        photo.FileName,
+                        photo.ContentType,
+                        photo.Length);
+                    throw new ArgumentException($"\"{photo.FileName}\" does not appear to be a valid JPEG, PNG, or WebP image.");
+                }
+
+                using var ms = new MemoryStream();
+                await photo.CopyToAsync(ms);
+                normalizedPhotos.Add(new NormalizedRecipePhoto(
+                    photo.FileName,
+                    photo.FileName,
+                    mimeType,
+                    ms.ToArray(),
+                    false,
+                    photo.ContentType,
+                    photo.Length));
+
+                _logger.LogInformation(
+                    "Photo extraction accepted file. Index={Index}, FileName={FileName}, PostedContentType={PostedContentType}, DetectedMimeType={DetectedMimeType}, LengthBytes={LengthBytes}",
+                    i,
+                    photo.FileName,
+                    photo.ContentType,
+                    mimeType,
+                    photo.Length);
+            }
+
+            _logger.LogInformation(
+                "Photo extraction normalization completed. PhotoCount={PhotoCount}, ConvertedCount={ConvertedCount}, TotalElapsedMs={TotalElapsedMs}",
+                normalizedPhotos.Count,
+                normalizedPhotos.Count(p => p.WasConverted),
+                stopwatch.ElapsedMilliseconds);
+
+            return normalizedPhotos;
+        }
+
+        public async Task<ImportRecipeVM> ExtractRecipeFromPhotosAsync(List<IFormFile> photos)
+        {
+            var normalizedPhotos = await NormalizeRecipePhotosAsync(photos);
+            return await ExtractRecipeFromNormalizedPhotosAsync(normalizedPhotos);
+        }
+
+        public async Task<ImportRecipeVM> ExtractRecipeFromNormalizedPhotosAsync(IReadOnlyList<NormalizedRecipePhoto> photos)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             var visionClient = _oaiClient.GetChatClient("gpt-4o");
 
             var contentParts = new List<ChatMessageContentPart>
@@ -311,11 +463,16 @@ namespace RecipeHelper.Services
             };
             foreach (var photo in photos)
             {
-                using var ms = new MemoryStream();
-                await photo.CopyToAsync(ms);
+                _logger.LogInformation(
+                    "Photo extraction loaded image bytes. FileName={FileName}, OriginalFileName={OriginalFileName}, DetectedMimeType={DetectedMimeType}, ByteCount={ByteCount}, WasConverted={WasConverted}",
+                    photo.FileName,
+                    photo.OriginalFileName,
+                    photo.MimeType,
+                    photo.Bytes.Length,
+                    photo.WasConverted);
                 contentParts.Add(ChatMessageContentPart.CreateImagePart(
-                    BinaryData.FromBytes(ms.ToArray()),
-                    photoMimeTypes[photo]));
+                    BinaryData.FromBytes(photo.Bytes),
+                    photo.MimeType));
             }
 
             List<ChatMessage> messages =
@@ -324,25 +481,42 @@ namespace RecipeHelper.Services
                 ChatMessage.CreateUserMessage(contentParts),
             ];
 
+            _logger.LogInformation("Photo extraction OpenAI request started. PhotoCount={PhotoCount}, ConvertedCount={ConvertedCount}", photos.Count, photos.Count(p => p.WasConverted));
+            var openAiStopwatch = System.Diagnostics.Stopwatch.StartNew();
             var completion = await visionClient.CompleteChatAsync(messages,
-                new ChatCompletionOptions { Temperature = 0 });
+                new ChatCompletionOptions { Temperature = 0 })
+                .WaitAsync(TimeSpan.FromSeconds(90));
+            _logger.LogInformation(
+                "Photo extraction OpenAI request completed. ElapsedMs={ElapsedMs}, TotalElapsedMs={TotalElapsedMs}",
+                openAiStopwatch.ElapsedMilliseconds,
+                stopwatch.ElapsedMilliseconds);
 
             var text = StripMarkdownFences(completion.Value.Content[0].Text);
 
             var extracted = JsonSerializer.Deserialize<PhotoExtractionResult>(text)
                 ?? throw new InvalidOperationException("Could not parse recipe data from the photo.");
 
+            _logger.LogInformation(
+                "Photo extraction parsed response. TotalElapsedMs={TotalElapsedMs}, TitleLength={TitleLength}, IngredientCount={IngredientCount}, StepCount={StepCount}",
+                stopwatch.ElapsedMilliseconds,
+                extracted.Title?.Length ?? 0,
+                extracted.Ingredients?.Count ?? 0,
+                extracted.Steps?.Count ?? 0);
+
+            var ingredients = extracted.Ingredients ?? new();
+            var steps = extracted.Steps ?? new();
+
             return new ImportRecipeVM
             {
                 Title = extracted.Title ?? "Untitled",
-                Ingredients = extracted.Ingredients.Select(i => new ImportIngredientVM
+                Ingredients = ingredients.Select(i => new ImportIngredientVM
                 {
                     Name = i.Name,
                     CleanName = i.Name,
                     Amount = i.Quantity ?? 0,
                     Unit = i.Unit ?? string.Empty
                 }).ToList(),
-                Steps = extracted.Steps ?? new()
+                Steps = steps
             };
         }
 

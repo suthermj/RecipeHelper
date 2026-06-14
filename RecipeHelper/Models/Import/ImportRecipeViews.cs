@@ -215,5 +215,5 @@ public class SuggestedKrogerProductVM
 public class PhotoImportPageVM
 {
     public List<IFormFile> Photos { get; set; } = new();
-    public bool UsePhotoAsImage { get; set; } = true;
+    public bool UsePhotoAsImage { get; set; }
 }

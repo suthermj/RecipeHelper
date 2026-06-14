@@ -241,20 +241,66 @@ namespace RecipeHelper.Services
             [property: JsonPropertyName("unit")] string? Unit,
             [property: JsonPropertyName("name")] string Name);
 
+        private static string? GetAllowedImageMimeType(IFormFile photo)
+        {
+            Span<byte> header = stackalloc byte[12];
+            using var stream = photo.OpenReadStream();
+            var bytesRead = stream.Read(header);
+
+            if (bytesRead >= 3 &&
+                header[0] == 0xFF &&
+                header[1] == 0xD8 &&
+                header[2] == 0xFF)
+            {
+                return "image/jpeg";
+            }
+
+            if (bytesRead >= 8 &&
+                header[0] == 0x89 &&
+                header[1] == 0x50 &&
+                header[2] == 0x4E &&
+                header[3] == 0x47 &&
+                header[4] == 0x0D &&
+                header[5] == 0x0A &&
+                header[6] == 0x1A &&
+                header[7] == 0x0A)
+            {
+                return "image/png";
+            }
+
+            if (bytesRead >= 12 &&
+                header[0] == 0x52 &&
+                header[1] == 0x49 &&
+                header[2] == 0x46 &&
+                header[3] == 0x46 &&
+                header[8] == 0x57 &&
+                header[9] == 0x45 &&
+                header[10] == 0x42 &&
+                header[11] == 0x50)
+            {
+                return "image/webp";
+            }
+
+            return null;
+        }
+
         public async Task<ImportRecipeVM> ExtractRecipeFromPhotosAsync(List<IFormFile> photos)
         {
-            var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
-
             if (photos == null || photos.Count == 0)
                 throw new ArgumentException("Please select at least one photo.");
             if (photos.Count > 3)
                 throw new ArgumentException("Please select up to 3 photos.");
+            var photoMimeTypes = new Dictionary<IFormFile, string>();
             foreach (var photo in photos)
             {
                 if (photo.Length > 15 * 1024 * 1024)
                     throw new ArgumentException($"\"{photo.FileName}\" exceeds the 15 MB limit. Please use a smaller image.");
-                if (!allowed.Contains(photo.ContentType?.ToLower()))
-                    throw new ArgumentException($"Unsupported file type \"{photo.ContentType}\". Please use JPEG, PNG, or WebP.");
+
+                var mimeType = GetAllowedImageMimeType(photo);
+                if (mimeType is null)
+                    throw new ArgumentException($"\"{photo.FileName}\" does not appear to be a valid JPEG, PNG, or WebP image.");
+
+                photoMimeTypes[photo] = mimeType;
             }
 
             var visionClient = _oaiClient.GetChatClient("gpt-4o");
@@ -269,7 +315,7 @@ namespace RecipeHelper.Services
                 await photo.CopyToAsync(ms);
                 contentParts.Add(ChatMessageContentPart.CreateImagePart(
                     BinaryData.FromBytes(ms.ToArray()),
-                    photo.ContentType));
+                    photoMimeTypes[photo]));
             }
 
             List<ChatMessage> messages =

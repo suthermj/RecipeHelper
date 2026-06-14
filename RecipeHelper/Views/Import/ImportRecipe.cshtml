@@ -17,7 +17,7 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
             </svg>
-            <span id="loadingText" class="text-[15px]" style="color: var(--ios-label);">Importing recipe…</span>
+            <span id="loadingText" class="text-[15px]" style="color: var(--ios-label);">Importing recipe...</span>
         </div>
     </div>
 
@@ -50,7 +50,7 @@
                                       d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
                             </svg>
                             <input asp-for="Url" type="url" required
-                                   placeholder="Paste a recipe URL…"
+                                   placeholder="Paste a recipe URL..."
                                    class="ios-search-input" />
                         </div>
                         <button id="importBtn" type="submit" class="ios-inline-action">
@@ -102,12 +102,15 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
                         </svg>
                         <span class="text-[14px] font-medium" style="color: var(--ios-label);">Tap to choose photos</span>
-                        <span class="text-[12px]" style="color: var(--ios-label-2);">Up to 3 photos · JPEG, PNG, WebP · max 15 MB each</span>
+                        <span class="text-[12px]" style="color: var(--ios-label-2);">Up to 3 photos - JPEG, PNG, WebP - max 15 MB each</span>
                     </label>
                     <input type="file" id="photoInput" name="Photos"
-                           accept="image/jpeg,image/png,image/webp"
+                           accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                            multiple class="hidden" />
                 </div>
+
+                <p id="photoError" class="hidden mx-4 mb-4 rounded-2xl px-4 py-3 text-[14px]"
+                   style="background: #FFF0F0; color: var(--ios-red);"></p>
 
                 <!-- Photo preview strip -->
                 <div id="photoPreviews" class="hidden mx-4 mb-4 flex gap-3 flex-wrap"></div>
@@ -117,6 +120,7 @@
                     <label class="ios-cell rounded-2xl gap-3 cursor-pointer" style="background: var(--ios-fill);">
                         <span class="flex-1 text-[14px]" style="color: var(--ios-label);">Use first photo as recipe cover image</span>
                         <input type="checkbox" name="UsePhotoAsImage" value="true" checked class="w-5 h-5 rounded accent-red-500" />
+                        <input type="hidden" name="UsePhotoAsImage" value="false" />
                     </label>
                 </div>
 
@@ -250,7 +254,7 @@
         const overlay     = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
 
-        // ── Tab switching ──────────────────────────────────────────────
+        // Tab switching
         const panelUrl   = document.getElementById('panelUrl');
         const panelPhoto = document.getElementById('panelPhoto');
         const tabUrl     = document.getElementById('tabUrl');
@@ -267,7 +271,7 @@
             tabPhoto.style.cssText = isUrl ? inactiveStyle : activeStyle;
         };
 
-        // ── URL form ───────────────────────────────────────────────────
+        // URL form
         const importForm    = document.getElementById('importForm');
         const importBtn     = document.getElementById('importBtn');
         const importSpinner = document.getElementById('importBtnSpinner');
@@ -298,26 +302,79 @@
                 importBtn.disabled = true;
                 urlInput.readOnly = true;
                 importSpinner.classList.remove('hidden');
-                importBtnText.textContent = 'Importing…';
-                loadingText.textContent = 'Importing recipe…';
+                importBtnText.textContent = 'Importing...';
+                loadingText.textContent = 'Importing recipe...';
                 overlay.classList.remove('hidden');
             });
         }
 
-        // ── Photo form ─────────────────────────────────────────────────
+        // Photo form
         const photoForm      = document.getElementById('photoForm');
         const photoInput     = document.getElementById('photoInput');
         const photoPreviews  = document.getElementById('photoPreviews');
         const photoSubmitBtn = document.getElementById('photoSubmitBtn');
+        const photoError     = document.getElementById('photoError');
+        const maxPhotoCount  = 3;
+        const maxPhotoBytes  = 15 * 1024 * 1024;
+        const allowedPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+        const allowedPhotoExtensions = /\.(jpe?g|png|webp)$/i;
+
+        function setPhotoError(message) {
+            if (!photoError) return;
+            photoError.textContent = message || '';
+            photoError.classList.toggle('hidden', !message);
+        }
+
+        function syncPhotoInputFiles(files) {
+            if (typeof DataTransfer === 'undefined') {
+                return false;
+            }
+
+            const dt = new DataTransfer();
+            files.forEach(file => dt.items.add(file));
+            photoInput.files = dt.files;
+            return true;
+        }
+
+        function validatePhotoFiles(files) {
+            if (files.length > maxPhotoCount) {
+                return `Choose up to ${maxPhotoCount} photos.`;
+            }
+
+            for (const file of files) {
+                const hasAllowedType = allowedPhotoTypes.has((file.type || '').toLowerCase());
+                const hasAllowedExtension = allowedPhotoExtensions.test(file.name || '');
+
+                if (!hasAllowedType && !hasAllowedExtension) {
+                    return `"${file.name}" is not supported. Use JPEG, PNG, or WebP.`;
+                }
+
+                if (file.size > maxPhotoBytes) {
+                    return `"${file.name}" exceeds the 15 MB limit.`;
+                }
+            }
+
+            return '';
+        }
 
         if (photoInput) {
             photoInput.addEventListener('change', function () {
                 const files = Array.from(photoInput.files || []);
                 photoPreviews.innerHTML = '';
+                setPhotoError('');
 
                 if (files.length === 0) {
                     photoPreviews.classList.add('hidden');
                     photoSubmitBtn.disabled = true;
+                    return;
+                }
+
+                const validationMessage = validatePhotoFiles(files);
+                if (validationMessage) {
+                    photoInput.value = '';
+                    photoPreviews.classList.add('hidden');
+                    photoSubmitBtn.disabled = true;
+                    setPhotoError(validationMessage);
                     return;
                 }
 
@@ -342,17 +399,34 @@
         }
 
         function removePhoto(removeIdx) {
-            const dt = new DataTransfer();
-            Array.from(photoInput.files).forEach(function (f, i) {
-                if (i !== removeIdx) dt.items.add(f);
+            const remainingFiles = Array.from(photoInput.files || []).filter(function (_, i) {
+                return i !== removeIdx;
             });
-            photoInput.files = dt.files;
+
+            if (!syncPhotoInputFiles(remainingFiles)) {
+                photoInput.value = '';
+                photoPreviews.innerHTML = '';
+                photoPreviews.classList.add('hidden');
+                photoSubmitBtn.disabled = true;
+                setPhotoError('Photo removal is not supported by this browser. Choose photos again.');
+                return;
+            }
+
             photoInput.dispatchEvent(new Event('change'));
         }
 
         if (photoForm) {
-            photoForm.addEventListener('submit', function () {
-                loadingText.textContent = 'Extracting recipe from photo…';
+            photoForm.addEventListener('submit', function (e) {
+                const files = Array.from(photoInput.files || []);
+                const validationMessage = validatePhotoFiles(files);
+                if (files.length === 0 || validationMessage) {
+                    e.preventDefault();
+                    setPhotoError(validationMessage || 'Please select at least one photo.');
+                    photoSubmitBtn.disabled = files.length === 0;
+                    return;
+                }
+
+                loadingText.textContent = 'Extracting recipe from photo...';
                 overlay.classList.remove('hidden');
                 photoSubmitBtn.disabled = true;
             });

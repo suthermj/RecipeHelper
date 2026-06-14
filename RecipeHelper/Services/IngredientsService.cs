@@ -2,11 +2,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using OpenAI;
 using OpenAI.Chat;
 using RecipeHelper.Models.IngredientModels;
 using RecipeHelper.Models.Kroger;
+using RecipeHelper.ViewModels;
 
 namespace RecipeHelper.Services
 {
@@ -203,6 +205,99 @@ namespace RecipeHelper.Services
                          ?? throw new InvalidOperationException("Invalid JSON from OpenAI");
          
             return result;
+        }
+
+        private const string PhotoExtractionPrompt = """
+            You are a recipe extraction assistant. Extract the complete recipe from the provided image(s) of a cookbook, recipe card, or printed recipe.
+
+            Return ONLY a JSON object — no markdown, no explanation — with exactly these fields:
+            {
+              "title": "Recipe name as printed",
+              "ingredients": [
+                { "quantity": 1.5, "unit": "cup", "name": "all-purpose flour" }
+              ],
+              "steps": [
+                "Preheat the oven to 350°F.",
+                "Mix the dry ingredients in a bowl."
+              ]
+            }
+
+            Rules:
+            - quantity: decimal number or null (convert fractions: 1/2 → 0.5, 3/4 → 0.75, 1/3 → 0.33)
+            - unit: use one of: tsp, tbsp, cup, oz, fl oz, lb, g, ml, l, pt, qt — or null for unitless items (e.g. 2 eggs)
+            - name: clean display name with no quantity or unit prefix
+            - steps: complete cooking instructions in order; each instruction is one string
+            - If multiple images are provided, treat them as pages of the same recipe
+            - Return only valid JSON — no markdown code fences, no extra text
+            """;
+
+        private sealed record PhotoExtractionResult(
+            [property: JsonPropertyName("title")] string Title,
+            [property: JsonPropertyName("ingredients")] List<RawExtractedIngredient> Ingredients,
+            [property: JsonPropertyName("steps")] List<string> Steps);
+
+        private sealed record RawExtractedIngredient(
+            [property: JsonPropertyName("quantity")] decimal? Quantity,
+            [property: JsonPropertyName("unit")] string? Unit,
+            [property: JsonPropertyName("name")] string Name);
+
+        public async Task<ImportRecipeVM> ExtractRecipeFromPhotosAsync(List<IFormFile> photos)
+        {
+            var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
+
+            if (photos == null || photos.Count == 0)
+                throw new ArgumentException("Please select at least one photo.");
+            if (photos.Count > 3)
+                throw new ArgumentException("Please select up to 3 photos.");
+            foreach (var photo in photos)
+            {
+                if (photo.Length > 15 * 1024 * 1024)
+                    throw new ArgumentException($"\"{photo.FileName}\" exceeds the 15 MB limit. Please use a smaller image.");
+                if (!allowed.Contains(photo.ContentType?.ToLower()))
+                    throw new ArgumentException($"Unsupported file type \"{photo.ContentType}\". Please use JPEG, PNG, or WebP.");
+            }
+
+            var visionClient = _oaiClient.GetChatClient("gpt-4o");
+
+            var contentParts = new List<ChatMessageContentPart>
+            {
+                ChatMessageContentPart.CreateTextPart(PhotoExtractionPrompt)
+            };
+            foreach (var photo in photos)
+            {
+                using var ms = new MemoryStream();
+                await photo.CopyToAsync(ms);
+                contentParts.Add(ChatMessageContentPart.CreateImagePart(
+                    BinaryData.FromBytes(ms.ToArray()),
+                    photo.ContentType));
+            }
+
+            List<ChatMessage> messages =
+            [
+                ChatMessage.CreateSystemMessage("You are a strict JSON generator."),
+                ChatMessage.CreateUserMessage(contentParts),
+            ];
+
+            var completion = await visionClient.CompleteChatAsync(messages,
+                new ChatCompletionOptions { Temperature = 0 });
+
+            var text = StripMarkdownFences(completion.Value.Content[0].Text);
+
+            var extracted = JsonSerializer.Deserialize<PhotoExtractionResult>(text)
+                ?? throw new InvalidOperationException("Could not parse recipe data from the photo.");
+
+            return new ImportRecipeVM
+            {
+                Title = extracted.Title ?? "Untitled",
+                Ingredients = extracted.Ingredients.Select(i => new ImportIngredientVM
+                {
+                    Name = i.Name,
+                    CleanName = i.Name,
+                    Amount = i.Quantity ?? 0,
+                    Unit = i.Unit ?? string.Empty
+                }).ToList(),
+                Steps = extracted.Steps ?? new()
+            };
         }
 
         public  class IngredientParseResponse

@@ -16,14 +16,18 @@ namespace RecipeHelper.Controllers
         private readonly MeasurementService _measurementService;
         private ILogger<ImportController> _logger;
         private readonly SpoonacularService _spoonacularService;
+        private readonly StorageService _storageService;
+        private readonly IngredientsService _ingredientsService;
 
-        public ImportController(ImportService importService, ILogger<ImportController> logger, SpoonacularService spoonacularService, RecipeService recipeService, MeasurementService measurementService)
+        public ImportController(ImportService importService, ILogger<ImportController> logger, SpoonacularService spoonacularService, RecipeService recipeService, MeasurementService measurementService, StorageService storageService, IngredientsService ingredientsService)
         {
             _logger = logger;
             _spoonacularService = spoonacularService;
             _importService = importService;
             _recipeService = recipeService;
             _measurementService = measurementService;
+            _storageService = storageService;
+            _ingredientsService = ingredientsService;
         }
 
         [HttpGet]
@@ -63,6 +67,43 @@ namespace RecipeHelper.Controllers
         }
 
         // Returns MappedImportRecipeVm
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportRecipeFromPhoto(PhotoImportPageVM vm)
+        {
+            try
+            {
+                var preview = await _ingredientsService.ExtractRecipeFromPhotosAsync(vm.Photos ?? new());
+
+                if (vm.UsePhotoAsImage && vm.Photos?.Count > 0)
+                {
+                    try
+                    {
+                        var blob = await _storageService.StoreRecipeImage(vm.Photos[0]);
+                        preview.Image = blob.BlobUri;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to upload recipe photo to blob storage");
+                    }
+                }
+
+                return View("ImportRecipe", new ImportRecipePageVM { Preview = preview });
+            }
+            catch (ArgumentException ex)
+            {
+                return View("ImportRecipe", new ImportRecipePageVM { Error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Photo import extraction failed");
+                return View("ImportRecipe", new ImportRecipePageVM
+                {
+                    Error = "Could not extract the recipe from the photo. Try a clearer image or enter the recipe manually."
+                });
+            }
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> GetImportedRecipePreview(PreviewImportedRecipeVM vm)

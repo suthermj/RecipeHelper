@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace RecipeHelper.ViewModels;
@@ -209,4 +210,10 @@ public class SuggestedKrogerProductVM
     public string? Name { get; set; }
     public string? ImageUrl { get; set; }
     public string? Upc { get; set; }
+}
+
+public class PhotoImportPageVM
+{
+    public List<IFormFile> Photos { get; set; } = new();
+    public bool UsePhotoAsImage { get; set; } = true;
 }

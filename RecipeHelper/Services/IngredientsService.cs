@@ -223,7 +223,15 @@ namespace RecipeHelper.Services
               "steps": [
                 "Preheat the oven to 350°F.",
                 "Mix the dry ingredients in a bowl."
-              ]
+              ],
+              "coverImage": {
+                "sourceImageIndex": 1,
+                "x": 0.12,
+                "y": 0.08,
+                "width": 0.76,
+                "height": 0.32,
+                "reason": "Photo of the finished dish"
+              }
             }
 
             Rules:
@@ -232,13 +240,27 @@ namespace RecipeHelper.Services
             - name: clean display name with no quantity or unit prefix
             - steps: complete cooking instructions in order; each instruction is one string
             - If multiple images are provided, treat them as pages of the same recipe
+            - coverImage: if a clear photo or illustration of the finished recipe appears anywhere in the uploaded images, return a crop box for it
+            - coverImage.sourceImageIndex is 1-based, matching the order images were uploaded
+            - coverImage x, y, width, and height are normalized decimal coordinates from 0 to 1 relative to the full source image
+            - The coverImage box should tightly contain the food/recipe image, not the surrounding text, page margins, or ingredient list
+            - If no usable recipe image is visible, set coverImage to null
             - Return only valid JSON — no markdown code fences, no extra text
             """;
 
         private sealed record PhotoExtractionResult(
             [property: JsonPropertyName("title")] string Title,
             [property: JsonPropertyName("ingredients")] List<RawExtractedIngredient> Ingredients,
-            [property: JsonPropertyName("steps")] List<string> Steps);
+            [property: JsonPropertyName("steps")] List<string> Steps,
+            [property: JsonPropertyName("coverImage")] CoverImageCandidate? CoverImage);
+
+        private sealed record CoverImageCandidate(
+            [property: JsonPropertyName("sourceImageIndex")] int? SourceImageIndex,
+            [property: JsonPropertyName("x")] decimal? X,
+            [property: JsonPropertyName("y")] decimal? Y,
+            [property: JsonPropertyName("width")] decimal? Width,
+            [property: JsonPropertyName("height")] decimal? Height,
+            [property: JsonPropertyName("reason")] string? Reason);
 
         private sealed record RawExtractedIngredient(
             [property: JsonPropertyName("quantity")] decimal? Quantity,
@@ -253,6 +275,14 @@ namespace RecipeHelper.Services
             bool WasConverted,
             string? PostedContentType,
             long SourceLength);
+
+        public sealed record RecipeCoverCrop(
+            int SourceImageIndex,
+            decimal X,
+            decimal Y,
+            decimal Width,
+            decimal Height,
+            string? Reason);
 
         private static string? GetAllowedImageMimeType(IFormFile photo)
         {
@@ -365,6 +395,117 @@ namespace RecipeHelper.Services
                     photo.Length,
                     conversionStopwatch.ElapsedMilliseconds);
                 throw new ArgumentException($"\"{photo.FileName}\" could not be converted from DNG. Try retaking the photo without ProRAW or choose a JPEG version.");
+            }
+        }
+
+        private static decimal ClampUnit(decimal value)
+        {
+            if (value < 0) return 0;
+            if (value > 1) return 1;
+            return value;
+        }
+
+        private static RecipeCoverCrop? ToCoverCrop(CoverImageCandidate? candidate, int photoCount)
+        {
+            if (candidate?.SourceImageIndex is null ||
+                candidate.X is null ||
+                candidate.Y is null ||
+                candidate.Width is null ||
+                candidate.Height is null)
+            {
+                return null;
+            }
+
+            var sourceIndex = candidate.SourceImageIndex.Value - 1;
+            if (sourceIndex < 0 || sourceIndex >= photoCount)
+                return null;
+
+            var x = ClampUnit(candidate.X.Value);
+            var y = ClampUnit(candidate.Y.Value);
+            var width = ClampUnit(candidate.Width.Value);
+            var height = ClampUnit(candidate.Height.Value);
+
+            if (width < 0.08m || height < 0.08m)
+                return null;
+
+            if (x + width > 1)
+                width = 1 - x;
+            if (y + height > 1)
+                height = 1 - y;
+
+            if (width < 0.08m || height < 0.08m)
+                return null;
+
+            return new RecipeCoverCrop(sourceIndex, x, y, width, height, candidate.Reason);
+        }
+
+        public NormalizedRecipePhoto? CreateCroppedCoverPhoto(IReadOnlyList<NormalizedRecipePhoto> photos, RecipeCoverCrop? crop)
+        {
+            if (crop is null || crop.SourceImageIndex < 0 || crop.SourceImageIndex >= photos.Count)
+                return null;
+
+            var source = photos[crop.SourceImageIndex];
+            var cropStopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            try
+            {
+                using var image = new MagickImage(source.Bytes);
+                var imageWidth = (int)Math.Min(image.Width, int.MaxValue);
+                var imageHeight = (int)Math.Min(image.Height, int.MaxValue);
+                var cropX = Math.Clamp((int)Math.Round(imageWidth * crop.X), 0, Math.Max(0, imageWidth - 1));
+                var cropY = Math.Clamp((int)Math.Round(imageHeight * crop.Y), 0, Math.Max(0, imageHeight - 1));
+                var cropWidth = Math.Clamp((int)Math.Round(imageWidth * crop.Width), 1, imageWidth - cropX);
+                var cropHeight = Math.Clamp((int)Math.Round(imageHeight * crop.Height), 1, imageHeight - cropY);
+
+                image.Crop(new MagickGeometry(cropX, cropY, (uint)cropWidth, (uint)cropHeight));
+                image.AutoOrient();
+                image.Strip();
+                image.Format = MagickFormat.Jpeg;
+                image.Quality = 88;
+
+                if (image.Width > 1400 || image.Height > 1400)
+                {
+                    image.Resize(new MagickGeometry(1400, 1400)
+                    {
+                        IgnoreAspectRatio = false
+                    });
+                }
+
+                using var output = new MemoryStream();
+                image.Write(output);
+                var fileName = Path.ChangeExtension(source.FileName, ".cover.jpg") ?? $"recipe-cover-{crop.SourceImageIndex + 1}.jpg";
+
+                _logger.LogInformation(
+                    "Photo extraction cropped suggested cover image. SourceImageIndex={SourceImageIndex}, FileName={FileName}, CropX={CropX}, CropY={CropY}, CropWidth={CropWidth}, CropHeight={CropHeight}, OutputBytes={OutputBytes}, Reason={Reason}, ElapsedMs={ElapsedMs}",
+                    crop.SourceImageIndex,
+                    source.FileName,
+                    cropX,
+                    cropY,
+                    cropWidth,
+                    cropHeight,
+                    output.Length,
+                    crop.Reason,
+                    cropStopwatch.ElapsedMilliseconds);
+
+                return new NormalizedRecipePhoto(
+                    source.OriginalFileName,
+                    fileName,
+                    "image/jpeg",
+                    output.ToArray(),
+                    true,
+                    source.PostedContentType,
+                    source.SourceLength);
+            }
+            catch (Exception ex) when (ex is MagickException or NotSupportedException or InvalidOperationException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Photo extraction failed to crop suggested cover image. SourceImageIndex={SourceImageIndex}, FileName={FileName}, Reason={Reason}, ElapsedMs={ElapsedMs}",
+                    crop.SourceImageIndex,
+                    source.FileName,
+                    crop.Reason,
+                    cropStopwatch.ElapsedMilliseconds);
+                return null;
             }
         }
 
@@ -508,6 +649,23 @@ namespace RecipeHelper.Services
 
             var ingredients = extracted.Ingredients ?? new();
             var steps = extracted.Steps ?? new();
+            var coverCrop = ToCoverCrop(extracted.CoverImage, photos.Count);
+
+            if (coverCrop is null)
+            {
+                _logger.LogInformation("Photo extraction did not return a usable cover crop.");
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Photo extraction returned cover crop. SourceImageIndex={SourceImageIndex}, X={X}, Y={Y}, Width={Width}, Height={Height}, Reason={Reason}",
+                    coverCrop.SourceImageIndex,
+                    coverCrop.X,
+                    coverCrop.Y,
+                    coverCrop.Width,
+                    coverCrop.Height,
+                    coverCrop.Reason);
+            }
 
             return new ImportRecipeVM
             {
@@ -519,7 +677,13 @@ namespace RecipeHelper.Services
                     Amount = i.Quantity ?? 0,
                     Unit = i.Unit ?? string.Empty
                 }).ToList(),
-                Steps = steps
+                Steps = steps,
+                SuggestedCoverSourceImageIndex = coverCrop?.SourceImageIndex,
+                SuggestedCoverX = coverCrop?.X,
+                SuggestedCoverY = coverCrop?.Y,
+                SuggestedCoverWidth = coverCrop?.Width,
+                SuggestedCoverHeight = coverCrop?.Height,
+                SuggestedCoverReason = coverCrop?.Reason
             };
         }
 

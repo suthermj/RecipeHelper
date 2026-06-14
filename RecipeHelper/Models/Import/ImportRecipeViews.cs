@@ -30,6 +30,12 @@ public class ImportRecipeVM
     public string? SummaryText { get; set; }
     public List<ImportIngredientVM> Ingredients { get; set; } = new();
     public List<string> Steps { get; set; } = new();
+    public int? SuggestedCoverSourceImageIndex { get; set; }
+    public decimal? SuggestedCoverX { get; set; }
+    public decimal? SuggestedCoverY { get; set; }
+    public decimal? SuggestedCoverWidth { get; set; }
+    public decimal? SuggestedCoverHeight { get; set; }
+    public string? SuggestedCoverReason { get; set; }
 
     // -------- mapping helper from your Spoonacular DTO --------
     public static ImportRecipeVM FromSpoonacular(Models.Spoonacular.Recipe dto)

@@ -112,7 +112,21 @@ namespace RecipeHelper.Controllers
                     try
                     {
                         var uploadStopwatch = System.Diagnostics.Stopwatch.StartNew();
-                        var coverPhoto = normalizedPhotos[0];
+                        var suggestedCoverCrop = preview.SuggestedCoverSourceImageIndex is null ||
+                                                 preview.SuggestedCoverX is null ||
+                                                 preview.SuggestedCoverY is null ||
+                                                 preview.SuggestedCoverWidth is null ||
+                                                 preview.SuggestedCoverHeight is null
+                            ? null
+                            : new IngredientsService.RecipeCoverCrop(
+                                preview.SuggestedCoverSourceImageIndex.Value,
+                                preview.SuggestedCoverX.Value,
+                                preview.SuggestedCoverY.Value,
+                                preview.SuggestedCoverWidth.Value,
+                                preview.SuggestedCoverHeight.Value,
+                                preview.SuggestedCoverReason);
+                        var croppedCoverPhoto = _ingredientsService.CreateCroppedCoverPhoto(normalizedPhotos, suggestedCoverCrop);
+                        var coverPhoto = croppedCoverPhoto ?? normalizedPhotos[0];
                         await using var coverStream = new MemoryStream(coverPhoto.Bytes);
                         var blob = await _storageService.StoreRecipeImage(coverStream, coverPhoto.FileName, coverPhoto.MimeType);
                         if (blob is null)
@@ -126,10 +140,11 @@ namespace RecipeHelper.Controllers
 
                         preview.Image = blob.BlobUri;
                         _logger.LogInformation(
-                            "Photo import cover upload completed. ElapsedMs={ElapsedMs}, BlobName={BlobName}, WasConverted={WasConverted}",
+                            "Photo import cover upload completed. ElapsedMs={ElapsedMs}, BlobName={BlobName}, WasConverted={WasConverted}, UsedSuggestedCrop={UsedSuggestedCrop}",
                             uploadStopwatch.ElapsedMilliseconds,
                             blob.BlobName,
-                            coverPhoto.WasConverted);
+                            coverPhoto.WasConverted,
+                            croppedCoverPhoto is not null);
                     }
                     catch (Exception ex)
                     {

@@ -11,6 +11,8 @@ namespace RecipeHelper.Controllers
 {
     public class ImportController : Controller
     {
+        private const long PhotoImportRequestSizeLimitBytes = 300L * 1024L * 1024L;
+
         private ImportService _importService;
         private RecipeService _recipeService;
         private readonly MeasurementService _measurementService;
@@ -69,6 +71,8 @@ namespace RecipeHelper.Controllers
         // Returns MappedImportRecipeVm
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(PhotoImportRequestSizeLimitBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = PhotoImportRequestSizeLimitBytes)]
         public async Task<IActionResult> ImportRecipeFromPhoto(PhotoImportPageVM vm)
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();

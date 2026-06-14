@@ -60,6 +60,7 @@ sudo tee /etc/nginx/sites-available/recipehelper > /dev/null <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
+    client_max_body_size 300m;
 
     location / {
         proxy_pass http://localhost:5000;

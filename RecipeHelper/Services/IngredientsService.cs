@@ -16,6 +16,9 @@ namespace RecipeHelper.Services
     
     public class IngredientsService
     {
+        private const long StandardPhotoMaxBytes = 15L * 1024L * 1024L;
+        private const long DngPhotoMaxBytes = 120L * 1024L * 1024L;
+
         private DatabaseContext _context;
         private readonly OpenAIClient _oaiClient;
         private ILogger<IngredientsService> _logger;
@@ -385,7 +388,7 @@ namespace RecipeHelper.Services
             {
                 var photo = photos[i];
                 var isDng = IsDngImage(photo);
-                var maxBytes = isDng ? 60 * 1024 * 1024 : 15 * 1024 * 1024;
+                var maxBytes = isDng ? DngPhotoMaxBytes : StandardPhotoMaxBytes;
                 if (photo.Length > maxBytes)
                 {
                     _logger.LogWarning(

@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- Manual "Deploy to Production" GitHub Actions workflow (`workflow_dispatch`, runnable from the GitHub mobile app), reaching the VM over Tailscale via OIDC federated identity so no long-lived secret is stored in GitHub.
+
 ## 2026-07-25
 
 ### Added

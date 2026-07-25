@@ -73,7 +73,7 @@ namespace RecipeHelper.Services
                     Image = recipe.ExtractFirstImage(),
                     SummaryText = recipe.Description,
                     SourceUrl = recipeUrl,
-                    Steps = recipe.RecipeInstructions.Select(x => x.Text).ToList(),
+                    Steps = recipe.RecipeInstructions.Select(x => System.Net.WebUtility.HtmlDecode(x.Text)).ToList(),
                     //ReadyInMinutes = recipe.TotalTime,
                     //Servings = recipe.RecipeYield,
                     Ingredients = ings.Items?

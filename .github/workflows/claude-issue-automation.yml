@@ -1,0 +1,38 @@
+name: Auto-implement new issues with Claude
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  claude-auto-fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          prompt: |
+            Implement a fix for the following issue in this repository.
+
+            Title: ${{ github.event.issue.title }}
+            Body:
+            ${{ github.event.issue.body }}
+
+            Read CLAUDE.md first for project conventions (architecture, coding
+            conventions, mobile-first UI rules, etc.) and follow them. Make the
+            code change on a new branch, verify it builds (`dotnet build` from
+            the RecipeHelper/ subdirectory, and `npm run css:build` if you touch
+            any Tailwind classes), and open a pull request describing the fix.
+
+            If the issue is genuinely ambiguous and you can't resolve it from
+            the codebase, say so in the PR description rather than guessing.
+          claude_args: |
+            --max-turns 40

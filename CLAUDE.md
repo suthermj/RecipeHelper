@@ -78,6 +78,12 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 
 `UnitConverter.Parse` handles both these names and common shorthand (tsp, oz, g, etc.).
 
+## Changelog
+
+- **`CHANGELOG.md`** (repo root) tracks notable changes, grouped by date (no version tags — this app deploys continuously).
+- **Update it as part of every change**, not as an afterthought: add an entry under `## [Unreleased]` in the same commit/PR that makes the change, then move it under today's dated heading when deployed. Group entries under `### Added` / `### Changed` / `### Fixed` / `### Removed` per [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+- Skip purely internal refactors, formatting-only diffs, and dependency bumps with no user-facing effect.
+
 ## Coding Conventions
 
 - **Timezone:** User is America/New_York (EDT). Always use `MealPlanService.LocalToday()` for "today" — never raw `DateTime.UtcNow` in user-facing date logic (server is on Hetzner/UTC).

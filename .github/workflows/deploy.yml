@@ -17,7 +17,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_HOST: 178.105.73.57
   DEPLOY_USER: deploy
 
 jobs:
@@ -55,18 +54,28 @@ jobs:
       - name: Package build
         run: tar -czf publish.tar.gz -C publish .
 
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      # DEPLOY_HOST is the VM's Tailscale hostname (e.g. "hetzner-vm") — set as a
+      # production environment secret. SSH goes over Tailscale so port 22 stays
+      # locked to your home IP in the Hetzner firewall.
       - name: Configure deploy key
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       # The `deploy` user's key is restricted server-side to a single forced
       # command (see deploy/remote/README.md) — whatever we pass here is
       # ignored, the tarball just needs to arrive on stdin.
       - name: Ship build and restart service
-        run: ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" < publish.tar.gz
+        run: ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" < publish.tar.gz
 
       - name: Clean up deploy key
         if: always()

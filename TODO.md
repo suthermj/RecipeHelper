@@ -36,3 +36,11 @@
 
 - [x] Fix plural logic — "1 teaspoons of sugar" should display as "1 teaspoon of sugar"
 - [x] Improve Kroger product search when linking ingredients — strip quantity/unit prefix so "1 tsp of sugar" searches as "sugar" instead of the full string
+
+## Process / Best Practices
+
+- [ ] No CI pipeline runs build/tests automatically on push or PR — builds are only validated locally before deploy
+- [ ] No automated test suite beyond the Playwright UI checks documented in CLAUDE.md — no unit/integration tests for services (`MealPlanService`, `KrogerService`, `UnitConverter`, etc.)
+- [ ] No dependency update automation (e.g. Dependabot) for NuGet/npm packages
+- [ ] No documented backup/restore process for the Azure SQL database
+- [ ] `CHANGELOG.md` was only just added (see #45) — historical entries prior to its creation weren't backfilled in detail

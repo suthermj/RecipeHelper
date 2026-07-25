@@ -42,24 +42,34 @@ Follow the auth URL it prints to add the VM to your Tailscale network. Once
 connected, note the machine's Tailscale hostname (visible at tailscale.com/admin
 → Machines, e.g. `hetzner-vm`).
 
-## 3. Create a Tailscale OAuth client for GitHub Actions
+## 3. Create a Tailscale OIDC (federated identity) client for GitHub Actions
 
-At [tailscale.com/admin → Settings → OAuth Clients](https://tailscale.com/admin/settings/oauth):
+The workflow authenticates to Tailscale using GitHub's OIDC token — no
+long-lived client secret is stored in GitHub. At
+[tailscale.com/admin → Settings → OAuth Clients](https://tailscale.com/admin/settings/oauth):
 
 1. **New OAuth client** → name it `github-actions-deploy`
-2. Scopes: check **Auth Keys → Write**
-3. Under Tags, add `tag:ci` (create it if needed — go to Access Controls first
-   and add `"tag:ci": []` to the `tagOwners` section)
-4. **Generate** — copy the Client ID and Client Secret
+2. Scopes: check **Auth Keys → Write** (federated identities need write
+   access to register ephemeral nodes, not just read)
+3. Under Tags, add `tag:ci` (create it first if needed — go to Access
+   Controls and add `"tag:ci": []` to the `tagOwners` section). This must
+   match the `tags:` value the workflow passes to the action — Tailscale
+   requires every tag the workflow requests to already be on the client.
+4. Configure it as a federated identity trusting GitHub Actions' OIDC
+   issuer, and note the **Client ID** and **audience** value it gives you
+   (audience looks like `api.tailscale.com/<tailnet-id>`) — no client
+   secret is generated for this flow.
 
-Add both as GitHub secrets in the `production` environment
+Add these as GitHub secrets in the `production` environment
 (repo → Settings → Environments → production → Add secret):
 
 | Secret name | Value |
 |---|---|
 | `TS_OAUTH_CLIENT_ID` | Client ID from above |
-| `TS_OAUTH_SECRET` | Client Secret from above |
 | `DEPLOY_HOST` | Tailscale hostname of the VM (e.g. `hetzner-vm`) |
+
+The `audience` value is hardcoded directly in `.github/workflows/deploy.yml`
+(not a secret, since it isn't sensitive).
 
 ## 4. Create the restricted deploy user on the VM
 
@@ -130,9 +140,11 @@ and decide not to merge it, re-run the workflow with `main`.
 ## Rotating or revoking access
 
 - **Cut off CI entirely:** delete `/home/deploy/.ssh/authorized_keys` (or the
-  whole `deploy` user) on the VM, or remove the `TS_OAUTH_CLIENT_ID`/`TS_OAUTH_SECRET`
-  secrets from GitHub. The root key and manual `deploy/deploy.sh` path are unaffected.
+  whole `deploy` user) on the VM, or remove the `TS_OAUTH_CLIENT_ID` secret
+  from GitHub / delete the OAuth client on tailscale.com. The root key and
+  manual `deploy/deploy.sh` path are unaffected.
 - **Rotate the deploy key:** generate a new keypair, update `DEPLOY_SSH_KEY` in GitHub,
   and replace the public key in `/home/deploy/.ssh/authorized_keys` on the VM.
 - **Rotate Tailscale credentials:** delete the OAuth client on tailscale.com and
-  create a new one, then update the GitHub secrets.
+  create a new one (with `tag:ci` and Auth Keys write scope), then update
+  `TS_OAUTH_CLIENT_ID` in GitHub and the `audience` value in the workflow file.

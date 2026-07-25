@@ -826,6 +826,10 @@ video {
   z-index: 300;
 }
 
+.z-\[9999\] {
+  z-index: 9999;
+}
+
 .-mx-2 {
   margin-left: -0.5rem;
   margin-right: -0.5rem;
@@ -1722,6 +1726,11 @@ video {
 .px-5 {
   padding-left: 1.25rem;
   padding-right: 1.25rem;
+}
+
+.px-8 {
+  padding-left: 2rem;
+  padding-right: 2rem;
 }
 
 .py-0 {
@@ -2742,6 +2751,25 @@ html {
     select {
       font-size: 16px !important;
     }
+  }
+}
+
+/* ─── Landscape Lock ───
+   This is a home-screen web app, not a native app, so we can't force a hard
+   OS-level orientation lock on iOS (Safari doesn't implement the Screen
+   Orientation API's lock()). Instead: cover the app with a "rotate back"
+   overlay whenever a touch device without hover (i.e. a phone/tablet, not a
+   mouse-driven desktop resized to a narrow window) is in landscape. The
+   overlay is fixed + fully opaque, so it blocks interaction with — and
+   visually replaces — everything underneath without needing to hide it. */
+
+.landscape-lock-overlay {
+  display: none;
+}
+
+@media (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  .landscape-lock-overlay {
+    display: flex;
   }
 }
 

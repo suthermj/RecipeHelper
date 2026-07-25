@@ -32,6 +32,30 @@
              color: #1C1C1E;
              -webkit-font-smoothing: antialiased;">
 
+    <!-- Landscape lock overlay — shown via CSS media query on touch devices in landscape -->
+    <div class="landscape-lock-overlay fixed inset-0 z-[9999] flex-col items-center justify-center gap-3 px-8 text-center"
+         style="background: #F2F2F7;">
+        <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="#1C1C1E" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+        <p class="text-[17px] font-semibold" style="color: #1C1C1E;">Please rotate back to portrait</p>
+        <p class="text-[15px]" style="color: rgba(60,60,67,0.6);">This app is designed for portrait use only.</p>
+    </div>
+    <script>
+        // Best-effort native lock for browsers that support the Screen Orientation
+        // API in a locking-eligible context (e.g. installed PWA on Android/Chrome).
+        // iOS Safari has no lock() support at all, so the CSS overlay above is the
+        // real fallback everywhere else.
+        (function () {
+            try {
+                if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                    screen.orientation.lock('portrait').catch(function () {});
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     @{
         var hasNavBar = ViewData["BackLink"] != null
                      || !string.IsNullOrEmpty(ViewData["NavTitle"]?.ToString())

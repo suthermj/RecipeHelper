@@ -23,6 +23,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      id-token: write
     steps:
       - name: Checkout ${{ inputs.ref }}
         uses: actions/checkout@v4
@@ -55,10 +57,10 @@ jobs:
         run: tar -czf publish.tar.gz -C publish .
 
       - name: Connect to Tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          audience: api.tailscale.com/T13yDC73BC11CNTRL-kL43gFyah721CNTRL
           tags: tag:ci
 
       # DEPLOY_HOST is the VM's Tailscale hostname (e.g. "hetzner-vm") — set as a

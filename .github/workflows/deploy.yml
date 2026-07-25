@@ -1,0 +1,76 @@
+name: Deploy to Production
+
+# Manual only — triggered from the Actions tab (works fine from the GitHub
+# mobile app/mobile browser). Defaults to main but accepts any branch, so a
+# PR branch can be pushed to the live app for a real on-device check before
+# merging.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to deploy"
+        required: false
+        default: "main"
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: 178.105.73.57
+  DEPLOY_USER: deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout ${{ inputs.ref }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install npm dependencies
+        working-directory: RecipeHelper
+        run: npm ci
+
+      - name: Build CSS
+        working-directory: RecipeHelper
+        run: npm run css:build
+
+      - name: Publish linux-x64
+        working-directory: RecipeHelper
+        run: dotnet publish -c Release -r linux-x64 --self-contained false -o ../publish
+
+      - name: Package build
+        run: tar -czf publish.tar.gz -C publish .
+
+      - name: Configure deploy key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      # The `deploy` user's key is restricted server-side to a single forced
+      # command (see deploy/remote/README.md) — whatever we pass here is
+      # ignored, the tarball just needs to arrive on stdin.
+      - name: Ship build and restart service
+        run: ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" < publish.tar.gz
+
+      - name: Clean up deploy key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+      - name: Result
+        run: echo "Deployed ${{ inputs.ref }} — https://sutherlinsrecipes.duckdns.org"

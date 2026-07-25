@@ -545,6 +545,10 @@
             const sortableOpts = {
                 animation: 150,
                 ghostClass: 'bg-blue-50',
+                scroll: true,
+                scrollSensitivity: 80,
+                scrollSpeed: 15,
+                forceAutoScrollFallback: true,
                 onEnd: function () {
                     reindexRows();
                     ensureEmptyRow();

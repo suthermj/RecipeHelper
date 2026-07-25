@@ -36,6 +36,8 @@ namespace RecipeHelper.Controllers
 
             if (!string.IsNullOrWhiteSpace(model.Url))
             {
+                model.Url = NormalizeUrl(model.Url);
+
                 _logger.LogInformation("Importing recipe from URL: {Url}", model.Url);
 
                 var importedRecipe = await _spoonacularService.ImportRecipe(model.Url);
@@ -60,6 +62,21 @@ namespace RecipeHelper.Controllers
             }
 
             return View(model);
+        }
+
+        // Users often paste a URL without the scheme (e.g. "example.com/recipe").
+        // Default to https:// in that case rather than letting the fetch error out.
+        private static string NormalizeUrl(string url)
+        {
+            url = url.Trim();
+
+            if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return url;
+            }
+
+            return "https://" + url;
         }
 
         // Returns MappedImportRecipeVm

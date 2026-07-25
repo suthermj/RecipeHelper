@@ -44,6 +44,10 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> PreviewAddToCart(AddToCartVM vm)
         {
+            // Only ingredients the user left checked on the review screen should
+            // reach the Kroger cart preview.
+            vm.Items = vm.Items.Where(i => i.Include).ToList();
+
             // vm.Items currently holds ingredients (with measurement/quantity/etc)
             var detailedCartItems = await _krogerService.ConvertIngredientsToCartItems(vm);
 
@@ -134,16 +138,12 @@ namespace RecipeHelper.Controllers
             try
             {
                 var itemCount = vm.Items.Count;
-                var cartItems = await _krogerService.ConvertIngredientsToCartItems(vm);
-                AddToCartRequest addToCartRequest = new AddToCartRequest
-                {
-                    Items = cartItems.Select(d => new CartItem
-                    {
-                        Upc = d.Upc,
-                        Quantity = d.Quantity,
-                    }).ToList()
-                };
 
+                // vm.Items already carries the final per-item quantities the user
+                // confirmed on the preview screen, so build the cart request directly
+                // from them instead of re-running unit conversion (which would treat
+                // the already-converted pack quantity as a raw ingredient amount).
+                var addToCartRequest = new AddToCartRequest(vm.Items);
 
                 var result = await _krogerService.AddToCartAsync(addToCartRequest, token);
 

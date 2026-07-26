@@ -45,6 +45,8 @@ gh pr list
 
 **CSS:** Tailwind via `npm run css:build` → `wwwroot/css/output.css`. Never hand-edit output.css.
 
+**PWA / Service Worker (`wwwroot/sw.js`):** caches static assets (cache-first) and page navigations (stale-while-revalidate), keyed by `CACHE_VERSION`. **This is stamped automatically to the deployed commit SHA by both `deploy/deploy.sh` and `.github/workflows/deploy.yml` at publish time** — every deploy gets a new version and old caches are evicted on activate, so you never need to hand-edit `CACHE_VERSION` (the `'dev'` literal in source only applies to local `dotnet run`). The new worker doesn't take over automatically (`skipWaiting()` is gated behind a user tap, not called unconditionally on install) — `site.js` shows a "tap to refresh" banner via `updatefound` and posts `SKIP_WAITING` when tapped, so an already-open tab isn't swapped to a new version mid-session.
+
 ## Key Files
 
 | File | Purpose |
@@ -64,6 +66,8 @@ gh pr list
 | `Services/StorageService.cs` | Blob upload/delete; uses `ClientSecretCredential` in prod, connection string in dev |
 | `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
 | `deploy/deploy.sh` | Full deploy: CSS build → dotnet publish → scp → restart systemd |
+| `wwwroot/sw.js` | Service worker: static-asset + page caching; `CACHE_VERSION` auto-stamped at deploy time (see PWA note above) |
+| `wwwroot/js/site.js` | SW registration + "update available" reload banner; also global loading-overlay wiring |
 
 ## Data Model
 
@@ -167,7 +171,7 @@ npx playwright test --ui      # interactive UI mode (recommended for visual revi
 - **Service:** systemd unit `recipehelper`, app root `/var/www/recipehelper`
 - **Public URL:** `https://sutherlinsrecipes.duckdns.org`
 - Deploy script handles: CSS build → publish linux-x64 → scp to `/tmp/recipehelper/` → stop/copy/start service
-- **CI deploy:** `.github/workflows/deploy.yml` (`workflow_dispatch`, runnable from the GitHub mobile app) does the same build and pushes it to prod over a restricted, non-root `deploy` SSH user — see `deploy/remote/README.md` for the one-time VM setup and required `DEPLOY_SSH_KEY` secret. Accepts a branch input, so a PR branch can be checked live before merging.
+- **CI deploy:** `.github/workflows/deploy.yml` (`workflow_dispatch`, runnable from the GitHub mobile app) does the same build and pushes it to prod over a restricted, non-root `deploy` SSH user — see `deploy/remote/README.md` for the one-time VM setup and required `DEPLOY_SSH_KEY` secret. No inputs — it deploys whichever branch is picked in the "Use workflow from" selector on the run form, so a PR branch can be checked live before merging just by picking it there.
 - **Hetzner Cloud Firewall:** SSH (22) is restricted by source IP. If `bash deploy/deploy.sh` fails with a connection timeout, the home IP probably rotated — whitelist the current one at `https://api.ipify.org` in the Hetzner Cloud console firewall.
 - **`appsettings.json` and `appsettings.Production.json` are both gitignored.** `appsettings.json` contains empty placeholders only. All secrets live in `appsettings.Production.json` on the dev machine, which ships to the VM via `dotnet publish` (SDK auto-copies all `appsettings*.json` as content). Treat `appsettings.Production.json` as the production-secrets source of truth.
 - **Entra service principal:** `sp-recipe-helper-p` (client ID `3e54accb-87f2-4f61-9732-9d01bf5c669d`, object ID `6922cf3d-d918-47fa-ac48-9e72ffa1378e`). Has `db_datareader`, `db_datawriter`, `db_ddladmin` on `recipehelper` DB and `Storage Blob Data Contributor` on `sarecipehelper`. Credentials in `AzureAd` config section.

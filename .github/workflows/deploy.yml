@@ -1,16 +1,11 @@
 name: Deploy to Production
 
 # Manual only — triggered from the Actions tab (works fine from the GitHub
-# mobile app/mobile browser). Defaults to main but accepts any branch, so a
-# PR branch can be pushed to the live app for a real on-device check before
-# merging.
+# mobile app/mobile browser). No inputs: deploys whichever branch you pick in
+# the "Use workflow from" selector at the top of the run form — that's the
+# only place you choose the branch.
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "Branch, tag, or SHA to deploy"
-        required: false
-        default: "main"
 
 concurrency:
   group: deploy-production
@@ -26,10 +21,8 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Checkout ${{ inputs.ref }}
+      - name: Checkout ${{ github.ref_name }}
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -48,6 +41,12 @@ jobs:
       - name: Build CSS
         working-directory: RecipeHelper
         run: npm run css:build
+
+      # Stamps the deployed commit SHA into the service worker's cache version so
+      # every deploy invalidates old PWA caches automatically — no more relying on
+      # a human to remember to bump CACHE_VERSION in sw.js by hand.
+      - name: Stamp service worker cache version
+        run: sed -i "s/const CACHE_VERSION = '.*';/const CACHE_VERSION = '${{ github.sha }}';/" RecipeHelper/wwwroot/sw.js
 
       - name: Publish linux-x64
         working-directory: RecipeHelper
@@ -84,4 +83,4 @@ jobs:
         run: rm -f ~/.ssh/deploy_key
 
       - name: Result
-        run: echo "Deployed ${{ inputs.ref }} — https://sutherlinsrecipes.duckdns.org"
+        run: echo "Deployed ${{ github.ref_name }} (${{ github.sha }}) — https://sutherlinsrecipes.duckdns.org"

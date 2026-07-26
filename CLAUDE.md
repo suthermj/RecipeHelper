@@ -88,6 +88,15 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 - **Update it as part of every change**, not as an afterthought: add an entry under `## [Unreleased]` in the same commit/PR that makes the change, then move it under today's dated heading when deployed. Group entries under `### Added` / `### Changed` / `### Fixed` / `### Removed` per [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Skip purely internal refactors, formatting-only diffs, and dependency bumps with no user-facing effect.
 
+## Bug-Fix Verification
+
+Before opening a PR that claims to fix a bug, actually prove it — narrative plausibility is not verification. (Issue #34's first fix attempt shipped a technically-sound-sounding "iOS WebKit fails to re-establish scroll/compositing layers" explanation that was never true; the real bug was a one-line CSS/JS logic error that a 10-minute repro would have caught.)
+
+- **Reproduce before fixing.** Don't propose a fix from reading code alone. Make the bug happen on demand first — a failing test, or a runnable repro — then apply the fix, then confirm the same repro now passes. A PR whose only "verification" is an unchecked checklist for a human to run later is not verification.
+- **If the full app can't run in this sandbox** (no DB access, no .NET SDK, whatever), don't skip straight to "please verify manually" — isolate the affected HTML/CSS/JS into a minimal standalone harness and verify it with Playwright. This works for plain front-end logic bugs even without a browser engine matching the reported platform (a Chromium repro is still real evidence unless the bug is proven engine-specific).
+- **Be suspicious of "known platform quirk" explanations you can't test.** They sound sophisticated and are hard to argue with, which is exactly why they let unverified fixes through. Prefer a mechanistic trace over a folklore explanation: for a value that's wrong at runtime, trace who sets it, who clears it, and what it falls back to when cleared — that trace alone tends to surface the actual bug.
+- **Put the evidence in the PR**, not just the plan: what repro was run, and what it showed before vs. after the fix.
+
 ## Coding Conventions
 
 - **Timezone:** User is America/New_York (EDT). Always use `MealPlanService.LocalToday()` for "today" — never raw `DateTime.UtcNow` in user-facing date logic (server is on Hetzner/UTC).

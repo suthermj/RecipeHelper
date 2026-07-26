@@ -25,6 +25,10 @@ bash deploy/deploy.sh
 # PowerShell when the body contains backtick-quoted code (e.g. `rounded-full`)
 gh pr create --title "..." --body-file path/to/body.md --base main
 gh pr list
+
+# Merging: always delete the source branch on merge (--delete-branch), whether
+# via gh or the merge_pull_request tool — don't leave merged branches around.
+gh pr merge <number> --squash --delete-branch
 ```
 
 ## Architecture

@@ -15,6 +15,14 @@ echo "[1/4] Building CSS..."
 cd RecipeHelper
 npm run css:build
 
+# Stamp the deployed commit SHA into the service worker's cache version so this
+# deploy invalidates old PWA caches automatically (mirrors the same step in
+# .github/workflows/deploy.yml). Restored via trap so the working tree is left
+# clean regardless of how the script exits.
+trap 'git -C .. checkout -- RecipeHelper/wwwroot/sw.js' EXIT
+sed -i.bak "s/const CACHE_VERSION = '.*';/const CACHE_VERSION = '$(git -C .. rev-parse HEAD)';/" wwwroot/sw.js
+rm -f wwwroot/sw.js.bak
+
 echo "[2/4] Publishing for Linux x64..."
 dotnet publish -c Release -r linux-x64 --self-contained false -o ../publish
 cd ..

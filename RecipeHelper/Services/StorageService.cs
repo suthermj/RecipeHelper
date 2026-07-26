@@ -100,9 +100,17 @@ namespace RecipeHelper.Services
         }
 
         // Resizes/recompresses a recipe image before upload, mirroring
-        // IngredientsService.CompressStandardImage's approach for photo import. Falls
-        // back to the original bytes/content type untouched if Magick can't decode the
-        // input, so an unusual format never blocks the upload outright.
+        // IngredientsService.CompressStandardImage's approach for photo import.
+        //
+        // Deliberately catches everything, not just the three exception types Magick
+        // itself documents (MagickException/NotSupportedException/InvalidOperationException).
+        // Compression is a best-effort optimization on top of a feature (uploading an
+        // image) that worked before it existed — it must never be able to sacrifice the
+        // whole upload. A narrower catch here previously let an unexpected exception type
+        // (e.g. a native-library load failure specific to the production host, which
+        // surfaces as something other than those three types) fall through uncaught to
+        // StoreRecipeImage's outer catch, silently dropping the image entirely instead of
+        // just skipping the resize/recompress step.
         private (byte[] Bytes, string FileName, string ContentType) CompressRecipeImage(
             byte[] originalBytes, string originalFileName, string originalContentType)
         {
@@ -134,10 +142,10 @@ namespace RecipeHelper.Services
 
                 return (output.ToArray(), convertedFileName, "image/jpeg");
             }
-            catch (Exception ex) when (ex is MagickException or NotSupportedException or InvalidOperationException)
+            catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Recipe image compression failed, uploading original. FileName={FileName}, ContentType={ContentType}",
-                    originalFileName, originalContentType);
+                _logger.LogWarning(ex, "Recipe image compression failed, uploading original uncompressed. FileName={FileName}, ContentType={ContentType}, ExceptionType={ExceptionType}",
+                    originalFileName, originalContentType, ex.GetType().FullName);
                 return (originalBytes, originalFileName, originalContentType);
             }
         }

@@ -15,6 +15,7 @@ by date rather than by release version.
 ### Fixed
 
 - Recipe picker sheet on Meal Plan losing its header, search bar, and backdrop on reopen: `max-height: 88svh` was only ever set as an inline style, so `closePicker()`'s `pickerCard.style.maxHeight = ''` reset wiped it permanently instead of falling back to a base value. Moved the 88svh cap into the `#recipePickerCard` CSS rule (same pattern already used for the keyboard-open 72svh override) so clearing the inline override correctly restores it. (#34)
+- Bumped service worker `CACHE_VERSION` to `v8` so the picker fix above actually reaches installed PWAs — the Meal Plan page is served via `staleWhileRevalidate` and stays on a cached pre-fix copy until the cache version changes.
 
 ## 2026-07-25
 

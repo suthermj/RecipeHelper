@@ -104,7 +104,7 @@
                         </svg>
                         <span class="text-[14px] font-medium" style="color: var(--ios-label);">Tap to choose photos</span>
                         <span class="text-[12px]" style="color: var(--ios-label-2);">Up to 3 photos - JPEG, PNG, WebP, DNG</span>
-                        <span class="text-[12px]" style="color: var(--ios-label-2);">Max 15 MB each, or 120 MB for DNG</span>
+                        <span class="text-[12px]" style="color: var(--ios-label-2);">Large photos are compressed automatically</span>
                     </label>
                     <input type="file" id="photoInput" name="Photos"
                            accept="image/jpeg,image/png,image/webp,image/x-adobe-dng,.jpg,.jpeg,.png,.webp,.dng"
@@ -327,11 +327,14 @@
         const photoSubmitBtn = document.getElementById('photoSubmitBtn');
         const photoError     = document.getElementById('photoError');
         const maxPhotoCount  = 3;
-        const maxPhotoBytes  = 15 * 1024 * 1024;
+        // Sanity ceiling only — large standard images are auto-compressed server-side
+        // rather than rejected, so this just guards against something wildly oversized
+        // (e.g. a mislabeled video) rather than typical full-res phone photos.
         const maxRawPhotoBytes = 120 * 1024 * 1024;
         const allowedPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
         const allowedPhotoExtensions = /\.(jpe?g|png|webp)$/i;
         const rawPhotoExtensions = /\.dng$/i;
+        let accumulatedFiles = [];
 
         function setPhotoError(message) {
             if (!photoError) return;
@@ -376,67 +379,88 @@
                     return `"${file.name}" is not supported. Use JPEG, PNG, WebP, or DNG.`;
                 }
 
-                const maxBytes = isDng ? maxRawPhotoBytes : maxPhotoBytes;
-                const maxMb = isDng ? 120 : 15;
-                if (file.size > maxBytes) {
-                    return `"${file.name}" exceeds the ${maxMb} MB limit.`;
+                if (file.size > maxRawPhotoBytes) {
+                    return `"${file.name}" exceeds the ${maxRawPhotoBytes / 1024 / 1024} MB limit.`;
                 }
             }
 
             return '';
         }
 
+        function renderPreviews(files) {
+            photoPreviews.innerHTML = '';
+
+            if (files.length === 0) {
+                photoPreviews.classList.add('hidden');
+                photoSubmitBtn.disabled = true;
+                return;
+            }
+
+            photoPreviews.classList.remove('hidden');
+            files.forEach(function (file, idx) {
+                const isDng = rawPhotoExtensions.test(file.name || '') || (file.type || '').toLowerCase().includes('dng');
+                const url = isDng ? '' : URL.createObjectURL(file);
+                const wrap = document.createElement('div');
+                wrap.className = 'relative';
+                const previewHtml = isDng
+                    ? '<div class="h-24 w-24 rounded-xl flex flex-col items-center justify-center px-2 text-center" style="background: var(--ios-fill); color: var(--ios-label-2);"><span class="text-[13px] font-semibold">DNG</span><span class="text-[10px] break-all">' + escapeHtml(file.name) + '</span></div>'
+                    : '<img src="' + url + '" class="h-24 w-24 object-cover rounded-xl" />';
+                wrap.innerHTML =
+                    previewHtml +
+                    '<button type="button" data-idx="' + idx + '" ' +
+                    '        class="js-remove-photo absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-white text-[11px]" ' +
+                    '        style="background: var(--ios-red);">&times;</button>';
+                photoPreviews.appendChild(wrap);
+                wrap.querySelector('.js-remove-photo').addEventListener('click', function () {
+                    removePhoto(parseInt(this.dataset.idx));
+                });
+            });
+
+            photoSubmitBtn.disabled = false;
+        }
+
+        // Sets accumulatedFiles as the source of truth, mirrors it into the actual
+        // <input> (so form submission sends it) and repaints the preview strip.
+        function applySelection(files) {
+            accumulatedFiles = files;
+            syncPhotoInputFiles(accumulatedFiles);
+            renderPreviews(accumulatedFiles);
+        }
+
         if (photoInput) {
             photoInput.addEventListener('change', function () {
-                const files = Array.from(photoInput.files || []);
-                photoPreviews.innerHTML = '';
+                // iOS's file picker (camera or library) always REPLACES photoInput.files
+                // with just what was picked in this invocation — there's no native way
+                // to append. So "Take Photo" a second time would otherwise wipe out the
+                // first shot. Merge what was just picked into what's already selected.
+                const pickedFiles = Array.from(photoInput.files || []);
+                if (pickedFiles.length === 0) {
+                    // User cancelled the picker — leave the existing selection as-is.
+                    syncPhotoInputFiles(accumulatedFiles);
+                    return;
+                }
+
+                const merged = accumulatedFiles.concat(pickedFiles);
                 setPhotoError('');
 
-                if (files.length === 0) {
-                    photoPreviews.classList.add('hidden');
-                    photoSubmitBtn.disabled = true;
-                    return;
-                }
-
-                const validationMessage = validatePhotoFiles(files);
+                const validationMessage = validatePhotoFiles(merged);
                 if (validationMessage) {
-                    photoInput.value = '';
-                    photoPreviews.classList.add('hidden');
-                    photoSubmitBtn.disabled = true;
                     setPhotoError(validationMessage);
+                    syncPhotoInputFiles(accumulatedFiles); // revert input to the prior valid selection
                     return;
                 }
 
-                photoPreviews.classList.remove('hidden');
-                files.forEach(function (file, idx) {
-                    const isDng = rawPhotoExtensions.test(file.name || '') || (file.type || '').toLowerCase().includes('dng');
-                    const url = isDng ? '' : URL.createObjectURL(file);
-                    const wrap = document.createElement('div');
-                    wrap.className = 'relative';
-                    const previewHtml = isDng
-                        ? '<div class="h-24 w-24 rounded-xl flex flex-col items-center justify-center px-2 text-center" style="background: var(--ios-fill); color: var(--ios-label-2);"><span class="text-[13px] font-semibold">DNG</span><span class="text-[10px] break-all">' + escapeHtml(file.name) + '</span></div>'
-                        : '<img src="' + url + '" class="h-24 w-24 object-cover rounded-xl" />';
-                    wrap.innerHTML =
-                        previewHtml +
-                        '<button type="button" data-idx="' + idx + '" ' +
-                        '        class="js-remove-photo absolute -top-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-white text-[11px]" ' +
-                        '        style="background: var(--ios-red);">&times;</button>';
-                    photoPreviews.appendChild(wrap);
-                    wrap.querySelector('.js-remove-photo').addEventListener('click', function () {
-                        removePhoto(parseInt(this.dataset.idx));
-                    });
-                });
-
-                photoSubmitBtn.disabled = false;
+                applySelection(merged);
             });
         }
 
         function removePhoto(removeIdx) {
-            const remainingFiles = Array.from(photoInput.files || []).filter(function (_, i) {
+            const remainingFiles = accumulatedFiles.filter(function (_, i) {
                 return i !== removeIdx;
             });
 
             if (!syncPhotoInputFiles(remainingFiles)) {
+                accumulatedFiles = [];
                 photoInput.value = '';
                 photoPreviews.innerHTML = '';
                 photoPreviews.classList.add('hidden');
@@ -445,7 +469,7 @@
                 return;
             }
 
-            photoInput.dispatchEvent(new Event('change'));
+            applySelection(remainingFiles);
         }
 
         if (photoForm) {

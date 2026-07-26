@@ -16,7 +16,13 @@ namespace RecipeHelper.Services
     
     public class IngredientsService
     {
-        private const long StandardPhotoMaxBytes = 15L * 1024L * 1024L;
+        // Above this, a standard image gets auto-resized/recompressed (like DNG
+        // already is) rather than rejected — phone camera photos routinely exceed
+        // this and users shouldn't have to pre-compress them by hand.
+        private const long StandardPhotoCompressThresholdBytes = 15L * 1024L * 1024L;
+        // Sanity ceiling on the raw upload itself, before any compression, so a
+        // mislabeled multi-hundred-MB file can't be read fully into memory.
+        private const long MaxRawUploadBytes = 120L * 1024L * 1024L;
         private const long DngPhotoMaxBytes = 120L * 1024L * 1024L;
 
         private DatabaseContext _context;
@@ -398,6 +404,76 @@ namespace RecipeHelper.Services
             }
         }
 
+        // Modern phone cameras routinely produce JPEGs/HEICs well past 15 MB at full
+        // resolution — users shouldn't have to compress those by hand before importing.
+        // Mirrors ConvertDngToJpeg's resize/recompress approach for any standard image
+        // format Magick can decode.
+        private NormalizedRecipePhoto CompressStandardImage(IFormFile photo, int index, string sourceMimeType)
+        {
+            var conversionStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                using var input = photo.OpenReadStream();
+                using var image = new MagickImage(input);
+
+                image.AutoOrient();
+                image.Strip();
+                image.Format = MagickFormat.Jpeg;
+                image.Quality = 88;
+
+                if (image.Width > 2000 || image.Height > 2000)
+                {
+                    image.Resize(new MagickGeometry(2000, 2000)
+                    {
+                        IgnoreAspectRatio = false
+                    });
+                }
+
+                using var output = new MemoryStream();
+                image.Write(output);
+
+                // Extremely unlikely after the resize above, but guard against sending
+                // an oversized payload to the vision API rather than failing there.
+                if (output.Length > StandardPhotoCompressThresholdBytes)
+                {
+                    throw new ArgumentException($"\"{photo.FileName}\" is still too large after compression. Try a lower-resolution photo.");
+                }
+
+                var convertedFileName = Path.ChangeExtension(photo.FileName, ".jpg") ?? $"photo-{index + 1}.jpg";
+                _logger.LogInformation(
+                    "Photo extraction compressed oversized image. Index={Index}, FileName={FileName}, SourceMimeType={SourceMimeType}, SourceLengthBytes={SourceLengthBytes}, CompressedLengthBytes={CompressedLengthBytes}, Width={Width}, Height={Height}, ElapsedMs={ElapsedMs}",
+                    index,
+                    photo.FileName,
+                    sourceMimeType,
+                    photo.Length,
+                    output.Length,
+                    image.Width,
+                    image.Height,
+                    conversionStopwatch.ElapsedMilliseconds);
+
+                return new NormalizedRecipePhoto(
+                    photo.FileName,
+                    convertedFileName,
+                    "image/jpeg",
+                    output.ToArray(),
+                    true,
+                    photo.ContentType,
+                    photo.Length);
+            }
+            catch (Exception ex) when (ex is MagickException or NotSupportedException or InvalidOperationException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Photo extraction failed to compress oversized image. Index={Index}, FileName={FileName}, ContentType={ContentType}, LengthBytes={LengthBytes}, ElapsedMs={ElapsedMs}",
+                    index,
+                    photo.FileName,
+                    photo.ContentType,
+                    photo.Length,
+                    conversionStopwatch.ElapsedMilliseconds);
+                throw new ArgumentException($"\"{photo.FileName}\" could not be processed. Try a different photo.");
+            }
+        }
+
         private static decimal ClampUnit(decimal value)
         {
             if (value < 0) return 0;
@@ -529,17 +605,17 @@ namespace RecipeHelper.Services
             {
                 var photo = photos[i];
                 var isDng = IsDngImage(photo);
-                var maxBytes = isDng ? DngPhotoMaxBytes : StandardPhotoMaxBytes;
-                if (photo.Length > maxBytes)
+                var maxRawBytes = isDng ? DngPhotoMaxBytes : MaxRawUploadBytes;
+                if (photo.Length > maxRawBytes)
                 {
                     _logger.LogWarning(
                         "Photo extraction rejected oversized file. Index={Index}, FileName={FileName}, LengthBytes={LengthBytes}, MaxBytes={MaxBytes}, IsDng={IsDng}",
                         i,
                         photo.FileName,
                         photo.Length,
-                        maxBytes,
+                        maxRawBytes,
                         isDng);
-                    var maxMb = maxBytes / 1024 / 1024;
+                    var maxMb = maxRawBytes / 1024 / 1024;
                     throw new ArgumentException($"\"{photo.FileName}\" exceeds the {maxMb} MB limit. Please use a smaller image.");
                 }
 
@@ -547,6 +623,12 @@ namespace RecipeHelper.Services
                 if (mimeType is null && isDng)
                 {
                     normalizedPhotos.Add(ConvertDngToJpeg(photo, i));
+                    continue;
+                }
+
+                if (mimeType is not null && photo.Length > StandardPhotoCompressThresholdBytes)
+                {
+                    normalizedPhotos.Add(CompressStandardImage(photo, i, mimeType));
                     continue;
                 }
 

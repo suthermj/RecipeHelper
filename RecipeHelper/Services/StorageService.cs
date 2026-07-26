@@ -4,12 +4,22 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
+using ImageMagick;
 using RecipeHelper.Models;
 
 namespace RecipeHelper.Services
 {
     public class StorageService
     {
+        // Recipe image blobs are effectively immutable per URL (see StoreRecipeImage's
+        // filename generation), so a long-lived, immutable Cache-Control is safe — same
+        // value already used for fingerprinted static assets in Program.cs.
+        public const string RecipeImageCacheControl = "public, max-age=31536000, immutable";
+
+        // Mirrors IngredientsService.CompressStandardImage's resize/recompress approach.
+        private const int MaxImageDimension = 2000;
+        private const int JpegQuality = 88;
+
         private BlobContainerClient _blobContainerClient;
         private BlobClient _blobClient;
         private BlobServiceClient _blobServiceClient;
@@ -52,17 +62,26 @@ namespace RecipeHelper.Services
             StoreImageBlobResponse response = new StoreImageBlobResponse();
             Random rand = new Random();
             int guid = rand.Next(100);
-            string fileName = originalFileName.Replace(" ", ",") + guid.ToString();
+
+            using var originalBuffer = new MemoryStream();
+            await imageStream.CopyToAsync(originalBuffer);
+
+            var (uploadBytes, uploadFileName, uploadContentType) = CompressRecipeImage(
+                originalBuffer.ToArray(), originalFileName, contentType);
+            string fileName = uploadFileName.Replace(" ", ",") + guid.ToString();
 
             try
             {
                 // Create a blob container if it doesn't exist
                 var containerClient = _blobServiceClient.GetBlobContainerClient("recipe-images");
                 var blobClient = containerClient.GetBlobClient(fileName);
-                if (imageStream.CanSeek)
-                    imageStream.Position = 0;
+                using var uploadStream = new MemoryStream(uploadBytes);
 
-                await blobClient.UploadAsync(imageStream, new BlobHttpHeaders { ContentType = contentType });
+                await blobClient.UploadAsync(uploadStream, new BlobHttpHeaders
+                {
+                    ContentType = uploadContentType,
+                    CacheControl = RecipeImageCacheControl
+                });
             }
             catch (Exception ex)
             {
@@ -75,6 +94,92 @@ namespace RecipeHelper.Services
             response.BlobName = fileName;
             return response;
 
+        }
+
+        // Resizes/recompresses a recipe image before upload, mirroring
+        // IngredientsService.CompressStandardImage's approach for photo import. Falls
+        // back to the original bytes/content type untouched if Magick can't decode the
+        // input, so an unusual format never blocks the upload outright.
+        private (byte[] Bytes, string FileName, string ContentType) CompressRecipeImage(
+            byte[] originalBytes, string originalFileName, string originalContentType)
+        {
+            try
+            {
+                using var input = new MemoryStream(originalBytes);
+                using var image = new MagickImage(input);
+
+                image.AutoOrient();
+                image.Strip();
+                image.Format = MagickFormat.Jpeg;
+                image.Quality = JpegQuality;
+
+                if (image.Width > MaxImageDimension || image.Height > MaxImageDimension)
+                {
+                    image.Resize(new MagickGeometry(MaxImageDimension, MaxImageDimension)
+                    {
+                        IgnoreAspectRatio = false
+                    });
+                }
+
+                using var output = new MemoryStream();
+                image.Write(output);
+
+                var convertedFileName = Path.ChangeExtension(originalFileName, ".jpg") ?? originalFileName;
+                _logger.LogInformation(
+                    "Recipe image compressed. FileName={FileName}, SourceLengthBytes={SourceLengthBytes}, CompressedLengthBytes={CompressedLengthBytes}, Width={Width}, Height={Height}",
+                    originalFileName, originalBytes.Length, output.Length, image.Width, image.Height);
+
+                return (output.ToArray(), convertedFileName, "image/jpeg");
+            }
+            catch (Exception ex) when (ex is MagickException or NotSupportedException or InvalidOperationException)
+            {
+                _logger.LogWarning(ex, "Recipe image compression failed, uploading original. FileName={FileName}, ContentType={ContentType}",
+                    originalFileName, originalContentType);
+                return (originalBytes, originalFileName, originalContentType);
+            }
+        }
+
+        // One-time backfill for images uploaded before Cache-Control was set at upload
+        // time (see StoreRecipeImage). SetHttpHeaders replaces all HTTP headers on a
+        // blob, so existing ContentType is read back and reapplied rather than lost.
+        // Run manually against production via `dotnet run -- --backfill-image-cache-headers`
+        // (see CHANGELOG.md / PR description for exact invocation) — this needs the same
+        // production Blob Storage credentials `deploy.sh` and EF migrations already rely on.
+        public async Task<(int Updated, int Skipped, int Failed)> BackfillImageCacheHeadersAsync()
+        {
+            int updated = 0, skipped = 0, failed = 0;
+            var containerClient = _blobServiceClient.GetBlobContainerClient("recipe-images");
+
+            await foreach (var blobItem in containerClient.GetBlobsAsync())
+            {
+                if (string.Equals(blobItem.Properties.CacheControl, RecipeImageCacheControl, StringComparison.Ordinal))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                try
+                {
+                    var blobClient = containerClient.GetBlobClient(blobItem.Name);
+                    await blobClient.SetHttpHeadersAsync(new BlobHttpHeaders
+                    {
+                        ContentType = blobItem.Properties.ContentType,
+                        ContentEncoding = blobItem.Properties.ContentEncoding,
+                        ContentDisposition = blobItem.Properties.ContentDisposition,
+                        ContentHash = blobItem.Properties.ContentHash,
+                        CacheControl = RecipeImageCacheControl
+                    });
+                    _logger.LogInformation("Backfilled Cache-Control for blob {BlobName}", blobItem.Name);
+                    updated++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to backfill Cache-Control for blob {BlobName}", blobItem.Name);
+                    failed++;
+                }
+            }
+
+            return (updated, skipped, failed);
         }
 
         public async Task<bool> DeleteImageRecipe(string fileName)

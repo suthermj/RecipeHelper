@@ -114,7 +114,20 @@ builder.Logging.AddOpenTelemetry(o =>
 
 var app = builder.Build();
 
-
+// One-time backfill of Cache-Control headers onto recipe images uploaded before
+// StorageService started setting it at upload time. Run manually against production
+// config, e.g.:
+//   dotnet run --launch-profile "" --environment Production -- --backfill-image-cache-headers
+// (swap in appsettings.Production.json / AzureAd credentials the same way deploy.sh
+// and EF migrations already do — this is not run automatically on every startup.)
+if (args.Contains("--backfill-image-cache-headers"))
+{
+    using var scope = app.Services.CreateScope();
+    var storageService = scope.ServiceProvider.GetRequiredService<StorageService>();
+    var (updated, skipped, failed) = await storageService.BackfillImageCacheHeadersAsync();
+    Console.WriteLine($"Image Cache-Control backfill complete: {updated} updated, {skipped} already set, {failed} failed.");
+    return;
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

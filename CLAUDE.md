@@ -45,6 +45,8 @@ gh pr list
 
 **CSS:** Tailwind via `npm run css:build` → `wwwroot/css/output.css`. Never hand-edit output.css.
 
+**PWA / Service Worker (`wwwroot/sw.js`):** caches static assets (cache-first) and page navigations (stale-while-revalidate), keyed by `CACHE_VERSION`. **This is stamped automatically to the deployed commit SHA by both `deploy/deploy.sh` and `.github/workflows/deploy.yml` at publish time** — every deploy gets a new version and old caches are evicted on activate, so you never need to hand-edit `CACHE_VERSION` (the `'dev'` literal in source only applies to local `dotnet run`). The new worker doesn't take over automatically (`skipWaiting()` is gated behind a user tap, not called unconditionally on install) — `site.js` shows a "tap to refresh" banner via `updatefound` and posts `SKIP_WAITING` when tapped, so an already-open tab isn't swapped to a new version mid-session.
+
 ## Key Files
 
 | File | Purpose |
@@ -64,6 +66,8 @@ gh pr list
 | `Services/StorageService.cs` | Blob upload/delete; uses `ClientSecretCredential` in prod, connection string in dev |
 | `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
 | `deploy/deploy.sh` | Full deploy: CSS build → dotnet publish → scp → restart systemd |
+| `wwwroot/sw.js` | Service worker: static-asset + page caching; `CACHE_VERSION` auto-stamped at deploy time (see PWA note above) |
+| `wwwroot/js/site.js` | SW registration + "update available" reload banner; also global loading-overlay wiring |
 
 ## Data Model
 

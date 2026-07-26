@@ -49,6 +49,12 @@ jobs:
         working-directory: RecipeHelper
         run: npm run css:build
 
+      # Stamps the deployed commit SHA into the service worker's cache version so
+      # every deploy invalidates old PWA caches automatically — no more relying on
+      # a human to remember to bump CACHE_VERSION in sw.js by hand.
+      - name: Stamp service worker cache version
+        run: sed -i "s/const CACHE_VERSION = '.*';/const CACHE_VERSION = '${{ github.sha }}';/" RecipeHelper/wwwroot/sw.js
+
       - name: Publish linux-x64
         working-directory: RecipeHelper
         run: dotnet publish -c Release -r linux-x64 --self-contained false -o ../publish

@@ -178,6 +178,7 @@
         transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
         will-change: transform;
         pointer-events: none;
+        max-height: 88svh;
     }
     #recipePickerOverlay.picker-open #recipePickerCard {
         pointer-events: auto;
@@ -231,8 +232,7 @@
     <div id="recipePickerCard"
          class="w-full sm:max-w-sm flex flex-col overflow-hidden"
          style="background: var(--ios-surface);
-                border-radius: 20px 20px 0 0;
-                max-height: 88svh;">
+                border-radius: 20px 20px 0 0;">
 
         <!-- Drag pill + header -->
         <div id="pickerHandle" class="shrink-0">

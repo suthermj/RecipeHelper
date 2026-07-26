@@ -78,6 +78,12 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 
 `UnitConverter.Parse` handles both these names and common shorthand (tsp, oz, g, etc.).
 
+## Changelog
+
+- **`CHANGELOG.md`** (repo root) tracks notable changes, grouped by date (no version tags — this app deploys continuously).
+- **Update it as part of every change**, not as an afterthought: add an entry under `## [Unreleased]` in the same commit/PR that makes the change, then move it under today's dated heading when deployed. Group entries under `### Added` / `### Changed` / `### Fixed` / `### Removed` per [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+- Skip purely internal refactors, formatting-only diffs, and dependency bumps with no user-facing effect.
+
 ## Coding Conventions
 
 - **Timezone:** User is America/New_York (EDT). Always use `MealPlanService.LocalToday()` for "today" — never raw `DateTime.UtcNow` in user-facing date logic (server is on Hetzner/UTC).
@@ -161,6 +167,7 @@ npx playwright test --ui      # interactive UI mode (recommended for visual revi
 - **Service:** systemd unit `recipehelper`, app root `/var/www/recipehelper`
 - **Public URL:** `https://sutherlinsrecipes.duckdns.org`
 - Deploy script handles: CSS build → publish linux-x64 → scp to `/tmp/recipehelper/` → stop/copy/start service
+- **CI deploy:** `.github/workflows/deploy.yml` (`workflow_dispatch`, runnable from the GitHub mobile app) does the same build and pushes it to prod over a restricted, non-root `deploy` SSH user — see `deploy/remote/README.md` for the one-time VM setup and required `DEPLOY_SSH_KEY` secret. Accepts a branch input, so a PR branch can be checked live before merging.
 - **Hetzner Cloud Firewall:** SSH (22) is restricted by source IP. If `bash deploy/deploy.sh` fails with a connection timeout, the home IP probably rotated — whitelist the current one at `https://api.ipify.org` in the Hetzner Cloud console firewall.
 - **`appsettings.json` and `appsettings.Production.json` are both gitignored.** `appsettings.json` contains empty placeholders only. All secrets live in `appsettings.Production.json` on the dev machine, which ships to the VM via `dotnet publish` (SDK auto-copies all `appsettings*.json` as content). Treat `appsettings.Production.json` as the production-secrets source of truth.
 - **Entra service principal:** `sp-recipe-helper-p` (client ID `3e54accb-87f2-4f61-9732-9d01bf5c669d`, object ID `6922cf3d-d918-47fa-ac48-9e72ffa1378e`). Has `db_datareader`, `db_datawriter`, `db_ddladmin` on `recipehelper` DB and `Storage Blob Data Contributor` on `sarecipehelper`. Credentials in `AzureAd` config section.

@@ -31,6 +31,11 @@
 - [ ] Set up Loki + Promtail to ship logs from journald to Grafana Loki
 - [ ] Add structured logging via Serilog for queryable logs in Loki/Grafana
 - [ ] Create Grafana dashboards for request rate, error rate, response latency, and DB query times
+- [ ] Run `dotnet run -- --backfill-image-cache-headers` (see #55/#54) against production to backfill the `Cache-Control` header onto recipe images uploaded before that change — new uploads get it automatically at upload time, but existing blobs need this one-time manual run with prod Blob Storage credentials, which no automated session has
+
+## Code Quality / Refactoring
+
+- [ ] Split photo-related operations (DNG conversion, image compression/resizing, GPT-4o vision extraction) out of `IngredientsService` — an ingredient-focused service handling image processing and OpenAI vision calls doesn't seem like the right place for that logic. Worth separating the OpenAI/vision-extraction pieces from the raw image-processing pieces too, rather than moving everything into one new catch-all service
 
 ## Bug Fixes / Improvements
 

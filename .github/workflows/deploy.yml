@@ -1,28 +1,46 @@
 name: Deploy to Production
 
-# Manual only — triggered from the Actions tab (works fine from the GitHub
-# mobile app/mobile browser). No inputs: deploys whichever branch you pick in
-# the "Use workflow from" selector at the top of the run form — that's the
-# only place you choose the branch.
+# Deploys automatically whenever a PR (targeting main) is opened or pushed to,
+# so a branch's latest commit is live for on-device testing without a manual
+# step. Also runnable manually anytime from the Actions tab (works fine from
+# the GitHub mobile app) — deploys whichever branch is picked in the "Use
+# workflow from" selector, e.g. to redeploy main itself or a branch with no
+# open PR.
 on:
   workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
 
 concurrency:
   group: deploy-production
-  cancel-in-progress: false
+  # A newer push should supersede an in-flight deploy of an now-stale commit
+  # rather than queue behind it — matters more now that pushes to an open PR
+  # trigger a deploy automatically and can arrive in quick succession.
+  cancel-in-progress: true
 
 env:
   DEPLOY_USER: deploy
 
 jobs:
   deploy:
+    # Guards against a forked PR ever triggering a deploy with this repo's
+    # secrets. workflow_dispatch is always same-repo by definition, so this
+    # only meaningfully restricts the pull_request trigger.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     environment: production
     permissions:
       id-token: write
+    env:
+      # For pull_request events, github.sha is a synthetic merge-preview commit,
+      # not the actual PR branch tip -- deploy the real head commit instead.
+      DEPLOY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Checkout ${{ github.ref_name }}
+      - name: Checkout ${{ env.DEPLOY_SHA }}
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -46,7 +64,7 @@ jobs:
       # every deploy invalidates old PWA caches automatically — no more relying on
       # a human to remember to bump CACHE_VERSION in sw.js by hand.
       - name: Stamp service worker cache version
-        run: sed -i "s/const CACHE_VERSION = '.*';/const CACHE_VERSION = '${{ github.sha }}';/" RecipeHelper/wwwroot/sw.js
+        run: sed -i "s/const CACHE_VERSION = '.*';/const CACHE_VERSION = '${{ env.DEPLOY_SHA }}';/" RecipeHelper/wwwroot/sw.js
 
       - name: Publish linux-x64
         working-directory: RecipeHelper
@@ -83,4 +101,4 @@ jobs:
         run: rm -f ~/.ssh/deploy_key
 
       - name: Result
-        run: echo "Deployed ${{ github.ref_name }} (${{ github.sha }}) — https://sutherlinsrecipes.duckdns.org"
+        run: echo "Deployed ${{ github.head_ref || github.ref_name }} (${{ env.DEPLOY_SHA }}) — https://sutherlinsrecipes.duckdns.org"

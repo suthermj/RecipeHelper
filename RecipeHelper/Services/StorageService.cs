@@ -93,8 +93,13 @@ namespace RecipeHelper.Services
                 // step (which can throw for reasons unrelated to a bad image — e.g. a Magick.NET
                 // native-library issue specific to the host) — callers already have to handle a
                 // null return here, so let this be the single place that can fail.
-                _logger.LogError(ex, "Failed to store recipe image. FileName={FileName}, ContentType={ContentType}",
-                    originalFileName, contentType);
+                // Exception type/message are put directly in the message template (not just
+                // passed as the LogError exception argument) because the OTel exporter records
+                // those on separate exception.* attributes that haven't been showing up in
+                // Grafana Cloud log exports/downloads — this way the answer is in the line
+                // itself regardless of how it's viewed.
+                _logger.LogError(ex, "Failed to store recipe image. FileName={FileName}, ContentType={ContentType}, ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
+                    originalFileName, contentType, ex.GetType().FullName, ex.Message);
                 return null;
             }
         }

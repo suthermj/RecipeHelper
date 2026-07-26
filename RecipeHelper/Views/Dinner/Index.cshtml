@@ -197,6 +197,11 @@
         outline-offset: 2px;
         background: rgba(255, 59, 48, 0.08) !important;
     }
+    .entry-row {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
     .meal-drag-ghost {
         position: fixed;
         pointer-events: none;
@@ -206,6 +211,9 @@
         box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
         opacity: 0.96;
         transform: translate3d(-9999px, -9999px, 0) scale(1.03);
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
     }
     .meal-dragging {
         opacity: 0.35;

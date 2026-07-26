@@ -1,16 +1,19 @@
 name: Deploy to Production
 
 # Manual only — triggered from the Actions tab (works fine from the GitHub
-# mobile app/mobile browser). Defaults to main but accepts any branch, so a
-# PR branch can be pushed to the live app for a real on-device check before
-# merging.
+# mobile app/mobile browser). Leave the "ref" input blank to deploy whichever
+# branch you picked in the "Use workflow from" selector at the top of the run
+# form — you only need to pick the branch once. Fill in "ref" only when you
+# want to deploy something *other* than the branch the run was started from
+# (e.g. you're sitting on main's workflow list but want to push out a PR
+# branch instead).
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch, tag, or SHA to deploy"
+        description: "Branch, tag, or SHA to deploy (blank = the branch this run was started from)"
         required: false
-        default: "main"
+        default: ""
 
 concurrency:
   group: deploy-production
@@ -26,10 +29,10 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Checkout ${{ inputs.ref }}
+      - name: Checkout ${{ inputs.ref || github.ref_name }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref_name }}
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -51,9 +54,12 @@ jobs:
 
       # Stamps the deployed commit SHA into the service worker's cache version so
       # every deploy invalidates old PWA caches automatically — no more relying on
-      # a human to remember to bump CACHE_VERSION in sw.js by hand.
+      # a human to remember to bump CACHE_VERSION in sw.js by hand. Uses the
+      # actually-checked-out commit rather than github.sha, since github.sha is
+      # the SHA of the ref the run was started from, which can differ from
+      # inputs.ref when the two are set to different branches.
       - name: Stamp service worker cache version
-        run: sed -i "s/const CACHE_VERSION = '.*';/const CACHE_VERSION = '${{ github.sha }}';/" RecipeHelper/wwwroot/sw.js
+        run: sed -i "s/const CACHE_VERSION = '.*';/const CACHE_VERSION = '$(git rev-parse HEAD)';/" RecipeHelper/wwwroot/sw.js
 
       - name: Publish linux-x64
         working-directory: RecipeHelper
@@ -90,4 +96,4 @@ jobs:
         run: rm -f ~/.ssh/deploy_key
 
       - name: Result
-        run: echo "Deployed ${{ inputs.ref }} — https://sutherlinsrecipes.duckdns.org"
+        run: echo "Deployed ${{ inputs.ref || github.ref_name }} — https://sutherlinsrecipes.duckdns.org"

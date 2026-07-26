@@ -18,6 +18,8 @@ by date rather than by release version.
 
 - Recipe picker sheet on Meal Plan losing its header, search bar, and backdrop on reopen: `max-height: 88svh` was only ever set as an inline style, so `closePicker()`'s `pickerCard.style.maxHeight = ''` reset wiped it permanently instead of falling back to a base value. Moved the 88svh cap into the `#recipePickerCard` CSS rule (same pattern already used for the keyboard-open 72svh override) so clearing the inline override correctly restores it. (#34)
 - The above picker fix wasn't reaching installed PWAs because the Meal Plan page is served via `staleWhileRevalidate` and the service worker cache version hadn't changed — fixed by the auto-stamping change above.
+- Deploy workflow's `ref` input required retyping the branch you'd already picked in the "Use workflow from" selector. It now defaults to `github.ref_name` (the branch the run was started from) when left blank, so you only pick the branch once.
+- Deploy workflow's SW cache-version stamp used `github.sha` (the SHA of the ref the run was *started from*), which could silently diverge from the branch actually deployed when `ref` was overridden to something else. Now stamps from the checked-out commit instead.
 
 ## 2026-07-25
 

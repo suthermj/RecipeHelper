@@ -254,5 +254,62 @@ namespace RecipeHelper.Utility
                 return (Math.Round(grams / 28.3495m, 2), "Ounces");
             return (Math.Round(grams, 2), "Grams");
         }
+
+        // Fractional part → display text, checked in order and matched to the closest value.
+        // Covers halves/quarters/eighths plus thirds/sixths, since recipe import sources
+        // (e.g. Spoonacular) commonly express quantities like 1/3 cup or 1/6 tsp.
+        private static readonly (decimal Value, string Text)[] CookingFractions =
+        {
+            (1m / 8m, "1/8"),
+            (1m / 6m, "1/6"),
+            (1m / 4m, "1/4"),
+            (1m / 3m, "1/3"),
+            (3m / 8m, "3/8"),
+            (1m / 2m, "1/2"),
+            (5m / 8m, "5/8"),
+            (2m / 3m, "2/3"),
+            (3m / 4m, "3/4"),
+            (5m / 6m, "5/6"),
+            (7m / 8m, "7/8"),
+        };
+
+        // Fractional part must be within this much of a known fraction to snap to it;
+        // otherwise the value isn't a recognizable cooking fraction and is shown as a decimal.
+        private const decimal FractionTolerance = 0.02m;
+
+        /// <summary>
+        /// Formats a quantity as a whole number, a fraction (e.g. "1/3"), or a mixed
+        /// number (e.g. "1 1/2"), matching against common cooking fractions. Falls back
+        /// to a trimmed decimal (e.g. "2.37") when the fractional part doesn't match
+        /// one of those fractions closely enough.
+        /// </summary>
+        public static string ToFractionString(decimal value)
+        {
+            if (value < 0)
+                return value.ToString("0.##");
+
+            var whole = Math.Floor(value);
+            var frac = value - whole;
+
+            if (frac == 0m)
+                return whole.ToString("0");
+
+            var bestText = (string?)null;
+            var bestDiff = FractionTolerance;
+            foreach (var (fracValue, text) in CookingFractions)
+            {
+                var diff = Math.Abs(frac - fracValue);
+                if (diff < bestDiff)
+                {
+                    bestDiff = diff;
+                    bestText = text;
+                }
+            }
+
+            if (bestText is null)
+                return value.ToString("0.##");
+
+            return whole == 0m ? bestText : $"{whole:0} {bestText}";
+        }
     }
 }

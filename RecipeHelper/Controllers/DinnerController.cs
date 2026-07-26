@@ -112,7 +112,7 @@ namespace RecipeHelper.Controllers
             return View(recipes);
         }
 
-        // POST: Dinner/SubmitDinnerSelections — ingredient aggregation, unchanged
+        // POST: Dinner/SubmitDinnerSelections — ingredient aggregation
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult SubmitDinnerSelections(List<int> selectedRecipes)
@@ -152,7 +152,13 @@ namespace RecipeHelper.Controllers
                     recipes.Add(row);
             }
 
-            Dictionary<int, List<IngredientVM>> ingDict = new Dictionary<int, List<IngredientVM>>();
+            // Keyed by normalized display name rather than canonical Ingredient.Id --
+            // two recipes' ingredients can resolve to different DB rows that both
+            // display as the same name (a canonicalization gap on import), and those
+            // need to merge here even though their Ids differ. ReviewDinnerSelections
+            // only posts ingredients onward by Name/Upc/Quantity/Measurement, never by
+            // Id, so this key change doesn't affect anything downstream.
+            Dictionary<string, List<IngredientVM>> ingDict = new Dictionary<string, List<IngredientVM>>();
             List<IngredientVM> tempIngredients = new List<IngredientVM>();
 
             foreach (var recipe in recipes)
@@ -166,9 +172,10 @@ namespace RecipeHelper.Controllers
                 foreach (var ingredient in recipe.Ingredients)
                 {
                     tempIngredients.Add(ingredient);
-                    if (ingDict.ContainsKey(ingredient.Id))
+                    var nameKey = ingredient.Name.Trim().ToLowerInvariant();
+                    if (ingDict.ContainsKey(nameKey))
                     {
-                        ingDict[ingredient.Id].Add(new IngredientVM
+                        ingDict[nameKey].Add(new IngredientVM
                         {
                             Id = ingredient.Id,
                             Name = ingredient.Name,
@@ -192,14 +199,14 @@ namespace RecipeHelper.Controllers
                                 Measurement = ingredient.Measurement
                             },
                         ];
-                        ingDict.Add(ingredient.Id, ingredientList);
+                        ingDict.Add(nameKey, ingredientList);
                     }
                 }
             }
 
             foreach (var ingredient in ingDict)
             {
-                _logger.LogInformation("Processing ingredient ID: {ingredientId} with {count} entries", ingredient.Key, ingredient.Value.Count);
+                _logger.LogInformation("Processing ingredient: {ingredientName} with {count} entries", ingredient.Key, ingredient.Value.Count);
                 bool allSame = ingredient.Value.All(x => x.Measurement.Equals(ingredient.Value[0].Measurement));
 
                 if (allSame)
@@ -207,7 +214,7 @@ namespace RecipeHelper.Controllers
                     decimal totalQuantity = ingredient.Value.Sum(x => x.Quantity);
                     model.Ingredients.Add(new IngredientVM
                     {
-                        Id = ingredient.Key,
+                        Id = ingredient.Value[0].Id,
                         Name = ingredient.Value[0].Name,
                         Section = ingredient.Value[0].Section,
                         Quantity = totalQuantity,
@@ -249,7 +256,7 @@ namespace RecipeHelper.Controllers
                         var (displayQty, displayName) = UnitConverter.PickBestVolumeDisplay(totalVolumeBase);
                         model.Ingredients.Add(new IngredientVM
                         {
-                            Id = ingredient.Key,
+                            Id = ingredient.Value[0].Id,
                             Name = ingredient.Value[0].Name,
                             Section = ingredient.Value[0].Section,
                             Quantity = displayQty,
@@ -263,7 +270,7 @@ namespace RecipeHelper.Controllers
                         var (displayQty, displayName) = UnitConverter.PickBestWeightDisplay(totalWeightBase);
                         model.Ingredients.Add(new IngredientVM
                         {
-                            Id = ingredient.Key,
+                            Id = ingredient.Value[0].Id,
                             Name = ingredient.Value[0].Name,
                             Section = ingredient.Value[0].Section,
                             Quantity = displayQty,
@@ -276,7 +283,7 @@ namespace RecipeHelper.Controllers
                     {
                         model.Ingredients.Add(new IngredientVM
                         {
-                            Id = ingredient.Key,
+                            Id = ingredient.Value[0].Id,
                             Name = ingredient.Value[0].Name,
                             Section = ingredient.Value[0].Section,
                             Quantity = totalUnits,
@@ -286,6 +293,15 @@ namespace RecipeHelper.Controllers
                     }
                 }
             }
+
+            // Dictionary iteration order isn't guaranteed, so sort explicitly by name --
+            // this keeps an ingredient's split-dimension rows (e.g. a count-based entry
+            // and a volume-based entry that couldn't be summed into one number) adjacent
+            // in the list instead of scattered wherever other ingredients happen to fall.
+            model.Ingredients = model.Ingredients
+                .OrderBy(i => i.Section)
+                .ThenBy(i => i.Name)
+                .ToList();
 
             return View("ReviewDinnerSelections", model);
         }

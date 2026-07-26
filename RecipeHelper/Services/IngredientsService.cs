@@ -599,7 +599,7 @@ namespace RecipeHelper.Services
         public async Task<ImportRecipeVM> ExtractRecipeFromNormalizedPhotosAsync(IReadOnlyList<NormalizedRecipePhoto> photos)
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            var visionClient = _oaiClient.GetChatClient("gpt-4o");
+            var visionClient = _oaiClient.GetChatClient("gpt-5.4");
 
             var contentParts = new List<ChatMessageContentPart>
             {

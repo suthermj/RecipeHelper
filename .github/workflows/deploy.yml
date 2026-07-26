@@ -1,9 +1,10 @@
 name: Deploy to Production
 
-# Deploys automatically whenever a PR (targeting main) is opened or pushed to,
-# so a branch's latest commit is live for on-device testing without a manual
-# step. Also runnable manually anytime from the Actions tab (works fine from
-# the GitHub mobile app) — deploys whichever branch is picked in the "Use
+# Deploys automatically whenever a PR (targeting main) is opened or pushed to
+# with a source-code change (docs-only commits are skipped — see paths-ignore
+# below), so a branch's latest commit is live for on-device testing without a
+# manual step. Also runnable manually anytime from the Actions tab (works fine
+# from the GitHub mobile app) — deploys whichever branch is picked in the "Use
 # workflow from" selector, e.g. to redeploy main itself or a branch with no
 # open PR.
 on:
@@ -11,6 +12,10 @@ on:
   pull_request:
     types: [opened, synchronize]
     branches: [main]
+    # Skip commits that only touch docs -- a CHANGELOG/CLAUDE.md-only push
+    # shouldn't redeploy production.
+    paths-ignore:
+      - '**.md'
 
 concurrency:
   group: deploy-production

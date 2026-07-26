@@ -18,11 +18,14 @@ as root, plus a few clicks on tailscale.com and GitHub).
 ## 1. Deploy SSH key — already done
 
 The key pair has been generated and `DEPLOY_SSH_KEY` is already set as a
-GitHub Actions secret in the `production` environment. The public key you
-need to paste on the VM in step 3 is:
+GitHub Actions secret in the `production` environment — set directly from
+the key file via `gh secret set DEPLOY_SSH_KEY --env production < deploy_key`,
+not pasted through the web UI, since pasting a multi-line PEM key into a
+textbox can corrupt it (`error in libcrypto` when the runner loads the key).
+The public key you need to paste on the VM in step 4 is:
 
 ```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ8SYDxxjgGcFpuaFAp4V+w8gkW4G1Ri5bH4aGNrKlaQ github-actions-deploy
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC2enc/KkYufnzo7/wCC5+CbQ4EdVQpvP48WvrR9E6Iu github-actions-deploy
 ```
 
 ## 2. Install Tailscale on the VM
@@ -71,6 +74,11 @@ Add these as GitHub secrets in the `production` environment
 The `audience` value is hardcoded directly in `.github/workflows/deploy.yml`
 (not a secret, since it isn't sensitive).
 
+When setting `DEPLOY_HOST`, type it directly into the GitHub secret form
+rather than pasting from a file — a value saved via PowerShell (e.g.
+`Out-File`) can carry a leading UTF-8 BOM, which breaks DNS resolution
+(`getaddrinfo` fails on the mangled hostname) with no visible sign of why.
+
 ## 4. Create the restricted deploy user on the VM
 
 ```bash
@@ -88,8 +96,13 @@ On the VM:
 chown root:root /usr/local/bin/deploy-recipehelper.sh
 chmod 755 /usr/local/bin/deploy-recipehelper.sh
 
-# No password, no interactive shell.
-useradd --create-home --shell /usr/sbin/nologin deploy
+# No password, no interactive shell. NOTE: even with a forced `command=` in
+# authorized_keys, sshd still execs `<login shell> -c <command>` — if the
+# shell is /usr/sbin/nologin, that print-and-exit "This account is currently
+# not available" refusal wins and the forced command never runs. Use
+# /bin/bash here; the forced command below is what actually restricts what
+# `deploy` can do, not the login shell.
+useradd --create-home --shell /bin/bash deploy
 
 # Let `deploy` run *only* that exact script as root, no password prompt.
 echo 'deploy ALL=(root) NOPASSWD: /usr/local/bin/deploy-recipehelper.sh' \
@@ -100,7 +113,7 @@ chmod 440 /etc/sudoers.d/recipehelper-deploy
 # Paste the public key from step 1 exactly as shown.
 mkdir -p /home/deploy/.ssh
 cat <<'KEY' > /home/deploy/.ssh/authorized_keys
-command="sudo /usr/local/bin/deploy-recipehelper.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ8SYDxxjgGcFpuaFAp4V+w8gkW4G1Ri5bH4aGNrKlaQ github-actions-deploy
+command="sudo /usr/local/bin/deploy-recipehelper.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC2enc/KkYufnzo7/wCC5+CbQ4EdVQpvP48WvrR9E6Iu github-actions-deploy
 KEY
 chown -R deploy:deploy /home/deploy/.ssh
 chmod 700 /home/deploy/.ssh

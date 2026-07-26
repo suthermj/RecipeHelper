@@ -3,9 +3,9 @@
 ## UI / Navigation
 
 - [x] Change "Dinners" nav label to "Meal Plan"
-- [ ] Add "Add to Cart" / "Add to List" button on individual recipe pages
+- [ ] Add a row of action buttons (icon + label, like the ReciMe reference screenshot) below the title on `Recipe/ViewRecipe`: **Meal Plan**, **Add to Cart**, **Add to List**, **Share** — no Pin/bookmark button
 - [ ] Print recipe feature
-- [ ] Share recipe feature
+- [ ] Share recipe feature (covered by the action-button row above)
 
 ## Meal Planning
 
@@ -26,7 +26,7 @@
 
 ## Infrastructure / DevOps
 
-- [ ] Integrate Grafana for logging and metrics
+- [x] Integrate Grafana for logging and metrics
 - [ ] Set up Prometheus with `prometheus-net.AspNetCore` to expose a `/metrics` endpoint
 - [ ] Set up Loki + Promtail to ship logs from journald to Grafana Loki
 - [ ] Add structured logging via Serilog for queryable logs in Loki/Grafana

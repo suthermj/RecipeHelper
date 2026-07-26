@@ -11,6 +11,7 @@ by date rather than by release version.
 ### Added
 
 - Manual "Deploy to Production" GitHub Actions workflow (`workflow_dispatch`, runnable from the GitHub mobile app), reaching the VM over Tailscale via OIDC federated identity so no long-lived secret is stored in GitHub.
+- Deploy workflow now also fires automatically on every PR open/push targeting `main` that touches source code, deploying that PR's head commit so it's live for on-device testing without a manual run. Docs-only commits (`**.md`) are skipped and don't trigger a redeploy. A newer push cancels an in-flight deploy of a now-stale commit rather than queuing behind it, and forked PRs are blocked from ever triggering a deploy with this repo's secrets.
 - Service worker `CACHE_VERSION` is now auto-stamped to the deployed commit SHA by both `deploy/deploy.sh` and the GitHub Actions deploy workflow, so every deploy evicts old PWA caches automatically instead of relying on someone remembering to hand-bump the version.
 - "Update available — tap to refresh" banner (`site.js`) when a new service worker finishes installing. `sw.js` no longer calls `skipWaiting()` unconditionally on install, so an already-open tab isn't silently swapped to a new version mid-session — the user chooses when to reload.
 

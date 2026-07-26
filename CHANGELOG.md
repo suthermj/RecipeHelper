@@ -13,6 +13,7 @@ by date rather than by release version.
 - Manual "Deploy to Production" GitHub Actions workflow (`workflow_dispatch`, runnable from the GitHub mobile app), reaching the VM over Tailscale via OIDC federated identity so no long-lived secret is stored in GitHub.
 - Service worker `CACHE_VERSION` is now auto-stamped to the deployed commit SHA by both `deploy/deploy.sh` and the GitHub Actions deploy workflow, so every deploy evicts old PWA caches automatically instead of relying on someone remembering to hand-bump the version.
 - "Update available — tap to refresh" banner (`site.js`) when a new service worker finishes installing. `sw.js` no longer calls `skipWaiting()` unconditionally on install, so an already-open tab isn't silently swapped to a new version mid-session — the user chooses when to reload.
+- Kroger cart preview (`Cart/PreviewAddToCart`) now shows an estimated total, computed from each item's price × quantity for only the currently checked items, and updates live as items are checked/unchecked or quantities edited — no page reload or submit required. Applies the same 10% Kroger-brand discount (brand contains "kroger", "simple truth", "private selection", or "hemisfares") already used on the shopping list view. (#49)
 
 ### Fixed
 

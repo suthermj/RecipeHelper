@@ -19,6 +19,7 @@ by date rather than by release version.
 - Recipe picker sheet on Meal Plan losing its header, search bar, and backdrop on reopen: `max-height: 88svh` was only ever set as an inline style, so `closePicker()`'s `pickerCard.style.maxHeight = ''` reset wiped it permanently instead of falling back to a base value. Moved the 88svh cap into the `#recipePickerCard` CSS rule (same pattern already used for the keyboard-open 72svh override) so clearing the inline override correctly restores it. (#34)
 - The above picker fix wasn't reaching installed PWAs because the Meal Plan page is served via `staleWhileRevalidate` and the service worker cache version hadn't changed — fixed by the auto-stamping change above.
 - Deploy workflow originally took a `ref` text input that duplicated the branch you'd already picked in the "Use workflow from" selector. Removed it entirely — the workflow now has zero inputs and just deploys `github.sha`, the commit at the tip of whichever branch was picked in that selector.
+- Ingredient quantities on the recipe detail and meal plan review pages showed awkward decimals (e.g. "0.33 cup") instead of the fractions recipes are actually written in. Added `UnitConverter.ToFractionString()`, which matches the fractional part against common cooking fractions (halves, quarters, eighths, thirds, sixths) and renders "1/3", "1 1/2", etc., falling back to the old trimmed-decimal format when the value isn't close to a recognizable fraction. (#31)
 
 ## 2026-07-25
 

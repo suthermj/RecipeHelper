@@ -63,15 +63,15 @@ namespace RecipeHelper.Services
             Random rand = new Random();
             int guid = rand.Next(100);
 
-            using var originalBuffer = new MemoryStream();
-            await imageStream.CopyToAsync(originalBuffer);
-
-            var (uploadBytes, uploadFileName, uploadContentType) = CompressRecipeImage(
-                originalBuffer.ToArray(), originalFileName, contentType);
-            string fileName = uploadFileName.Replace(" ", ",") + guid.ToString();
-
             try
             {
+                using var originalBuffer = new MemoryStream();
+                await imageStream.CopyToAsync(originalBuffer);
+
+                var (uploadBytes, uploadFileName, uploadContentType) = CompressRecipeImage(
+                    originalBuffer.ToArray(), originalFileName, contentType);
+                string fileName = uploadFileName.Replace(" ", ",") + guid.ToString();
+
                 // Create a blob container if it doesn't exist
                 var containerClient = _blobServiceClient.GetBlobContainerClient("recipe-images");
                 var blobClient = containerClient.GetBlobClient(fileName);
@@ -82,18 +82,21 @@ namespace RecipeHelper.Services
                     ContentType = uploadContentType,
                     CacheControl = RecipeImageCacheControl
                 });
+
+                response.BlobUri = $"{_accountUri}/recipe-images/{fileName}";
+                response.BlobName = fileName;
+                return response;
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(ex.Message);
+                // Covers both the upload itself and CompressRecipeImage's own resize/recompress
+                // step (which can throw for reasons unrelated to a bad image — e.g. a Magick.NET
+                // native-library issue specific to the host) — callers already have to handle a
+                // null return here, so let this be the single place that can fail.
+                _logger.LogError(ex, "Failed to store recipe image. FileName={FileName}, ContentType={ContentType}",
+                    originalFileName, contentType);
                 return null;
             }
-
-            string fileUri = $"{_accountUri}/recipe-images/{fileName}";
-            response.BlobUri = fileUri;
-            response.BlobName = fileName;
-            return response;
-
         }
 
         // Resizes/recompresses a recipe image before upload, mirroring

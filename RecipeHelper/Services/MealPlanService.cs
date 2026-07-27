@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models.Dinner;
+using System.Security.Cryptography;
 
 namespace RecipeHelper.Services
 {
@@ -181,6 +182,37 @@ namespace RecipeHelper.Services
                 .Include(p => p.Entries)
                     .ThenInclude(e => e.Recipe)
                 .FirstAsync(p => p.Id == plan.Id);
+        }
+
+        // Returns the plan's existing share token, generating and persisting one on first call.
+        public async Task<string?> GetOrCreateShareTokenAsync(int planId)
+        {
+            var plan = await _context.MealPlans.FirstOrDefaultAsync(p => p.Id == planId);
+            if (plan == null) return null;
+
+            if (string.IsNullOrEmpty(plan.ShareToken))
+            {
+                plan.ShareToken = GenerateShareToken();
+                await _context.SaveChangesAsync();
+            }
+
+            return plan.ShareToken;
+        }
+
+        public async Task<MealPlan?> GetByShareTokenAsync(string token)
+        {
+            return await _context.MealPlans
+                .Include(p => p.Entries)
+                    .ThenInclude(e => e.Recipe)
+                .FirstOrDefaultAsync(p => p.ShareToken == token);
+        }
+
+        private static string GenerateShareToken()
+        {
+            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
         }
 
         public async Task DeleteAsync(int id)

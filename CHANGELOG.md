@@ -15,6 +15,7 @@ by date rather than by release version.
 - Service worker `CACHE_VERSION` is now auto-stamped to the deployed commit SHA by both `deploy/deploy.sh` and the GitHub Actions deploy workflow, so every deploy evicts old PWA caches automatically instead of relying on someone remembering to hand-bump the version.
 - "Update available — tap to refresh" banner (`site.js`) when a new service worker finishes installing. `sw.js` no longer calls `skipWaiting()` unconditionally on install, so an already-open tab isn't silently swapped to a new version mid-session — the user chooses when to reload.
 - A brief scale "pop" on the target day card when dragging a meal plan entry crosses into a new day, as a visual stand-in for haptic feedback — iOS Safari doesn't expose the Vibration API (or any haptics API) to web content, so this is the closest substitute available to a PWA. (#47)
+- "Share this week" button on the Meal Plan page, generating a public, unguessable read-only link (`/Share/MealPlan/{token}`) showing each day's recipe name and photo (no ingredients/instructions). The link always reflects the plan's current live state. Opens the native iOS share sheet via `navigator.share`, falling back to copy-to-clipboard when unavailable. (#60)
 
 ### Changed
 

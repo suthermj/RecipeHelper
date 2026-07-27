@@ -25,6 +25,10 @@ bash deploy/deploy.sh
 # PowerShell when the body contains backtick-quoted code (e.g. `rounded-full`)
 gh pr create --title "..." --body-file path/to/body.md --base main
 gh pr list
+
+# Merging: always delete the source branch on merge (--delete-branch), whether
+# via gh or the merge_pull_request tool — don't leave merged branches around.
+gh pr merge <number> --squash --delete-branch
 ```
 
 ## Architecture
@@ -45,6 +49,8 @@ gh pr list
 
 **CSS:** Tailwind via `npm run css:build` → `wwwroot/css/output.css`. Never hand-edit output.css.
 
+**PWA / Service Worker (`wwwroot/sw.js`):** caches static assets (cache-first) and page navigations (stale-while-revalidate), keyed by `CACHE_VERSION`. **This is stamped automatically to the deployed commit SHA by both `deploy/deploy.sh` and `.github/workflows/deploy.yml` at publish time** — every deploy gets a new version and old caches are evicted on activate, so you never need to hand-edit `CACHE_VERSION` (the `'dev'` literal in source only applies to local `dotnet run`). The new worker doesn't take over automatically (`skipWaiting()` is gated behind a user tap, not called unconditionally on install) — `site.js` shows a "tap to refresh" banner via `updatefound` and posts `SKIP_WAITING` when tapped, so an already-open tab isn't swapped to a new version mid-session.
+
 ## Key Files
 
 | File | Purpose |
@@ -64,6 +70,8 @@ gh pr list
 | `Services/StorageService.cs` | Blob upload/delete; uses `ClientSecretCredential` in prod, connection string in dev |
 | `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
 | `deploy/deploy.sh` | Full deploy: CSS build → dotnet publish → scp → restart systemd |
+| `wwwroot/sw.js` | Service worker: static-asset + page caching; `CACHE_VERSION` auto-stamped at deploy time (see PWA note above) |
+| `wwwroot/js/site.js` | SW registration + "update available" reload banner; also global loading-overlay wiring |
 
 ## Data Model
 
@@ -83,6 +91,15 @@ Multiple entries per `(MealPlanId, DayOfWeek)` are allowed and expected (dinner 
 - **`CHANGELOG.md`** (repo root) tracks notable changes, grouped by date (no version tags — this app deploys continuously).
 - **Update it as part of every change**, not as an afterthought: add an entry under `## [Unreleased]` in the same commit/PR that makes the change, then move it under today's dated heading when deployed. Group entries under `### Added` / `### Changed` / `### Fixed` / `### Removed` per [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Skip purely internal refactors, formatting-only diffs, and dependency bumps with no user-facing effect.
+
+## Bug-Fix Verification
+
+Before opening a PR that claims to fix a bug, actually prove it — narrative plausibility is not verification. (Issue #34's first fix attempt shipped a technically-sound-sounding "iOS WebKit fails to re-establish scroll/compositing layers" explanation that was never true; the real bug was a one-line CSS/JS logic error that a 10-minute repro would have caught.)
+
+- **Reproduce before fixing.** Don't propose a fix from reading code alone. Make the bug happen on demand first — a failing test, or a runnable repro — then apply the fix, then confirm the same repro now passes. A PR whose only "verification" is an unchecked checklist for a human to run later is not verification.
+- **If the full app can't run in this sandbox** (no DB access, no .NET SDK, whatever), don't skip straight to "please verify manually" — isolate the affected HTML/CSS/JS into a minimal standalone harness and verify it with Playwright. This works for plain front-end logic bugs even without a browser engine matching the reported platform (a Chromium repro is still real evidence unless the bug is proven engine-specific).
+- **Be suspicious of "known platform quirk" explanations you can't test.** They sound sophisticated and are hard to argue with, which is exactly why they let unverified fixes through. Prefer a mechanistic trace over a folklore explanation: for a value that's wrong at runtime, trace who sets it, who clears it, and what it falls back to when cleared — that trace alone tends to surface the actual bug.
+- **Put the evidence in the PR**, not just the plan: what repro was run, and what it showed before vs. after the fix.
 
 ## Coding Conventions
 
@@ -167,7 +184,7 @@ npx playwright test --ui      # interactive UI mode (recommended for visual revi
 - **Service:** systemd unit `recipehelper`, app root `/var/www/recipehelper`
 - **Public URL:** `https://sutherlinsrecipes.duckdns.org`
 - Deploy script handles: CSS build → publish linux-x64 → scp to `/tmp/recipehelper/` → stop/copy/start service
-- **CI deploy:** `.github/workflows/deploy.yml` (`workflow_dispatch`, runnable from the GitHub mobile app) does the same build and pushes it to prod over a restricted, non-root `deploy` SSH user — see `deploy/remote/README.md` for the one-time VM setup and required `DEPLOY_SSH_KEY` secret. Accepts a branch input, so a PR branch can be checked live before merging.
+- **CI deploy:** `.github/workflows/deploy.yml` does the same build and pushes it to prod over a restricted, non-root `deploy` SSH user — see `deploy/remote/README.md` for the one-time VM setup and required `DEPLOY_SSH_KEY` secret. **Fires automatically** on every PR open/push targeting `main` that touches source code (deploys that PR's head commit — every PR branch is live on production the moment you push a code change to it, no manual step). Docs-only commits (`**.md`) are skipped via `paths-ignore` and don't trigger a redeploy. Also runnable manually anytime from the Actions tab (works fine from the GitHub mobile app) — no inputs, deploys whichever branch is picked in the "Use workflow from" selector, e.g. to redeploy `main` itself or a branch with no open PR. A newer push cancels an in-flight deploy of a now-stale commit (`cancel-in-progress: true`) rather than queuing behind it. Guarded against forked PRs ever running with this repo's deploy secrets.
 - **Hetzner Cloud Firewall:** SSH (22) is restricted by source IP. If `bash deploy/deploy.sh` fails with a connection timeout, the home IP probably rotated — whitelist the current one at `https://api.ipify.org` in the Hetzner Cloud console firewall.
 - **`appsettings.json` and `appsettings.Production.json` are both gitignored.** `appsettings.json` contains empty placeholders only. All secrets live in `appsettings.Production.json` on the dev machine, which ships to the VM via `dotnet publish` (SDK auto-copies all `appsettings*.json` as content). Treat `appsettings.Production.json` as the production-secrets source of truth.
 - **Entra service principal:** `sp-recipe-helper-p` (client ID `3e54accb-87f2-4f61-9732-9d01bf5c669d`, object ID `6922cf3d-d918-47fa-ac48-9e72ffa1378e`). Has `db_datareader`, `db_datawriter`, `db_ddladmin` on `recipehelper` DB and `Storage Blob Data Contributor` on `sarecipehelper`. Credentials in `AzureAd` config section.

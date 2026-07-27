@@ -43,20 +43,26 @@ namespace RecipeHelper.Services
 
         public async Task<StoreImageBlobResponse> StoreRecipeImage(IFormFile image)
         {
+            await using var stream = image.OpenReadStream();
+            return await StoreRecipeImage(stream, image.FileName, image.ContentType);
+        }
+
+        public async Task<StoreImageBlobResponse> StoreRecipeImage(Stream imageStream, string originalFileName, string contentType)
+        {
             StoreImageBlobResponse response = new StoreImageBlobResponse();
             Random rand = new Random();
             int guid = rand.Next(100);
-            string fileName = image.FileName.Replace(" ", ",") + guid.ToString();
+            string fileName = originalFileName.Replace(" ", ",") + guid.ToString();
 
             try
             {
                 // Create a blob container if it doesn't exist
                 var containerClient = _blobServiceClient.GetBlobContainerClient("recipe-images");
                 var blobClient = containerClient.GetBlobClient(fileName);
-                using (Stream stream = image.OpenReadStream())
-                {
-                    var result = await blobClient.UploadAsync(stream, new BlobHttpHeaders { ContentType = image.ContentType });
-                }
+                if (imageStream.CanSeek)
+                    imageStream.Position = 0;
+
+                await blobClient.UploadAsync(imageStream, new BlobHttpHeaders { ContentType = contentType });
             }
             catch (Exception ex)
             {

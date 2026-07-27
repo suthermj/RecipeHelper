@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using RecipeHelper.Utility;
 
 namespace RecipeHelper.Models
 {
@@ -84,8 +85,8 @@ namespace RecipeHelper.Models
                         return ((int)Quantity).ToString();
                 }
 
-                // Otherwise trim trailing zeros (ex: 1.50 → 1.5, 2.00 → 2)
-                return Quantity.ToString("0.##");
+                // Otherwise display as a fraction (ex: 0.33 → 1/3, 1.5 → 1 1/2)
+                return UnitConverter.ToFractionString(Quantity);
             }
         }
         public string DisplayMeasurement    // The property name you use in Razor

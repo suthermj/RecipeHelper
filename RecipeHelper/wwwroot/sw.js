@@ -1,4 +1,7 @@
-const CACHE_VERSION = 'v7';
+// Overwritten with the deployed commit SHA by deploy.yml at publish time, so
+// every deploy invalidates old caches automatically. This literal only applies
+// to local dev runs.
+const CACHE_VERSION = 'dev';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const FONTS_CACHE = `fonts-${CACHE_VERSION}`;
 const PAGES_CACHE = `pages-${CACHE_VERSION}`;
@@ -23,7 +26,11 @@ self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(STATIC_CACHE).then(cache => cache.add('/offline.html'))
     );
-    self.skipWaiting();
+    // Deliberately no self.skipWaiting() here — a newly installed worker stays
+    // in "waiting" until the page asks it to take over (see the message
+    // listener below), so an already-open tab isn't swapped to a new version
+    // out from under a live session. site.js prompts the user and posts
+    // SKIP_WAITING once they choose to reload.
 });
 
 self.addEventListener('activate', event => {
@@ -32,6 +39,12 @@ self.addEventListener('activate', event => {
             Promise.all(keys.filter(k => !ALL_CACHES.includes(k)).map(k => caches.delete(k)))
         ).then(() => self.clients.claim())
     );
+});
+
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
 
 async function cacheFirst(request, cacheName) {

@@ -14,6 +14,7 @@ by date rather than by release version.
 - Deploy workflow now also fires automatically on every PR open/push targeting `main` that touches source code, deploying that PR's head commit so it's live for on-device testing without a manual run. Docs-only commits (`**.md`) are skipped and don't trigger a redeploy. A newer push cancels an in-flight deploy of a now-stale commit rather than queuing behind it, and forked PRs are blocked from ever triggering a deploy with this repo's secrets.
 - Service worker `CACHE_VERSION` is now auto-stamped to the deployed commit SHA by both `deploy/deploy.sh` and the GitHub Actions deploy workflow, so every deploy evicts old PWA caches automatically instead of relying on someone remembering to hand-bump the version.
 - "Update available — tap to refresh" banner (`site.js`) when a new service worker finishes installing. `sw.js` no longer calls `skipWaiting()` unconditionally on install, so an already-open tab isn't silently swapped to a new version mid-session — the user chooses when to reload.
+- A brief scale "pop" on the target day card when dragging a meal plan entry crosses into a new day, as a visual stand-in for haptic feedback — iOS Safari doesn't expose the Vibration API (or any haptics API) to web content, so this is the closest substitute available to a PWA. (#47)
 
 ### Changed
 
@@ -21,6 +22,8 @@ by date rather than by release version.
 
 ### Fixed
 
+- Meal plan entry rows (`.entry-row`) and their drag-ghost clone had no `user-select`/`-webkit-touch-callout` rule, so iOS's native text-selection/callout gesture competed with the long-press-then-slide move gesture in `bindMoveGestures`, making it hard to complete a drag. Added `user-select: none` / `-webkit-user-select: none` / `-webkit-touch-callout: none` to both classes. (#47)
+- Dragging a meal plan entry to a new day highlighted two different boxes at once (the whole day card, and a tighter box around just the entry rows), flickering jerkily as the drag moved. Both the day card and its inner `.day-entries` wrapper carried the same `data-day` attribute, so `closest('[data-day]')` inconsistently matched whichever was nearer depending on where the finger was. Gave the outer card its own `.day-card` class and scoped all drag-target/dim lookups to it. (#47)
 - Recipe picker sheet on Meal Plan losing its header, search bar, and backdrop on reopen: `max-height: 88svh` was only ever set as an inline style, so `closePicker()`'s `pickerCard.style.maxHeight = ''` reset wiped it permanently instead of falling back to a base value. Moved the 88svh cap into the `#recipePickerCard` CSS rule (same pattern already used for the keyboard-open 72svh override) so clearing the inline override correctly restores it. (#34)
 - The above picker fix wasn't reaching installed PWAs because the Meal Plan page is served via `staleWhileRevalidate` and the service worker cache version hadn't changed — fixed by the auto-stamping change above.
 - Deploy workflow originally took a `ref` text input that duplicated the branch you'd already picked in the "Use workflow from" selector. Removed it entirely — the workflow now has zero inputs and just deploys `github.sha`, the commit at the tip of whichever branch was picked in that selector.

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace RecipeHelper.ViewModels;
@@ -8,6 +9,7 @@ public class ImportRecipePageVM
 {
     public string? Url { get; set; }              // bound from ?Url=...
     public string? Error { get; set; }            // optional error message
+    public string PreferredTab { get; set; } = "url";
     public ImportRecipeVM? Preview { get; set; } // filled after fetch
 }
 
@@ -28,6 +30,12 @@ public class ImportRecipeVM
     public string? SummaryText { get; set; }
     public List<ImportIngredientVM> Ingredients { get; set; } = new();
     public List<string> Steps { get; set; } = new();
+    public int? SuggestedCoverSourceImageIndex { get; set; }
+    public decimal? SuggestedCoverX { get; set; }
+    public decimal? SuggestedCoverY { get; set; }
+    public decimal? SuggestedCoverWidth { get; set; }
+    public decimal? SuggestedCoverHeight { get; set; }
+    public string? SuggestedCoverReason { get; set; }
 
     // -------- mapping helper from your Spoonacular DTO --------
     public static ImportRecipeVM FromSpoonacular(Models.Spoonacular.Recipe dto)
@@ -209,4 +217,10 @@ public class SuggestedKrogerProductVM
     public string? Name { get; set; }
     public string? ImageUrl { get; set; }
     public string? Upc { get; set; }
+}
+
+public class PhotoImportPageVM
+{
+    public List<IFormFile> Photos { get; set; } = new();
+    public bool UsePhotoAsImage { get; set; }
 }

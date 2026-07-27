@@ -197,6 +197,16 @@
         outline-offset: 2px;
         background: rgba(255, 59, 48, 0.08) !important;
     }
+    /* Brief "pop" as a stand-in for haptic feedback when the drag crosses into a
+       new day -- iOS Safari doesn't expose the Vibration API to web content. */
+    .day-card.drag-target-pop {
+        animation: day-card-target-pop 0.22s ease-out;
+    }
+    @@keyframes day-card-target-pop {
+        0% { transform: scale(1); }
+        35% { transform: scale(1.025); }
+        100% { transform: scale(1); }
+    }
     .entry-row {
         -webkit-user-select: none;
         user-select: none;
@@ -554,7 +564,13 @@
                     mealDrag.targetDay = null;
                     return;
                 }
-                mealDrag.targetDay = parseInt(dayCard.dataset.day);
+                const newDay = parseInt(dayCard.dataset.day);
+                if (newDay !== mealDrag.targetDay) {
+                    dayCard.classList.remove('drag-target-pop');
+                    void dayCard.offsetWidth;
+                    dayCard.classList.add('drag-target-pop');
+                }
+                mealDrag.targetDay = newDay;
                 dayCard.classList.add('drag-target');
             }
 

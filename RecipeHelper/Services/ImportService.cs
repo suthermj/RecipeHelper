@@ -80,43 +80,6 @@ namespace RecipeHelper.Services
             }
         }
 
-        // One-time backfill to re-host existing recipes' external (non-Blob-Storage) images
-        // -- primarily imported recipes, whose ImageUri was historically saved as the
-        // recipe-source site's own URL (see SaveImportedRecipe). Run the same way as
-        // StorageService's other backfill switches (production Blob Storage + DB
-        // credentials required): `dotnet run -- --backfill-rehost-external-images`.
-        public async Task<(int Rehosted, int Failed, int Skipped)> BackfillRehostExternalImagesAsync()
-        {
-            int rehosted = 0, failed = 0, skipped = 0;
-            var recipes = await _context.Recipes
-                .Where(r => r.ImageUri != null && r.ImageUri != "")
-                .ToListAsync();
-
-            foreach (var recipe in recipes)
-            {
-                if (recipe.ImageUri!.StartsWith(_storageService.AccountUri, StringComparison.OrdinalIgnoreCase))
-                {
-                    skipped++;
-                    continue;
-                }
-
-                var newUri = await RehostExternalImageAsync(recipe.ImageUri);
-                if (newUri != recipe.ImageUri)
-                {
-                    _logger.LogInformation("Rehosted external recipe image for Recipe {RecipeId} [{Title}]: {OldUri} -> {NewUri}",
-                        recipe.Id, recipe.Name, recipe.ImageUri, newUri);
-                    recipe.ImageUri = newUri;
-                    rehosted++;
-                }
-                else
-                {
-                    failed++;
-                }
-            }
-
-            await _context.SaveChangesAsync();
-            return (rehosted, failed, skipped);
-        }
         public async Task<ImportPreview> GetImportedRecipePreview(PreviewImportedRecipeRequest importedRecipe)
         {
             var title = importedRecipe.Title;

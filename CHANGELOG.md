@@ -12,6 +12,10 @@ by date rather than by release version.
 
 - Manual "Deploy to Production" GitHub Actions workflow (`workflow_dispatch`, runnable from the GitHub mobile app), reaching the VM over Tailscale via OIDC federated identity so no long-lived secret is stored in GitHub.
 
+### Fixed
+
+- Recipe image upload failures now log at `Error` level instead of `Information`, so blob storage auth/permission issues surface properly in Grafana instead of being silently swallowed.
+
 ## 2026-07-25
 
 ### Added

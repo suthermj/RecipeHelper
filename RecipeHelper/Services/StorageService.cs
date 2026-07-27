@@ -66,7 +66,7 @@ namespace RecipeHelper.Services
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(ex.Message);
+                _logger.LogError(ex, "Failed to upload recipe image blob [{FileName}]", fileName);
                 return null;
             }
 

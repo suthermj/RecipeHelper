@@ -47,9 +47,13 @@ namespace RecipeHelper.Services
             {
                 var blobResponse = await _storageService.StoreRecipeImage(request.ImageFile);
                 if (blobResponse != null)
+                {
                     newRecipe.ImageUri = blobResponse.BlobUri;
+                }
                 else
-                    _logger.LogWarning("[CreateRecipe] Image upload failed for [{FileName}] — saving recipe without an image", request.ImageFile.FileName);
+                {
+                    _logger.LogWarning("[CreateRecipe] Image upload failed for recipe [{Title}]; saving without image", request.Title);
+                }
             }
 
             for (int index = 0; index < request.Ingredients.Count; index++)
@@ -156,9 +160,13 @@ namespace RecipeHelper.Services
                 _logger.LogInformation("[UpdateRecipe] Uploading new image [{FileName}] for recipe {RecipeId}", request.ImageFile.FileName, recipe.Id);
                 var blobResponse = await _storageService.StoreRecipeImage(request.ImageFile);
                 if (blobResponse != null)
+                {
                     recipe.ImageUri = blobResponse.BlobUri;
+                }
                 else
-                    _logger.LogWarning("[UpdateRecipe] Image upload failed for [{FileName}] on recipe {RecipeId} — keeping existing image", request.ImageFile.FileName, recipe.Id);
+                {
+                    _logger.LogWarning("[UpdateRecipe] Image upload failed for recipe {RecipeId}; keeping existing image", recipe.Id);
+                }
             }
 
             var existingById = recipe.Ingredients.ToDictionary(i => i.Id);

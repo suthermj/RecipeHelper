@@ -18,13 +18,104 @@ namespace RecipeHelper.Services
         private  IngredientsService _ingredientService;
         private readonly KrogerService _krogerService;
         private readonly ProductService _productService;
-        public ImportService(DatabaseContext context, ILogger<ImportService> logger, KrogerService krogerService, IngredientsService ingredientService, ProductService productService)
+        private readonly StorageService _storageService;
+        private readonly IHttpClientFactory _httpClientFactory;
+        public ImportService(DatabaseContext context, ILogger<ImportService> logger, KrogerService krogerService, IngredientsService ingredientService, ProductService productService, StorageService storageService, IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _logger = logger;
             _krogerService = krogerService;
             _ingredientService = ingredientService;
             _productService = productService;
+            _storageService = storageService;
+            _httpClientFactory = httpClientFactory;
+        }
+
+        // Downloads a recipe-source-hosted image and re-uploads it to our own Blob Storage
+        // (through StorageService.StoreRecipeImage, so it gets the same resize/recompress +
+        // immutable Cache-Control as a manual upload) instead of linking the source site's
+        // URL directly. Falls back to the original URL on any failure -- a slow/unreachable
+        // source shouldn't block the import or leave the recipe with no image at all.
+        private async Task<string?> RehostExternalImageAsync(string? sourceUrl)
+        {
+            if (string.IsNullOrWhiteSpace(sourceUrl)) return sourceUrl;
+            if (sourceUrl.StartsWith(_storageService.AccountUri, StringComparison.OrdinalIgnoreCase))
+            {
+                return sourceUrl;
+            }
+
+            try
+            {
+                var http = _httpClientFactory.CreateClient();
+                using var request = new HttpRequestMessage(HttpMethod.Get, sourceUrl);
+                // Some recipe blogs 403 non-browser User-Agents (hit this on a real
+                // import) -- a plausible-looking UA is enough to get past that.
+                request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+                using var response = await http.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to download recipe image for re-hosting (status {StatusCode}): {SourceUrl}",
+                        (int)response.StatusCode, sourceUrl);
+                    return sourceUrl;
+                }
+
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+                await using var stream = await response.Content.ReadAsStreamAsync();
+                var fileName = Path.GetFileName(new Uri(sourceUrl).AbsolutePath);
+                if (string.IsNullOrWhiteSpace(fileName)) fileName = "imported-image";
+
+                var blobResponse = await _storageService.StoreRecipeImage(stream, fileName, contentType);
+                if (blobResponse == null)
+                {
+                    _logger.LogWarning("Failed to re-host recipe image, keeping source URL: {SourceUrl}", sourceUrl);
+                    return sourceUrl;
+                }
+
+                return blobResponse.BlobUri;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Exception re-hosting recipe image, keeping source URL: {SourceUrl}", sourceUrl);
+                return sourceUrl;
+            }
+        }
+
+        // One-time backfill to re-host existing recipes' external (non-Blob-Storage) images
+        // -- primarily imported recipes, whose ImageUri was historically saved as the
+        // recipe-source site's own URL (see SaveImportedRecipe). Run the same way as
+        // StorageService's other backfill switches (production Blob Storage + DB
+        // credentials required): `dotnet run -- --backfill-rehost-external-images`.
+        public async Task<(int Rehosted, int Failed, int Skipped)> BackfillRehostExternalImagesAsync()
+        {
+            int rehosted = 0, failed = 0, skipped = 0;
+            var recipes = await _context.Recipes
+                .Where(r => r.ImageUri != null && r.ImageUri != "")
+                .ToListAsync();
+
+            foreach (var recipe in recipes)
+            {
+                if (recipe.ImageUri!.StartsWith(_storageService.AccountUri, StringComparison.OrdinalIgnoreCase))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var newUri = await RehostExternalImageAsync(recipe.ImageUri);
+                if (newUri != recipe.ImageUri)
+                {
+                    _logger.LogInformation("Rehosted external recipe image for Recipe {RecipeId} [{Title}]: {OldUri} -> {NewUri}",
+                        recipe.Id, recipe.Name, recipe.ImageUri, newUri);
+                    recipe.ImageUri = newUri;
+                    rehosted++;
+                }
+                else
+                {
+                    failed++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return (rehosted, failed, skipped);
         }
         public async Task<ImportPreview> GetImportedRecipePreview(PreviewImportedRecipeRequest importedRecipe)
         {
@@ -130,7 +221,7 @@ namespace RecipeHelper.Services
             var newRecipe = new Recipe
             {
                 Name = recipe.Title,
-                ImageUri = recipe.Image,
+                ImageUri = await RehostExternalImageAsync(recipe.Image),
                 SourceUrl = recipe.SourceUrl,
                 Instructions = recipe.Steps.Count > 0
                     ? System.Text.Json.JsonSerializer.Serialize(recipe.Steps)

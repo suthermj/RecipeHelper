@@ -129,6 +129,61 @@ if (args.Contains("--backfill-image-cache-headers"))
     return;
 }
 
+// One-time backfill to shrink existing recipe images uploaded before StoreRecipeImage
+// started resizing/recompressing at upload time. Run the same way as the
+// --backfill-image-cache-headers switch above (production Blob Storage + DB credentials
+// required). Each shrunk image is uploaded under a new blob URL (see
+// StorageService.BackfillCompressExistingImagesAsync for why), so this also repoints
+// every Recipe row that referenced the old URL. Old blobs are left in place, not deleted.
+if (args.Contains("--backfill-compress-images"))
+{
+    using var scope = app.Services.CreateScope();
+    var storageService = scope.ServiceProvider.GetRequiredService<StorageService>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
+
+    var results = await storageService.BackfillCompressExistingImagesAsync();
+    int recipesUpdated = 0, orphaned = 0;
+    foreach (var result in results)
+    {
+        var matchingRecipes = await dbContext.Recipes
+            .Where(r => r.ImageUri != null && r.ImageUri.EndsWith("/" + result.OldBlobName))
+            .ToListAsync();
+
+        if (matchingRecipes.Count == 0)
+        {
+            orphaned++;
+            Console.WriteLine($"WARNING: no Recipe row references blob [{result.OldBlobName}] — new compressed blob [{result.NewBlobName}] is unreferenced.");
+            continue;
+        }
+
+        foreach (var recipe in matchingRecipes)
+        {
+            recipe.ImageUri = result.NewBlobUri;
+            recipesUpdated++;
+        }
+    }
+    await dbContext.SaveChangesAsync();
+
+    var totalOriginalBytes = results.Sum(r => r.OriginalBytes);
+    var totalCompressedBytes = results.Sum(r => r.CompressedBytes);
+    Console.WriteLine($"Image compression backfill complete: {results.Count} images compressed, {recipesUpdated} Recipe rows repointed, {orphaned} orphaned (no matching Recipe). " +
+        $"{totalOriginalBytes:N0} bytes -> {totalCompressedBytes:N0} bytes.");
+    return;
+}
+
+// One-time backfill to re-host existing recipes' externally-hosted images (mainly
+// imported recipes, whose ImageUri historically pointed straight at the recipe source
+// site's own image URL) onto our own Blob Storage. Run the same way as the backfill
+// switches above (production Blob Storage + DB credentials required).
+if (args.Contains("--backfill-rehost-external-images"))
+{
+    using var scope = app.Services.CreateScope();
+    var importService = scope.ServiceProvider.GetRequiredService<ImportService>();
+    var (rehosted, failed, skipped) = await importService.BackfillRehostExternalImagesAsync();
+    Console.WriteLine($"External image rehost backfill complete: {rehosted} rehosted, {failed} failed (left as external URL), {skipped} already on our storage.");
+    return;
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

@@ -26,6 +26,10 @@ namespace RecipeHelper.Services
         private ILogger<StorageService> _logger;
         private readonly string _accountUri;
 
+        // Lets callers (e.g. ImportService) check whether a given ImageUri is already
+        // one of our own blobs vs. an external recipe-source URL that needs re-hosting.
+        public string AccountUri => _accountUri;
+
         public StorageService(IConfiguration configuration, ILogger<StorageService> logger)
         {
             _logger = logger;
@@ -196,6 +200,69 @@ namespace RecipeHelper.Services
             }
 
             return (updated, skipped, failed);
+        }
+
+        public record CompressedImageBackfillResult(string OldBlobName, string NewBlobName, string NewBlobUri, long OriginalBytes, long CompressedBytes);
+
+        // One-time backfill to shrink existing recipe images that predate the
+        // resize/recompress step in StoreRecipeImage. Unlike BackfillImageCacheHeadersAsync,
+        // this can't just rewrite headers in place: the blob's Cache-Control is already
+        // `immutable`, so overwriting an existing blob's bytes at the same URL would leave
+        // any client that already cached the old (larger) bytes there permanently stuck on
+        // them -- an immutable response is a promise this exact URL's content never changes.
+        // Each recompressed image is instead uploaded under a brand-new blob name, and the
+        // caller (see Program.cs) is responsible for repointing Recipe.ImageUri at the new
+        // URL. The old blob is deliberately left in place rather than deleted -- cheap to
+        // leave, and deleting it is the one step here that can't be undone.
+        public async Task<List<CompressedImageBackfillResult>> BackfillCompressExistingImagesAsync()
+        {
+            var results = new List<CompressedImageBackfillResult>();
+            var containerClient = _blobServiceClient.GetBlobContainerClient("recipe-images");
+            var rand = new Random();
+
+            await foreach (var blobItem in containerClient.GetBlobsAsync())
+            {
+                try
+                {
+                    var blobClient = containerClient.GetBlobClient(blobItem.Name);
+                    using var downloadStream = new MemoryStream();
+                    await blobClient.DownloadToAsync(downloadStream);
+                    var originalBytes = downloadStream.ToArray();
+
+                    var (compressedBytes, _, compressedContentType) = CompressRecipeImage(
+                        originalBytes, blobItem.Name, blobItem.Properties.ContentType ?? "application/octet-stream");
+
+                    // Skip if compression didn't meaningfully shrink it -- avoids creating a
+                    // redundant near-duplicate blob (and DB churn) for images that are
+                    // already small/already the right format.
+                    if (compressedBytes.Length >= originalBytes.Length * 0.9)
+                    {
+                        continue;
+                    }
+
+                    var newBlobName = $"compressed-{blobItem.Name.Replace(" ", ",")}-{rand.Next(1000, 9999)}";
+                    var newBlobClient = containerClient.GetBlobClient(newBlobName);
+                    using var uploadStream = new MemoryStream(compressedBytes);
+                    await newBlobClient.UploadAsync(uploadStream, new BlobHttpHeaders
+                    {
+                        ContentType = compressedContentType,
+                        CacheControl = RecipeImageCacheControl
+                    });
+
+                    var newBlobUri = $"{_accountUri}/recipe-images/{newBlobName}";
+                    _logger.LogInformation(
+                        "Backfill-compressed recipe image. OldBlobName={OldBlobName}, NewBlobName={NewBlobName}, OriginalBytes={OriginalBytes}, CompressedBytes={CompressedBytes}",
+                        blobItem.Name, newBlobName, originalBytes.Length, compressedBytes.Length);
+
+                    results.Add(new CompressedImageBackfillResult(blobItem.Name, newBlobName, newBlobUri, originalBytes.Length, compressedBytes.Length));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to backfill-compress blob {BlobName}", blobItem.Name);
+                }
+            }
+
+            return results;
         }
 
         public async Task<bool> DeleteImageRecipe(string fileName)

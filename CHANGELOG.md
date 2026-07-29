@@ -18,6 +18,7 @@ by date rather than by release version.
 - Service worker `CACHE_VERSION` is now auto-stamped to the deployed commit SHA by both `deploy/deploy.sh` and the GitHub Actions deploy workflow, so every deploy evicts old PWA caches automatically instead of relying on someone remembering to hand-bump the version.
 - "Update available — tap to refresh" banner (`site.js`) when a new service worker finishes installing. `sw.js` no longer calls `skipWaiting()` unconditionally on install, so an already-open tab isn't silently swapped to a new version mid-session — the user chooses when to reload.
 - A brief scale "pop" on the target day card when dragging a meal plan entry crosses into a new day, as a visual stand-in for haptic feedback — iOS Safari doesn't expose the Vibration API (or any haptics API) to web content, so this is the closest substitute available to a PWA. (#47)
+- A "please rotate your device back to portrait" overlay blocks the whole app in landscape on phone-sized viewports. The manifest's `orientation: "portrait"` hint doesn't actually lock orientation on iOS Safari home-screen PWAs (the Screen Orientation API's `lock()` isn't implemented in WebKit at all), so this app is still only designed for portrait — the overlay is a pure-CSS `@media (orientation: landscape) and (max-height: 500px)` guard, scoped by viewport height so it doesn't trigger for landscape tablets/desktops. (#29)
 
 ### Changed
 

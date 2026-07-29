@@ -468,6 +468,36 @@ html {
   }
 }
 
+/* ─── Rotate-to-portrait overlay (mobile-only landscape guard) ───
+   iOS Safari ignores the manifest `orientation` lock for home-screen
+   PWAs, so this CSS-only overlay is the actual portrait enforcement. */
+#rotateOverlay {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  #rotateOverlay {
+    display: flex;
+  }
+}
+
+.rotate-hint-icon {
+  animation: rotate-hint 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes rotate-hint {
+  0%, 15%   { transform: rotate(0deg); }
+  45%, 65%  { transform: rotate(-90deg); }
+  90%, 100% { transform: rotate(0deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rotate-hint-icon {
+    animation: none;
+  }
+}
+
 @layer components {
   /* Primary button */
   .btn-primary {

@@ -3,6 +3,7 @@
   "short_name": "Cooking",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#F2F2F7",
   "theme_color": "#F2F2F7",
   "icons": [

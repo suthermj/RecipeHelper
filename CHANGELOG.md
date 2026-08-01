@@ -19,6 +19,7 @@ by date rather than by release version.
 - "Update available — tap to refresh" banner (`site.js`) when a new service worker finishes installing. `sw.js` no longer calls `skipWaiting()` unconditionally on install, so an already-open tab isn't silently swapped to a new version mid-session — the user chooses when to reload.
 - Kroger cart preview (`Cart/PreviewAddToCart`) now shows an estimated total, computed from each item's price × quantity for only the currently checked items, and updates live as items are checked/unchecked or quantities edited — no page reload or submit required. Applies the same 10% Kroger-brand discount (brand contains "kroger", "simple truth", "private selection", or "hemisfares") already used on the shopping list view. (#49)
 - A brief scale "pop" on the target day card when dragging a meal plan entry crosses into a new day, as a visual stand-in for haptic feedback — iOS Safari doesn't expose the Vibration API (or any haptics API) to web content, so this is the closest substitute available to a PWA. (#47)
+- "Add to Home Screen" tip banner (`site.js`) shown once to users browsing in Safari instead of the installed PWA, pointing them at the Share → Add to Home Screen flow. iOS doesn't expose `beforeinstallprompt` (that's Chrome/Android only), so this is a custom banner rather than a native install dialog. Detected via `navigator.standalone` / `display-mode: standalone`; dismissing it is remembered permanently via `localStorage`.
 
 ### Changed
 

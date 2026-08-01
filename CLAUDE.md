@@ -51,6 +51,8 @@ gh pr merge <number> --squash --delete-branch
 
 **PWA / Service Worker (`wwwroot/sw.js`):** caches static assets (cache-first) and page navigations (stale-while-revalidate), keyed by `CACHE_VERSION`. **This is stamped automatically to the deployed commit SHA by both `deploy/deploy.sh` and `.github/workflows/deploy.yml` at publish time** — every deploy gets a new version and old caches are evicted on activate, so you never need to hand-edit `CACHE_VERSION` (the `'dev'` literal in source only applies to local `dotnet run`). The new worker doesn't take over automatically (`skipWaiting()` is gated behind a user tap, not called unconditionally on install) — `site.js` shows a "tap to refresh" banner via `updatefound` and posts `SKIP_WAITING` when tapped, so an already-open tab isn't swapped to a new version mid-session.
 
+**Install detection / "Add to Home Screen":** `site.js` checks `navigator.standalone === true` (iOS Safari) or `matchMedia('(display-mode: standalone)').matches` (spec-standard) to tell whether the page is running from the home-screen icon vs. Safari itself. iOS doesn't support `beforeinstallprompt` (Chrome/Android only), so there's no native install dialog to trigger — when not standalone and on iOS, a dismissible banner points the user at the manual Share → Add to Home Screen flow. Dismissal is remembered forever via a `localStorage` flag (`a2hsBannerDismissed`).
+
 ## Key Files
 
 | File | Purpose |

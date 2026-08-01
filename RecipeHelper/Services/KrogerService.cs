@@ -413,7 +413,31 @@ namespace RecipeHelper.Services
                     cartItem.Quantity, cartItem.Name, conversionNote ?? "OK");
             }
 
-            return cartItems;
+            // Different ingredients (possibly different names/measurements across
+            // recipes) can independently map to the same Kroger UPC -- e.g. "garlic"
+            // measured in teaspoons in one recipe and by count in another, both mapped
+            // to the same jar of minced garlic. Each loop iteration above computes a
+            // pack quantity in isolation, so without this merge they'd show up as
+            // separate rows on the cart preview instead of one combined line.
+            return cartItems
+                .GroupBy(ci => ci.Upc, StringComparer.OrdinalIgnoreCase)
+                .Select(g =>
+                {
+                    var merged = g.First();
+                    if (g.Count() > 1)
+                    {
+                        merged.Quantity = g.Sum(x => x.Quantity);
+                        merged.OriginalIngredient = string.Join(" + ",
+                            g.Select(x => x.OriginalIngredient).Where(s => !string.IsNullOrWhiteSpace(s)));
+                        var notes = g.Select(x => x.ConversionNote)
+                            .Where(n => !string.IsNullOrWhiteSpace(n))
+                            .Distinct()
+                            .ToList();
+                        merged.ConversionNote = notes.Count > 0 ? string.Join("; ", notes) : null;
+                    }
+                    return merged;
+                })
+                .ToList();
         }
 
         private int ConvertForWeightSoldItem(CartItemVM item, MeasureUnit ingredientUnit,

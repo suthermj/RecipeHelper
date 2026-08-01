@@ -301,9 +301,16 @@ namespace RecipeHelper.Services
 
         private static string? GetAllowedImageMimeType(IFormFile photo)
         {
+            // Stream.Read is allowed to return fewer bytes than requested even when
+            // more data is available — IFormFile.OpenReadStream() can hand back a
+            // disk-backed FileBufferingReadStream once a multipart upload spills past
+            // the in-memory threshold, and a single Read() against that can come back
+            // short. ReadAtLeast loops internally until the buffer is full or the
+            // stream ends, so a short first read can no longer misclassify a valid
+            // image as an invalid one.
             Span<byte> header = stackalloc byte[12];
             using var stream = photo.OpenReadStream();
-            var bytesRead = stream.Read(header);
+            var bytesRead = stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false);
 
             if (bytesRead >= 3 &&
                 header[0] == 0xFF &&

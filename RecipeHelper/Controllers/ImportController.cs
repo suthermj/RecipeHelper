@@ -12,6 +12,8 @@ namespace RecipeHelper.Controllers
     public class ImportController : Controller
     {
         private const long PhotoImportRequestSizeLimitBytes = 300L * 1024L * 1024L;
+        private const string PendingPhotoImportSessionKey = "PendingPhotoImportPreview";
+        private const string PendingMappedImportSessionKey = "PendingMappedImportPreview";
 
         private ImportService _importService;
         private RecipeService _recipeService;
@@ -35,13 +37,11 @@ namespace RecipeHelper.Controllers
         [HttpGet]
         public async Task<ActionResult> ImportRecipe(ImportRecipePageVM model)
         {
-            if (model is null)
-            {
-                return View(new ImportRecipePageVM());
-            }
+            model ??= new ImportRecipePageVM();
 
             if (!string.IsNullOrWhiteSpace(model.Url))
             {
+                HttpContext.Session.Remove(PendingPhotoImportSessionKey);
                 model.Url = NormalizeUrl(model.Url);
 
                 _logger.LogInformation("Importing recipe from URL: {Url}", model.Url);
@@ -64,7 +64,16 @@ namespace RecipeHelper.Controllers
                  model.Preview = ImportRecipeVM.FromSpoonacular(importedRecipe);
 
                  return View(model);
-                
+
+            }
+
+            // No URL on the query string -- if a photo import just redirected here
+            // (see ImportRecipeFromPhoto below), restore that result from session so
+            // this page has a real GET URL and is safe to reload.
+            var pendingJson = HttpContext.Session.GetString(PendingPhotoImportSessionKey);
+            if (!string.IsNullOrEmpty(pendingJson))
+            {
+                return View(JsonSerializer.Deserialize<ImportRecipePageVM>(pendingJson));
             }
 
             return View(model);
@@ -83,6 +92,15 @@ namespace RecipeHelper.Controllers
             }
 
             return "https://" + url;
+        }
+
+        // Stashes a photo-import result in session and redirects to the GET
+        // ImportRecipe action, so the result page has a URL that's safe to reload
+        // instead of being rendered directly from this POST.
+        private IActionResult RedirectToPhotoImportResult(ImportRecipePageVM vm)
+        {
+            HttpContext.Session.SetString(PendingPhotoImportSessionKey, JsonSerializer.Serialize(vm));
+            return RedirectToAction(nameof(ImportRecipe));
         }
 
         // Returns MappedImportRecipeVm
@@ -152,7 +170,7 @@ namespace RecipeHelper.Controllers
                                 "Photo import cover upload returned no blob. FileName={FileName}, WasConverted={WasConverted}",
                                 coverPhoto.FileName,
                                 coverPhoto.WasConverted);
-                            return View("ImportRecipe", new ImportRecipePageVM { Preview = preview });
+                            return RedirectToPhotoImportResult(new ImportRecipePageVM { Preview = preview });
                         }
 
                         preview.Image = blob.BlobUri;
@@ -170,17 +188,17 @@ namespace RecipeHelper.Controllers
                 }
 
                 _logger.LogInformation("Photo import request completed. ElapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
-                return View("ImportRecipe", new ImportRecipePageVM { Preview = preview });
+                return RedirectToPhotoImportResult(new ImportRecipePageVM { Preview = preview });
             }
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "Photo import validation failed. ElapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
-                return View("ImportRecipe", new ImportRecipePageVM { Error = ex.Message, PreferredTab = "photo" });
+                return RedirectToPhotoImportResult(new ImportRecipePageVM { Error = ex.Message, PreferredTab = "photo" });
             }
             catch (TimeoutException ex)
             {
                 _logger.LogWarning(ex, "Photo import extraction timed out. ElapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
-                return View("ImportRecipe", new ImportRecipePageVM
+                return RedirectToPhotoImportResult(new ImportRecipePageVM
                 {
                     Error = "Recipe extraction is taking longer than expected. Try one clear photo at a time, or retake the photo closer to the recipe text.",
                     PreferredTab = "photo"
@@ -189,7 +207,7 @@ namespace RecipeHelper.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Photo import extraction failed. ElapsedMs={ElapsedMs}", stopwatch.ElapsedMilliseconds);
-                return View("ImportRecipe", new ImportRecipePageVM
+                return RedirectToPhotoImportResult(new ImportRecipePageVM
                 {
                     Error = "Could not extract the recipe from the photo. Try a clearer image or enter the recipe manually.",
                     PreferredTab = "photo"
@@ -219,9 +237,25 @@ namespace RecipeHelper.Controllers
                 {
                     Value = m.Name,
                     Text = m.Name
-                }));
-            ModelState.Clear();
-            return View("MappedImportedRecipe", mappedImportRecipeVm);
+                }).ToList());
+
+            // Redirect-after-post so this page has a GET URL that's safe to reload
+            // (see the matching comment in DinnerController.SubmitDinnerSelections).
+            HttpContext.Session.SetString(PendingMappedImportSessionKey, JsonSerializer.Serialize(mappedImportRecipeVm));
+            return RedirectToAction(nameof(MappedImportedRecipe));
+        }
+
+        // GET: Import/MappedImportedRecipe -- renders the mapping preview computed above.
+        [HttpGet]
+        public IActionResult MappedImportedRecipe()
+        {
+            var json = HttpContext.Session.GetString(PendingMappedImportSessionKey);
+            if (string.IsNullOrEmpty(json))
+            {
+                return RedirectToAction(nameof(ImportRecipe));
+            }
+
+            return View(JsonSerializer.Deserialize<MappedImportedRecipeVM>(json));
         }
 
         [HttpPost]
@@ -238,16 +272,18 @@ namespace RecipeHelper.Controllers
             if (await _recipeService.RecipeNameExists(vm.Title))
             {
                 _logger.LogInformation("Recipe name {recipeName} already exists", vm.Title);
-                ModelState.AddModelError(nameof(vm.Title), $"Recipe name \"{vm.Title}\" already exists.");
                 vm.AvailableMeasurements = await _measurementService.GetAllMeasurementsAsync()
-                .ContinueWith(t => t.Result.Select(m => new SelectListItem
-                {
-                    Value = m.Name,
-                    Text = m.Name
-                }));
-                return View("MappedImportedRecipe", vm);
+                    .ContinueWith(t => t.Result.Select(m => new SelectListItem
+                    {
+                        Value = m.Name,
+                        Text = m.Name
+                    }).ToList());
+
+                TempData["ErrorMessage"] = $"Recipe name \"{vm.Title}\" already exists.";
+                HttpContext.Session.SetString(PendingMappedImportSessionKey, JsonSerializer.Serialize(vm));
+                return RedirectToAction(nameof(MappedImportedRecipe));
             }
-            
+
             var result = await _importService.SaveImportedRecipe(vm.ToRequest());
 
             if (!result.Success)

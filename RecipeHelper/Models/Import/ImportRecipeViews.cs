@@ -179,7 +179,7 @@ public class MappedImportedRecipeVM
     [MinLength(1)]
     public List<IngredientPreviewVM> Ingredients { get; set; } = new();
     public List<string> Steps { get; set; } = new();
-    public IEnumerable<SelectListItem> AvailableMeasurements { get; set; }
+    public List<SelectListItem> AvailableMeasurements { get; set; } = new();
 }
 
 public class IngredientPreviewVM

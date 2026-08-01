@@ -7,6 +7,18 @@
     ViewData["BackLink"] = Url.Action("ReviewDinnerSelections", "Dinner");
     ViewData["BackLabel"] = "Ingredients";
     var totalItems = Model.Items.Sum(i => i.QuantityToAdd);
+
+    var krogerBrands = new[] { "kroger", "simple truth", "private selection", "hemisfares" };
+    bool IsKrogerBrand(string? brand) =>
+        brand != null && krogerBrands.Any(b => brand.Contains(b, StringComparison.OrdinalIgnoreCase));
+
+    decimal UnitPrice(AddToCartPreviewItemVM item)
+    {
+        decimal basePrice = item.OnSale && item.PromoPrice > 0 ? (decimal)item.PromoPrice : (decimal)item.RegularPrice;
+        return IsKrogerBrand(item.Brand) ? Math.Round(basePrice * 0.9m, 2) : basePrice;
+    }
+
+    var estimatedTotal = Model.Items.Sum(i => UnitPrice(i) * i.QuantityToAdd);
 }
 
 <div class="pt-2 pb-32">
@@ -38,7 +50,8 @@
                 @for (var i = 0; i < Model.Items.Count; i++)
                 {
                     var item = Model.Items[i];
-                    <div class="ios-cell gap-3" style="border-bottom: 0.5px solid var(--ios-separator); align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
+                    <div class="ios-cell gap-3 cart-row" data-unit-price="@UnitPrice(item).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                         style="border-bottom: 0.5px solid var(--ios-separator); align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
 
                         <div class="pt-0.5 shrink-0">
                             <input type="checkbox"
@@ -97,7 +110,7 @@
                                        name="Items[@i].Quantity"
                                        value="@item.QuantityToAdd"
                                        min="1"
-                                       class="field-input w-16 text-right py-1" style="font-size: 14px;" />
+                                       class="row-quantity field-input w-16 text-right py-1" style="font-size: 14px;" />
                             </div>
                         </div>
                     </div>
@@ -116,6 +129,10 @@
                 backdrop-filter: blur(20px);
                 -webkit-backdrop-filter: blur(20px);
                 border-top: 0.5px solid var(--ios-separator);">
+        <div class="flex items-center justify-between pb-2">
+            <span class="text-[13px]" style="color: var(--ios-label-2);">Estimated total</span>
+            <span id="cart-estimated-total" class="text-[17px] font-semibold" style="color: var(--ios-label);">@estimatedTotal.ToString("C")</span>
+        </div>
         <button type="submit" form="cartForm" class="btn-primary w-full">
             Add to Kroger Cart
         </button>
@@ -126,13 +143,39 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var selectAll = document.getElementById('select-all');
-            if (!selectAll) return;
+            var totalEl = document.getElementById('cart-estimated-total');
+            var rows = document.querySelectorAll('.cart-row');
 
-            selectAll.addEventListener('change', function () {
-                document.querySelectorAll('.row-include').forEach(function (cb) {
-                    cb.checked = selectAll.checked;
+            function recalcTotal() {
+                if (!totalEl) return;
+                var total = 0;
+                rows.forEach(function (row) {
+                    var checkbox = row.querySelector('.row-include');
+                    var qtyInput = row.querySelector('.row-quantity');
+                    if (!checkbox || !qtyInput || !checkbox.checked) return;
+
+                    var unitPrice = parseFloat(row.dataset.unitPrice) || 0;
+                    var quantity = parseFloat(qtyInput.value) || 0;
+                    total += unitPrice * quantity;
                 });
+                totalEl.textContent = total.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+            }
+
+            rows.forEach(function (row) {
+                var checkbox = row.querySelector('.row-include');
+                var qtyInput = row.querySelector('.row-quantity');
+                if (checkbox) checkbox.addEventListener('change', recalcTotal);
+                if (qtyInput) qtyInput.addEventListener('input', recalcTotal);
             });
+
+            if (selectAll) {
+                selectAll.addEventListener('change', function () {
+                    document.querySelectorAll('.row-include').forEach(function (cb) {
+                        cb.checked = selectAll.checked;
+                    });
+                    recalcTotal();
+                });
+            }
         });
     </script>
 }

@@ -19,6 +19,10 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
+// Session (used below) requires IDistributedCache specifically -- AddMemoryCache()
+// above registers IMemoryCache, a different interface, so without this Session
+// throws as soon as anything touches HttpContext.Session.
+builder.Services.AddDistributedMemoryCache();
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo("/var/lib/recipehelper/keys"))
     .SetApplicationName("RecipeHelper");

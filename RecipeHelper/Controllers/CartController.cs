@@ -7,6 +7,8 @@ namespace RecipeHelper.Controllers
 {
     public class CartController : Controller
     {
+        private const string PendingPreviewSessionKey = "PendingAddToCartPreview";
+
         private readonly KrogerService _krogerService;
         private readonly KrogerAuthService _krogerAuthService;
         private readonly ILogger<AuthController> _logger;
@@ -79,7 +81,24 @@ namespace RecipeHelper.Controllers
                 Items = previewItems
             };
 
-            return View("PreviewAddToCart", previewVm); // Views/Cart/PreviewAddToCart.cshtml
+            // Redirect-after-post so this page has a GET URL that's safe to reload
+            // (see the matching comment in DinnerController.SubmitDinnerSelections).
+            HttpContext.Session.SetString(PendingPreviewSessionKey, JsonSerializer.Serialize(previewVm));
+            return RedirectToAction(nameof(PreviewAddToCart));
+        }
+
+        // GET: Cart/PreviewAddToCart -- renders the preview computed above.
+        [HttpGet]
+        public IActionResult PreviewAddToCart()
+        {
+            var json = HttpContext.Session.GetString(PendingPreviewSessionKey);
+            if (string.IsNullOrEmpty(json))
+            {
+                return RedirectToAction("SelectWeeklyRecipes", "Dinner");
+            }
+
+            var previewVm = JsonSerializer.Deserialize<AddToCartPreviewVM>(json);
+            return View(previewVm); // Views/Cart/PreviewAddToCart.cshtml
         }
 
         // Called when user clicks "Add all items to cart"

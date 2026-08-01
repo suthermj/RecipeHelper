@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using RecipeHelper.Models.Import;
@@ -70,10 +69,9 @@ namespace RecipeHelper.Controllers
             // No URL on the query string -- if a photo import just redirected here
             // (see ImportRecipeFromPhoto below), restore that result from session so
             // this page has a real GET URL and is safe to reload.
-            var pendingJson = HttpContext.Session.GetString(PendingPhotoImportSessionKey);
-            if (!string.IsNullOrEmpty(pendingJson))
+            if (PendingResultCache.TryGet<ImportRecipePageVM>(HttpContext.Session, PendingPhotoImportSessionKey, out var pending))
             {
-                return View(JsonSerializer.Deserialize<ImportRecipePageVM>(pendingJson));
+                return View(pending);
             }
 
             return View(model);
@@ -99,7 +97,7 @@ namespace RecipeHelper.Controllers
         // instead of being rendered directly from this POST.
         private IActionResult RedirectToPhotoImportResult(ImportRecipePageVM vm)
         {
-            HttpContext.Session.SetString(PendingPhotoImportSessionKey, JsonSerializer.Serialize(vm));
+            PendingResultCache.Set(HttpContext.Session, PendingPhotoImportSessionKey, vm);
             return RedirectToAction(nameof(ImportRecipe));
         }
 
@@ -241,7 +239,7 @@ namespace RecipeHelper.Controllers
 
             // Redirect-after-post so this page has a GET URL that's safe to reload
             // (see the matching comment in DinnerController.SubmitDinnerSelections).
-            HttpContext.Session.SetString(PendingMappedImportSessionKey, JsonSerializer.Serialize(mappedImportRecipeVm));
+            PendingResultCache.Set(HttpContext.Session, PendingMappedImportSessionKey, mappedImportRecipeVm);
             return RedirectToAction(nameof(MappedImportedRecipe));
         }
 
@@ -249,13 +247,12 @@ namespace RecipeHelper.Controllers
         [HttpGet]
         public IActionResult MappedImportedRecipe()
         {
-            var json = HttpContext.Session.GetString(PendingMappedImportSessionKey);
-            if (string.IsNullOrEmpty(json))
+            if (!PendingResultCache.TryGet<MappedImportedRecipeVM>(HttpContext.Session, PendingMappedImportSessionKey, out var pending))
             {
                 return RedirectToAction(nameof(ImportRecipe));
             }
 
-            return View(JsonSerializer.Deserialize<MappedImportedRecipeVM>(json));
+            return View(pending);
         }
 
         [HttpPost]
@@ -280,7 +277,7 @@ namespace RecipeHelper.Controllers
                     }).ToList());
 
                 TempData["ErrorMessage"] = $"Recipe name \"{vm.Title}\" already exists.";
-                HttpContext.Session.SetString(PendingMappedImportSessionKey, JsonSerializer.Serialize(vm));
+                PendingResultCache.Set(HttpContext.Session, PendingMappedImportSessionKey, vm);
                 return RedirectToAction(nameof(MappedImportedRecipe));
             }
 

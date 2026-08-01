@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models.Kroger;
 using RecipeHelper.Services;
+using RecipeHelper.Utility;
 
 namespace RecipeHelper.Controllers
 {
@@ -83,7 +84,7 @@ namespace RecipeHelper.Controllers
 
             // Redirect-after-post so this page has a GET URL that's safe to reload
             // (see the matching comment in DinnerController.SubmitDinnerSelections).
-            HttpContext.Session.SetString(PendingPreviewSessionKey, JsonSerializer.Serialize(previewVm));
+            PendingResultCache.Set(HttpContext.Session, PendingPreviewSessionKey, previewVm);
             return RedirectToAction(nameof(PreviewAddToCart));
         }
 
@@ -91,13 +92,11 @@ namespace RecipeHelper.Controllers
         [HttpGet]
         public IActionResult PreviewAddToCart()
         {
-            var json = HttpContext.Session.GetString(PendingPreviewSessionKey);
-            if (string.IsNullOrEmpty(json))
+            if (!PendingResultCache.TryGet<AddToCartPreviewVM>(HttpContext.Session, PendingPreviewSessionKey, out var previewVm))
             {
                 return RedirectToAction("SelectWeeklyRecipes", "Dinner");
             }
 
-            var previewVm = JsonSerializer.Deserialize<AddToCartPreviewVM>(json);
             return View(previewVm); // Views/Cart/PreviewAddToCart.cshtml
         }
 

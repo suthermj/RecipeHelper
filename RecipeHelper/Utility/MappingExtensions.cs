@@ -79,7 +79,8 @@ namespace RecipeHelper.Utility
                     Name = i.Name ?? "",
                     CleanName = i.CleanName ?? "",
                     Amount = i.Amount ?? 0m,
-                    Unit = i.Unit
+                    Unit = i.Unit,
+                    Section = i.Section
                 }).ToList()
             };
         }
@@ -96,6 +97,7 @@ namespace RecipeHelper.Utility
                     Name = x.Name,
                     Amount = x.Amount,
                     Unit = x.Unit,
+                    Section = x.Section,
                     IngredientId = x.MatchedIngredientId,
                     CanonicalName = x.MatchedCanonicalName,
                     SuggestedName = x.SuggestedProductName,
@@ -129,6 +131,7 @@ namespace RecipeHelper.Utility
                     IngredientId = i.IngredientId,
                     Amount = i.Amount ?? 0m,
                     Unit = i.Unit,
+                    Section = i.Section,
                     Include = i.Include,
                     Upc = i.SelectedUpc,
                     SelectedSource = i.SelectedSource

@@ -184,8 +184,20 @@
                 <div>
                     <p class="ios-section-hdr" style="padding-left: 0;">Ingredients</p>
                     <div class="ios-group">
+                        @{ string? lastPreviewSection = null; }
                         @foreach (var ing in Model.Preview.Ingredients)
                         {
+                            if (ing.Section != lastPreviewSection)
+                            {
+                                lastPreviewSection = ing.Section;
+                                if (!string.IsNullOrEmpty(lastPreviewSection))
+                                {
+                                    <div class="px-4 py-2 text-[12px] font-semibold uppercase tracking-wide"
+                                         style="color: var(--ios-label-2); background: rgba(242,242,247,0.6); border-bottom: 0.5px solid var(--ios-separator);">
+                                        @lastPreviewSection
+                                    </div>
+                                }
+                            }
                             <div class="ios-cell">
                                 <span class="text-[15px]" style="color: var(--ios-label);">
                                     @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
@@ -237,6 +249,7 @@
                     <input type="hidden" name="Ingredients[@i].CleanName" value="@ing.CleanName" />
                     <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
                     <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
+                    <input type="hidden" name="Ingredients[@i].Section" value="@ing.Section" />
                 }
                 @if (Model.Preview.Steps != null)
                 {

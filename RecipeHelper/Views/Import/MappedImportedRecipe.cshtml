@@ -101,6 +101,7 @@
         @* Ingredient cards *@
         <section class="space-y-3 px-4">
             <p class="ios-section-hdr" style="padding-left: 0;">Ingredients</p>
+            @{ string? lastMappedSection = "__NONE__"; }
             @for (var i = 0; i < Model.Ingredients.Count; i++)
             {
                 var ing = Model.Ingredients[i];
@@ -111,6 +112,17 @@
                 var currentUpc  = hasSelected ? ing.SelectedUpc : "";
                 var currentImg  = hasSelected ? (krogerImgBase + currentUpc) : placeholderProductImg;
 
+                if (ing.Section != lastMappedSection)
+                {
+                    lastMappedSection = ing.Section;
+                    if (!string.IsNullOrEmpty(lastMappedSection))
+                    {
+                        <p class="text-[12px] font-semibold uppercase tracking-wide pt-1" style="color: var(--ios-label-2);">
+                            @lastMappedSection
+                        </p>
+                    }
+                }
+
                 <div class="js-row ios-card p-4 transition"
                      data-idx="@i">
 
@@ -120,6 +132,7 @@
                     <input type="hidden" name="Ingredients[@i].IngredientId" value="@(ing.IngredientId ?? 0)" />
                     <input type="hidden" name="Ingredients[@i].CanonicalName" value="@(ing.CanonicalName ?? "")" />
                     <input type="hidden" name="Ingredients[@i].IngredientMatchKind" value="@(ing.IngredientMatchKind ?? "")" />
+                    <input type="hidden" name="Ingredients[@i].Section" value="@(ing.Section ?? "")" />
 
                     @* Persist suggestions *@
                     <input type="hidden" name="Ingredients[@i].SuggestedUpc" value="@(ing.SuggestedUpc ?? "")" />
@@ -717,6 +730,7 @@
                     <input type="hidden" name="Ingredients[${idx}].IngredientId" value="0" />
                     <input type="hidden" name="Ingredients[${idx}].CanonicalName" value="" />
                     <input type="hidden" name="Ingredients[${idx}].IngredientMatchKind" value="" />
+                    <input type="hidden" name="Ingredients[${idx}].Section" value="" />
                     <input type="hidden" name="Ingredients[${idx}].SuggestedUpc" value="" />
                     <input type="hidden" name="Ingredients[${idx}].SuggestedName" value="" />
                     <input type="hidden" name="Ingredients[${idx}].SelectedUpc" value="" class="js-selected-upc" data-idx="${idx}" />

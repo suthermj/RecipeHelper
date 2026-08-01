@@ -144,6 +144,7 @@ public class ImportIngredientVM
     public string? DisplayAmount { get; set; }  // e.g. "1 cup" or "200 g"
     public decimal? Amount { get; set; }          // e.g. 1 or 200
     public string? Unit { get; set; }        // e.g. "cup" or "g"
+    public string? Section { get; set; }     // e.g. "Blackening Seasoning" (photo import only)
 }
 
 public class ImportRecipeQueryVM { public string? Uri { get; set; } }
@@ -161,10 +162,11 @@ public class PreviewImportedRecipeVM
 
 public class PreviewImportedIngredientVM
 {
-    public string Name { get; set; } = "";  
-    public string CleanName { get; set; } = "";  
-    public decimal? Amount { get; set; }      
-    public string? Unit { get; set; }       
+    public string Name { get; set; } = "";
+    public string CleanName { get; set; } = "";
+    public decimal? Amount { get; set; }
+    public string? Unit { get; set; }
+    public string? Section { get; set; }
 }
 
 public class MappedImportedRecipeVM
@@ -190,6 +192,7 @@ public class IngredientPreviewVM
 
     public decimal? Amount { get; set; }   // e.g., 2
     public string? Unit { get; set; }    // e.g., "cloves", "tsp", "g"
+    public string? Section { get; set; } // e.g. "Blackening Seasoning" (photo import only)
     public bool Include { get; set; }   // whether to include this ingredient when saving
 
     // Optional: if you already matched/created a canonical ingredient in preview

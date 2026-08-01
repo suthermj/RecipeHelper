@@ -23,6 +23,7 @@ namespace RecipeHelper.Models.Import
         public int? IngredientId { get; set; }
         public decimal Amount { get; set; }
         public string? Unit { get; set; }
+        public string? Section { get; set; }
         public bool Include { get; set; }// ✅ Final chosen selection (what gets saved)
         public string Upc { get; set; }
         public string? SelectedName { get; set; }

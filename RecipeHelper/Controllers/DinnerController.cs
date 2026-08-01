@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Dinner;
@@ -311,7 +310,7 @@ namespace RecipeHelper.Controllers
             // directly from a POST is not -- a reload would resubmit the POST instead
             // of just re-fetching the page. Stash the computed review in session and
             // hand off to the GET action below instead.
-            HttpContext.Session.SetString(PendingReviewSessionKey, JsonSerializer.Serialize(model));
+            PendingResultCache.Set(HttpContext.Session, PendingReviewSessionKey, model);
             return RedirectToAction(nameof(ReviewDinnerSelections));
         }
 
@@ -321,13 +320,11 @@ namespace RecipeHelper.Controllers
         [HttpGet]
         public ActionResult ReviewDinnerSelections()
         {
-            var json = HttpContext.Session.GetString(PendingReviewSessionKey);
-            if (string.IsNullOrEmpty(json))
+            if (!PendingResultCache.TryGet<ReviewDinnerSelectionsVM>(HttpContext.Session, PendingReviewSessionKey, out var model))
             {
                 return RedirectToAction(nameof(SelectWeeklyRecipes));
             }
 
-            var model = JsonSerializer.Deserialize<ReviewDinnerSelectionsVM>(json);
             return View(model);
         }
     }

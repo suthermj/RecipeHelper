@@ -78,7 +78,7 @@
             var dayDate    = weekStart.AddDays(d);
             var isToday    = dayDate == MealPlanService.LocalToday();
 
-            <div class="rounded-2xl overflow-hidden transition-opacity duration-150"
+            <div class="day-card rounded-2xl overflow-hidden transition-opacity duration-150"
                  style="background: var(--ios-surface); box-shadow: 0 1px 4px rgba(0,0,0,0.07); @(isToday ? "border-left: 4px solid var(--ios-red);" : "")"
                  data-day="@d">
 
@@ -192,10 +192,25 @@
     #recipeList {
         -webkit-overflow-scrolling: touch;
     }
-    #daySlots [data-day].drag-target {
+    #daySlots .day-card.drag-target {
         outline: 2px solid var(--ios-red);
         outline-offset: 2px;
         background: rgba(255, 59, 48, 0.08) !important;
+    }
+    /* Brief "pop" as a stand-in for haptic feedback when the drag crosses into a
+       new day -- iOS Safari doesn't expose the Vibration API to web content. */
+    .day-card.drag-target-pop {
+        animation: day-card-target-pop 0.22s ease-out;
+    }
+    @@keyframes day-card-target-pop {
+        0% { transform: scale(1); }
+        35% { transform: scale(1.025); }
+        100% { transform: scale(1); }
+    }
+    .entry-row {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
     }
     .meal-drag-ghost {
         position: fixed;
@@ -206,6 +221,9 @@
         box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
         opacity: 0.96;
         transform: translate3d(-9999px, -9999px, 0) scale(1.03);
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
     }
     .meal-dragging {
         opacity: 0.35;
@@ -511,7 +529,7 @@
             }
 
             function startDrag(touch) {
-                const dayCard = row.closest('[data-day]');
+                const dayCard = row.closest('.day-card');
                 const rect = row.getBoundingClientRect();
                 const ghost = row.cloneNode(true);
                 ghost.classList.add('meal-drag-ghost');
@@ -539,21 +557,27 @@
             function updateDragTarget(x, y) {
                 if (!mealDrag) return;
                 const el = document.elementFromPoint(x, y);
-                const dayCard = el?.closest?.('#daySlots [data-day]');
-                document.querySelectorAll('#daySlots [data-day].drag-target')
+                const dayCard = el?.closest?.('#daySlots .day-card');
+                document.querySelectorAll('#daySlots .day-card.drag-target')
                     .forEach(card => card.classList.remove('drag-target'));
                 if (!dayCard) {
                     mealDrag.targetDay = null;
                     return;
                 }
-                mealDrag.targetDay = parseInt(dayCard.dataset.day);
+                const newDay = parseInt(dayCard.dataset.day);
+                if (newDay !== mealDrag.targetDay) {
+                    dayCard.classList.remove('drag-target-pop');
+                    void dayCard.offsetWidth;
+                    dayCard.classList.add('drag-target-pop');
+                }
+                mealDrag.targetDay = newDay;
                 dayCard.classList.add('drag-target');
             }
 
             function finishDrag() {
                 if (!mealDrag) return;
                 const { entryId, sourceDay, targetDay, row: draggedRow, ghost } = mealDrag;
-                document.querySelectorAll('#daySlots [data-day].drag-target')
+                document.querySelectorAll('#daySlots .day-card.drag-target')
                     .forEach(card => card.classList.remove('drag-target'));
                 draggedRow.classList.remove('meal-dragging');
                 ghost.remove();
@@ -601,7 +625,7 @@
             row.addEventListener('touchcancel', () => {
                 cancelPress();
                 if (mealDrag) {
-                    document.querySelectorAll('#daySlots [data-day].drag-target')
+                    document.querySelectorAll('#daySlots .day-card.drag-target')
                         .forEach(card => card.classList.remove('drag-target'));
                     mealDrag.row.classList.remove('meal-dragging');
                     mealDrag.ghost.remove();
@@ -626,7 +650,7 @@
     }
 
     async function postAdd(day, recipeId) {
-        const card = document.querySelector(`#daySlots [data-day="${day}"]`);
+        const card = document.querySelector(`#daySlots .day-card[data-day="${day}"]`);
         dimCard(card);
         const body = new URLSearchParams();
         body.append('weekStart', weekStart);
@@ -649,7 +673,7 @@
 
     async function postRemove(entryId) {
         const row  = document.querySelector(`[data-entry-id="${entryId}"]`);
-        const card = row?.closest('[data-day]');
+        const card = row?.closest('.day-card');
         dimCard(card);
         const body = new URLSearchParams();
         body.append('entryId', String(entryId));
@@ -670,7 +694,7 @@
 
     async function postMove(entryId, day) {
         const row = document.querySelector(`[data-entry-id="${entryId}"]`);
-        const card = row?.closest('[data-day]');
+        const card = row?.closest('.day-card');
         dimCard(card);
         const body = new URLSearchParams();
         body.append('entryId', String(entryId));

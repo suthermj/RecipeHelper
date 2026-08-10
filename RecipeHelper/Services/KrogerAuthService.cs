@@ -11,17 +11,20 @@ public class KrogerAuthService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _config;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger<KrogerAuthService> _logger;
 
     public KrogerAuthService(
         DatabaseContext db,
         IHttpClientFactory httpClientFactory,
         IConfiguration config,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        ILogger<KrogerAuthService> logger)
     {
         _db = db;
         _httpClientFactory = httpClientFactory;
         _config = config;
         _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
     }
 
     public async Task<string> GetKrogerAccessTokenAsync()
@@ -34,6 +37,7 @@ public class KrogerAuthService
         // If we've never connected Kroger for this browser
         if (string.IsNullOrEmpty(krogerProfileId))
         {
+            _logger.LogInformation("GetKrogerAccessTokenAsync: no KrogerProfileId cookie present.");
             return null;
         }
 
@@ -42,6 +46,7 @@ public class KrogerAuthService
 
         if (token == null)
         {
+            _logger.LogWarning("GetKrogerAccessTokenAsync: no stored token for KrogerProfileId={KrogerProfileId} (cookie present but no matching DB row).", krogerProfileId);
             return null;
         }
 
@@ -51,6 +56,7 @@ public class KrogerAuthService
             return token.AccessToken;
         }
 
+        _logger.LogInformation("GetKrogerAccessTokenAsync: stored token for KrogerProfileId={KrogerProfileId} is expired. ExpiresAtUtc={ExpiresAtUtc}", krogerProfileId, token.AccessTokenExpiresAtUtc);
         return null;
     }
 
@@ -64,6 +70,7 @@ public class KrogerAuthService
         // If we've never connected Kroger for this browser
         if (string.IsNullOrEmpty(krogerProfileId))
         {
+            _logger.LogInformation("EnsureAccessTokenAsync: no KrogerProfileId cookie present, redirecting to login. ReturnUrl={ReturnUrl}", returnUrl);
             return new KrogerAuthResult
             {
                 IsAuthorized = false,
@@ -76,6 +83,7 @@ public class KrogerAuthService
 
         if (token == null)
         {
+            _logger.LogWarning("EnsureAccessTokenAsync: no stored token for KrogerProfileId={KrogerProfileId} (cookie present but no matching DB row), redirecting to login.", krogerProfileId);
             return new KrogerAuthResult
             {
                 IsAuthorized = false,
@@ -95,10 +103,12 @@ public class KrogerAuthService
         }
 
         // Token expired → try refresh
+        _logger.LogInformation("EnsureAccessTokenAsync: token expired for KrogerProfileId={KrogerProfileId}, attempting refresh. ExpiresAtUtc={ExpiresAtUtc}", krogerProfileId, token.AccessTokenExpiresAtUtc);
         var refreshed = await RefreshAccessTokenAsync(token);
         if (refreshed == null)
         {
             // refresh failed → force re-auth
+            _logger.LogWarning("EnsureAccessTokenAsync: refresh failed for KrogerProfileId={KrogerProfileId}, forcing re-auth.", krogerProfileId);
             return new KrogerAuthResult
             {
                 IsAuthorized = false,
@@ -106,6 +116,7 @@ public class KrogerAuthService
             };
         }
 
+        _logger.LogInformation("EnsureAccessTokenAsync: refresh succeeded for KrogerProfileId={KrogerProfileId}.", krogerProfileId);
         return new KrogerAuthResult
         {
             IsAuthorized = true,
@@ -140,12 +151,16 @@ public class KrogerAuthService
             ["client_secret"] = _config["OAuth:ClientSecret"],
         };
 
+        // Response body is not logged even on failure -- Kroger's token endpoint can
+        // echo request fields back in error payloads, and this request includes the
+        // client secret and refresh token.
         var response = await client.PostAsync(tokenEndpoint, new FormUrlEncodedContent(form));
         var json = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
         {
             // invalid_grant etc. – treat as not authorized
+            _logger.LogWarning("Kroger token refresh failed for KrogerProfileId={KrogerProfileId}. StatusCode={StatusCode}", token.KrogerProfileId, (int)response.StatusCode);
             return null;
         }
 
@@ -153,6 +168,7 @@ public class KrogerAuthService
 
         if (string.IsNullOrEmpty(refreshed.Token) || string.IsNullOrEmpty(refreshed.RefreshToken))
         {
+            _logger.LogWarning("Kroger token refresh for KrogerProfileId={KrogerProfileId} returned 2xx but was missing an access or refresh token.", token.KrogerProfileId);
             return null;
         }
 
@@ -166,6 +182,7 @@ public class KrogerAuthService
 
         await _db.SaveChangesAsync();
 
+        _logger.LogInformation("Kroger token refreshed for KrogerProfileId={KrogerProfileId}. NewExpiresAtUtc={NewExpiresAtUtc}", token.KrogerProfileId, token.AccessTokenExpiresAtUtc);
         return new KrogerAuthResult
         {
             IsAuthorized = true,

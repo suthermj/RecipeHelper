@@ -86,6 +86,7 @@ namespace RecipeHelper.Services
             }
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Meal plan saved. WeekStart={WeekStart}, PlanId={PlanId}, EntryCount={EntryCount}", weekStart, existing.Id, existing.Entries.Count);
             return existing;
         }
 
@@ -112,6 +113,7 @@ namespace RecipeHelper.Services
 
             if (plan.Entries.Any(e => e.RecipeId == recipeId))
             {
+                _logger.LogInformation("AddEntryAsync: RecipeId={RecipeId} already on PlanId={PlanId} for DayOfWeek={DayOfWeek}, skipping duplicate add.", recipeId, plan.Id, dayOfWeek);
                 return await _context.MealPlans
                     .Include(p => p.Entries)
                         .ThenInclude(e => e.Recipe)
@@ -126,6 +128,7 @@ namespace RecipeHelper.Services
             });
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("AddEntryAsync: added RecipeId={RecipeId} to PlanId={PlanId} for DayOfWeek={DayOfWeek}.", recipeId, plan.Id, dayOfWeek);
 
             return await _context.MealPlans
                 .Include(p => p.Entries)
@@ -142,10 +145,16 @@ namespace RecipeHelper.Services
                 .Include(e => e.MealPlan)
                 .FirstOrDefaultAsync(e => e.Id == entryId);
 
-            if (entry == null) return null;
+            if (entry == null)
+            {
+                _logger.LogWarning("MoveEntryAsync: no MealPlanEntry found for EntryId={EntryId}.", entryId);
+                return null;
+            }
 
+            var previousDayOfWeek = entry.DayOfWeek;
             entry.DayOfWeek = dayOfWeek;
             await _context.SaveChangesAsync();
+            _logger.LogInformation("MoveEntryAsync: EntryId={EntryId} moved from DayOfWeek={PreviousDayOfWeek} to DayOfWeek={NewDayOfWeek}.", entryId, previousDayOfWeek, dayOfWeek);
 
             return await _context.MealPlans
                 .Include(p => p.Entries)
@@ -162,7 +171,11 @@ namespace RecipeHelper.Services
                     .ThenInclude(p => p.Entries)
                 .FirstOrDefaultAsync(e => e.Id == entryId);
 
-            if (entry == null) return null;
+            if (entry == null)
+            {
+                _logger.LogWarning("RemoveEntryAsync: no MealPlanEntry found for EntryId={EntryId}.", entryId);
+                return null;
+            }
 
             var plan = entry.MealPlan;
             _context.MealPlanEntries.Remove(entry);
@@ -172,10 +185,12 @@ namespace RecipeHelper.Services
             {
                 _context.MealPlans.Remove(plan);
                 await _context.SaveChangesAsync();
+                _logger.LogInformation("RemoveEntryAsync: removed EntryId={EntryId}, last entry on PlanId={PlanId} -- plan deleted.", entryId, plan.Id);
                 return null;
             }
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("RemoveEntryAsync: removed EntryId={EntryId} from PlanId={PlanId}, {RemainingCount} entries remain.", entryId, plan.Id, plan.Entries.Count);
 
             return await _context.MealPlans
                 .Include(p => p.Entries)
@@ -192,6 +207,11 @@ namespace RecipeHelper.Services
             {
                 _context.MealPlans.Remove(plan);
                 await _context.SaveChangesAsync();
+                _logger.LogInformation("DeleteAsync: deleted PlanId={PlanId} (WeekStart={WeekStart}, {EntryCount} entries).", id, plan.WeekStartDate, plan.Entries.Count);
+            }
+            else
+            {
+                _logger.LogWarning("DeleteAsync: no MealPlan found for PlanId={PlanId}.", id);
             }
         }
     }

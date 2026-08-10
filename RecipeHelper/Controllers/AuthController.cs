@@ -26,6 +26,7 @@ namespace RecipeHelper.Controllers
         [HttpGet("auth/login")]
         public IActionResult Login(string? returnUrl = "/")
         {
+            _logger.LogInformation("Kroger OAuth login started. ReturnUrl={ReturnUrl}", returnUrl);
             var clientId = _config["OAuth:ClientId"];
             var redirectUri = HttpUtility.UrlEncode(_config["OAuth:RedirectUri"]);
             var state = HttpUtility.UrlEncode(returnUrl);
@@ -45,11 +46,13 @@ namespace RecipeHelper.Controllers
         {
             if (!string.IsNullOrEmpty(error))
             {
+                _logger.LogWarning("Kroger OAuth callback returned an error. Error={Error}", error);
                 return Content($"OAuth Error: {error}");
             }
 
             if (string.IsNullOrEmpty(code))
             {
+                _logger.LogWarning("Kroger OAuth callback received no authorization code.");
                 return Content("No authorization code received.");
             }
 
@@ -66,10 +69,14 @@ namespace RecipeHelper.Controllers
                 { "client_secret", _config["OAuth:ClientSecret"] }
             };
 
+            // Response body is not logged even on failure -- the request includes the
+            // client secret (see the matching comment in
+            // KrogerAuthService.RefreshAccessTokenAsync).
             var response = await client.PostAsync(tokenEndpoint, new FormUrlEncodedContent(data));
 
             if (!response.IsSuccessStatusCode)
             {
+                _logger.LogError("Kroger OAuth token exchange failed. StatusCode={StatusCode}", (int)response.StatusCode);
                 return Content("Error retrieving tokens from authorization code.");
             }
 
@@ -88,7 +95,7 @@ namespace RecipeHelper.Controllers
 
             if (currentUser == null)
             {
-                _logger.LogError("Kroger profile not found");
+                _logger.LogError("Kroger profile lookup failed after successful token exchange. ProfileResponseStatusCode={ProfileResponseStatusCode}", (int)profileResponse.StatusCode);
                 return null;
             }
 
@@ -96,6 +103,7 @@ namespace RecipeHelper.Controllers
             var expiresAt = DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
 
             var existing = await _context.KrogerCustomerTokens.SingleOrDefaultAsync(t => t.KrogerProfileId == currentUserId);
+            var isNewToken = existing == null;
 
             if (existing == null)
             {
@@ -117,6 +125,8 @@ namespace RecipeHelper.Controllers
             }
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Kroger OAuth callback succeeded. KrogerProfileId={KrogerProfileId}, IsNewToken={IsNewToken}, ExpiresAtUtc={ExpiresAtUtc}",
+                currentUserId, isNewToken, expiresAt);
 
             Response.Cookies.Append(
                 "KrogerProfileId",

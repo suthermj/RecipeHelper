@@ -119,6 +119,8 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         public ActionResult SubmitDinnerSelections(List<int> selectedRecipes)
         {
+            _logger.LogInformation("SubmitDinnerSelections started. SelectedRecipeCount={SelectedRecipeCount}", selectedRecipes?.Count ?? 0);
+
             ReviewDinnerSelectionsVM model = new ReviewDinnerSelectionsVM
             {
                 SelectedRecipes = new List<SelectedRecipeVM>(),
@@ -304,6 +306,8 @@ namespace RecipeHelper.Controllers
                 .OrderBy(i => i.Section)
                 .ThenBy(i => i.Name)
                 .ToList();
+
+            _logger.LogInformation("SubmitDinnerSelections completed. RecipeCount={RecipeCount}, DistinctIngredientCount={DistinctIngredientCount}, ResultRowCount={ResultRowCount}", recipes.Count, ingDict.Count, model.Ingredients.Count);
 
             // Redirect-after-post: this page needs to be safely reloadable (e.g. after
             // tapping the PWA's "update available" banner), which a page rendered

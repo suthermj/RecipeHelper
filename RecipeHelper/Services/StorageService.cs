@@ -172,7 +172,11 @@ namespace RecipeHelper.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                // Exception type/message are put directly in the message template (not
+                // just passed as the LogError exception argument) -- see the matching
+                // comment in StoreRecipeImage above for why.
+                _logger.LogError(ex, "Failed to delete recipe image blob. FileName={FileName}, ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
+                    fileName, ex.GetType().FullName, ex.Message);
                 return false;
             }
         }

@@ -41,13 +41,18 @@ namespace RecipeHelper.Services
 
             _context.ShoppingLists.Add(list);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Shopping list created. ListId={ListId}, Name={Name}, ItemCount={ItemCount}", list.Id, name, list.Items.Count);
             return list;
         }
 
         public async Task<ShoppingListItem?> AddItemAsync(int listId, string name, int quantity = 1, string? upc = null)
         {
             var list = await _context.ShoppingLists.FindAsync(listId);
-            if (list == null) return null;
+            if (list == null)
+            {
+                _logger.LogWarning("AddItemAsync: no ShoppingList found for ListId={ListId}.", listId);
+                return null;
+            }
 
             var item = new ShoppingListItem
             {
@@ -59,13 +64,18 @@ namespace RecipeHelper.Services
 
             _context.ShoppingListItems.Add(item);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("AddItemAsync: added ItemId={ItemId} ({Name}) to ListId={ListId}.", item.Id, name, listId);
             return item;
         }
 
         public async Task<bool> RenameAsync(int listId, string name)
         {
             var list = await _context.ShoppingLists.FindAsync(listId);
-            if (list == null) return false;
+            if (list == null)
+            {
+                _logger.LogWarning("RenameAsync: no ShoppingList found for ListId={ListId}.", listId);
+                return false;
+            }
 
             list.Name = name;
             await _context.SaveChangesAsync();
@@ -75,7 +85,11 @@ namespace RecipeHelper.Services
         public async Task<bool> UpdateItemAsync(int itemId, int? quantity = null, bool? isCompleted = null)
         {
             var item = await _context.ShoppingListItems.FindAsync(itemId);
-            if (item == null) return false;
+            if (item == null)
+            {
+                _logger.LogWarning("UpdateItemAsync: no ShoppingListItem found for ItemId={ItemId}.", itemId);
+                return false;
+            }
 
             if (quantity.HasValue) item.Quantity = quantity.Value;
             if (isCompleted.HasValue) item.IsCompleted = isCompleted.Value;
@@ -87,7 +101,11 @@ namespace RecipeHelper.Services
         public async Task<bool> RemoveItemAsync(int itemId)
         {
             var item = await _context.ShoppingListItems.FindAsync(itemId);
-            if (item == null) return false;
+            if (item == null)
+            {
+                _logger.LogWarning("RemoveItemAsync: no ShoppingListItem found for ItemId={ItemId}.", itemId);
+                return false;
+            }
 
             _context.ShoppingListItems.Remove(item);
             await _context.SaveChangesAsync();
@@ -99,10 +117,15 @@ namespace RecipeHelper.Services
             var list = await _context.ShoppingLists
                 .Include(l => l.Items)
                 .FirstOrDefaultAsync(l => l.Id == listId);
-            if (list == null) return false;
+            if (list == null)
+            {
+                _logger.LogWarning("DeleteAsync: no ShoppingList found for ListId={ListId}.", listId);
+                return false;
+            }
 
             _context.ShoppingLists.Remove(list);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Shopping list deleted. ListId={ListId}, ItemCount={ItemCount}", listId, list.Items.Count);
             return true;
         }
 
@@ -111,13 +134,20 @@ namespace RecipeHelper.Services
             var lists = await _context.ShoppingLists.Include(l => l.Items).ToListAsync();
             _context.ShoppingLists.RemoveRange(lists);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("All shopping lists deleted. ListCount={ListCount}", lists.Count);
         }
 
         public async Task UpdateItemAislesAsync(int listId, string? newStoreId, Dictionary<int, (string? aisleNumber, string? aisleDescription)> updates)
         {
             var list = await _context.ShoppingLists.FindAsync(listId);
-            if (list != null && newStoreId != null)
+            if (list == null)
+            {
+                _logger.LogWarning("UpdateItemAislesAsync: no ShoppingList found for ListId={ListId}.", listId);
+            }
+            else if (newStoreId != null)
+            {
                 list.StoreId = newStoreId;
+            }
 
             var items = await _context.ShoppingListItems
                 .Where(i => i.ShoppingListId == listId && updates.Keys.Contains(i.Id))
@@ -133,6 +163,8 @@ namespace RecipeHelper.Services
             }
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("UpdateItemAislesAsync: updated {UpdatedCount} of {RequestedCount} items for ListId={ListId}, NewStoreId={NewStoreId}.",
+                items.Count, updates.Count, listId, newStoreId);
         }
     }
 }

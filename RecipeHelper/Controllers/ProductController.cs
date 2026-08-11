@@ -43,13 +43,18 @@ namespace RecipeHelper.Controllers
 
             if (product is null)
             {
+                _logger.LogWarning("ViewProduct: no product found for ProductId={ProductId}.", productId);
                 TempData["ErrorMessage"] = "Error finding some product details";
                 return RedirectToAction("Products", "Product");
             }
 
             var krogerProduct = await _krogerService.GetProductDetails(product.Upc);
             if (krogerProduct is null || krogerProduct.HasMissingData())
+            {
+                _logger.LogWarning("ViewProduct: Kroger product details missing or incomplete. ProductId={ProductId}, Upc={Upc}, IsNull={IsNull}",
+                    productId, product.Upc, krogerProduct is null);
                 TempData["WarningMessage"] = "Some product details could not be retrieved.";
+            }
 
             if (!string.IsNullOrWhiteSpace(product.Name))
                 krogerProduct.name = product.Name;
@@ -110,7 +115,9 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateProducts(List<KrogerDatabaseProduct> productsToAdd)
         {
+            _logger.LogInformation("CreateProducts started. RequestedCount={RequestedCount}", productsToAdd?.Count ?? 0);
             var result = await _productService.AddProducts(productsToAdd);
+            _logger.LogInformation("CreateProducts completed. RequestedCount={RequestedCount}", productsToAdd?.Count ?? 0);
 
             return Ok(result);
         }

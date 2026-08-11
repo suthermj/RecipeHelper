@@ -9,11 +9,13 @@ namespace RecipeHelper.Controllers
     {
         private readonly KrogerService _krogerService;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<SettingsController> _logger;
 
-        public SettingsController(KrogerService krogerService, IConfiguration configuration)
+        public SettingsController(KrogerService krogerService, IConfiguration configuration, ILogger<SettingsController> logger)
         {
             _krogerService = krogerService;
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -41,6 +43,8 @@ namespace RecipeHelper.Controllers
                 return Json(new List<KrogerLocationDto>());
 
             var locations = await _krogerService.SearchLocations(zipCode);
+            if (locations == null)
+                _logger.LogWarning("SearchStores: Kroger location search returned null for ZipCode={ZipCode}.", zipCode);
             return Json(locations ?? new List<KrogerLocationDto>());
         }
 
@@ -48,6 +52,8 @@ namespace RecipeHelper.Controllers
         public async Task<IActionResult> SearchStoresByLocation(double latitude, double longitude)
         {
             var locations = await _krogerService.SearchLocationsByLatLong(latitude, longitude);
+            if (locations == null)
+                _logger.LogWarning("SearchStoresByLocation: Kroger location search returned null for Latitude={Latitude}, Longitude={Longitude}.", latitude, longitude);
             return Json(locations ?? new List<KrogerLocationDto>());
         }
 
@@ -71,6 +77,8 @@ namespace RecipeHelper.Controllers
                 Response.Cookies.Append("KrogerLocationLng", longitude.Value.ToString(), cookieOptions);
             }
 
+            _logger.LogInformation("Kroger store selected. LocationId={LocationId}, StoreName={StoreName}, HasCoordinates={HasCoordinates}",
+                locationId, storeName, latitude.HasValue && longitude.HasValue);
             TempData["SuccessMessage"] = $"Store set to {storeName}";
             return RedirectToAction("Index");
         }

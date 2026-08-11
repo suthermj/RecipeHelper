@@ -24,6 +24,7 @@ by date rather than by release version.
 ### Changed
 
 - Photo import's recipe extraction (`IngredientsService.ExtractRecipeFromNormalizedPhotosAsync`) now uses `gpt-5.4` instead of `gpt-4o` for the vision call, aiming for more accurate ingredient/quantity extraction from recipe photos.
+- Logging coverage was very uneven — heavy in the recently-touched photo-import path, effectively silent everywhere else (`KrogerAuthService`, `MealPlanService`, `ShoppingListService`, `DinnerController`, `CartController`, `AuthController`'s Kroger OAuth callback, `ShoppingListController`, `ProductController`, `SettingsController`, and the URL-import fallback path in `SpoonacularService` all had zero or near-zero log calls), making Grafana of little use for anything outside that one path. Added structured `Information`/`Warning` logs at the key decision points and mutations across all of those. Also fixed several existing `LogError` calls that were dropping the actual exception (passing only `ex.Message` as a plain string instead of `ex` plus a template, losing the stack trace in Grafana) — including one in `RecipeController.DeleteRecipe` that had its arguments swapped entirely (`ex.Message` used as the format template itself, with the real message and `{id}` passed as unused positional args), so the logged line was neither the real error message nor the intended one.
 
 ### Fixed
 

@@ -103,7 +103,11 @@ namespace RecipeHelper.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error retrieving Kroger access token: {message}", ex.Message);
+                // Exception type/message are put directly in the message template (not
+                // just passed as the LogError exception argument) -- see the matching
+                // comment in StorageService.StoreRecipeImage for why.
+                _logger.LogError(ex, "Error retrieving Kroger access token. ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
+                    ex.GetType().FullName, ex.Message);
                 return null;
             }
             finally
@@ -314,14 +318,18 @@ namespace RecipeHelper.Services
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogError("Error adding item to cart.{statusCode}, {reason}", response.StatusCode, response.ReasonPhrase);
+                    _logger.LogError("Error adding item to cart. StatusCode={StatusCode}, ReasonPhrase={ReasonPhrase}", response.StatusCode, response.ReasonPhrase);
                     return false;
                 }
                 _logger.LogInformation("Successfully added items to Kroger cart.");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Exception occurred while adding items to cart: {ex.Message}");
+                // Exception type/message are put directly in the message template (not
+                // just passed as the LogError exception argument) -- see the matching
+                // comment in StorageService.StoreRecipeImage for why.
+                _logger.LogError(ex, "Exception occurred while adding items to Kroger cart. ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
+                    ex.GetType().FullName, ex.Message);
                 return false;
             }
 
@@ -581,7 +589,11 @@ namespace RecipeHelper.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error getting cart items {ex}", ex.Message);
+                // Exception type/message are put directly in the message template (not
+                // just passed as the LogError exception argument) -- see the matching
+                // comment in StorageService.StoreRecipeImage for why.
+                _logger.LogError(ex, "Error getting Kroger cart items. ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
+                    ex.GetType().FullName, ex.Message);
                 return null;
             }
         }

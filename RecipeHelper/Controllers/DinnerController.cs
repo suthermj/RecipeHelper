@@ -51,8 +51,9 @@ namespace RecipeHelper.Controllers
                 entryId = e.Id,
                 dayOfWeek = e.DayOfWeek,
                 recipeId = e.RecipeId,
-                name = e.Recipe?.Name ?? "",
-                img = e.Recipe?.ImageUri ?? ""
+                name = e.Recipe?.Name ?? e.FreeText ?? "",
+                img = e.Recipe?.ImageUri ?? "",
+                isFreeText = e.RecipeId == null
             }).ToArray() ?? Array.Empty<object>()
         };
 
@@ -63,6 +64,19 @@ namespace RecipeHelper.Controllers
         {
             var week = MealPlanService.GetWeekStart(weekStart);
             var plan = await _mealPlanService.AddEntryAsync(week, dayOfWeek, recipeId);
+            return Json(BuildPlanJson(plan));
+        }
+
+        // POST: Dinner/AddDayFreeText — append a free-text (non-recipe) placeholder entry to a day slot
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddDayFreeText(DateTime weekStart, int dayOfWeek, string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return BadRequest();
+
+            var week = MealPlanService.GetWeekStart(weekStart);
+            var plan = await _mealPlanService.AddFreeTextEntryAsync(week, dayOfWeek, text);
             return Json(BuildPlanJson(plan));
         }
 

@@ -41,6 +41,16 @@ namespace RecipeHelper
                 .HasPrincipalKey(p => p.Upc)
                 .IsRequired(false);
 
+            // RecipeId is optional (free-text entries have no Recipe), but still
+            // cascade-delete on the DB side to match the prior required-FK behavior
+            // when a Recipe is deleted -- the convention default for an optional FK
+            // is ClientSetNull, which this overrides.
+            builder.Entity<MealPlanEntry>()
+                .HasOne(e => e.Recipe)
+                .WithMany()
+                .HasForeignKey(e => e.RecipeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
         }
 
         public DbSet<Recipe> Recipes { get; set; }

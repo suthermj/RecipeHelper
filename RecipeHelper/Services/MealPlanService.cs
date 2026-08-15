@@ -136,6 +136,49 @@ namespace RecipeHelper.Services
                 .FirstAsync(p => p.Id == plan.Id);
         }
 
+        // Appends a free-text (non-recipe) placeholder entry for the given day, e.g.
+        // "homemade pizzas" when nothing's been imported for it yet. Creates the plan
+        // on first entry, same as AddEntryAsync. Not deduped -- unlike recipes, the
+        // same free-text label is a reasonable thing to plan for more than one day.
+        public async Task<MealPlan> AddFreeTextEntryAsync(DateTime weekStart, int dayOfWeek, string text)
+        {
+            if (dayOfWeek < 0 || dayOfWeek > 6)
+                throw new ArgumentOutOfRangeException(nameof(dayOfWeek));
+
+            if (string.IsNullOrWhiteSpace(text))
+                throw new ArgumentException("Text is required.", nameof(text));
+
+            var plan = await _context.MealPlans
+                .Include(p => p.Entries)
+                .FirstOrDefaultAsync(p => p.WeekStartDate == weekStart);
+
+            if (plan == null)
+            {
+                plan = new MealPlan
+                {
+                    WeekStartDate = weekStart,
+                    CreatedUtc = DateTime.UtcNow
+                };
+                _context.MealPlans.Add(plan);
+                await _context.SaveChangesAsync();
+            }
+
+            plan.Entries.Add(new MealPlanEntry
+            {
+                MealPlanId = plan.Id,
+                FreeText = text.Trim(),
+                DayOfWeek = dayOfWeek
+            });
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("AddFreeTextEntryAsync: added free-text entry to PlanId={PlanId} for DayOfWeek={DayOfWeek}.", plan.Id, dayOfWeek);
+
+            return await _context.MealPlans
+                .Include(p => p.Entries)
+                    .ThenInclude(e => e.Recipe)
+                .FirstAsync(p => p.Id == plan.Id);
+        }
+
         public async Task<MealPlan?> MoveEntryAsync(int entryId, int dayOfWeek)
         {
             if (dayOfWeek < 0 || dayOfWeek > 6)

@@ -15,8 +15,11 @@ namespace RecipeHelper.Models.Dinner
         public int Id { get; set; }
         public int MealPlanId { get; set; }
         public MealPlan MealPlan { get; set; } = null!;
-        public int RecipeId { get; set; }
-        public Recipe Recipe { get; set; } = null!;
+        public int? RecipeId { get; set; }
+        public Recipe? Recipe { get; set; }
+        // Set instead of RecipeId/Recipe for a plain "what's for dinner" placeholder
+        // that isn't backed by an imported recipe (e.g. "homemade pizzas").
+        public string? FreeText { get; set; }
         public int DayOfWeek { get; set; }   // 0 = Monday … 6 = Sunday
     }
 

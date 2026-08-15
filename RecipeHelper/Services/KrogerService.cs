@@ -342,6 +342,13 @@ namespace RecipeHelper.Services
 
             _logger.LogInformation("Converting {count} ingredients to Kroger cart items", vm.Items.Count);
 
+            // Fetch all product details concurrently up front (throttled inside GetProductsByUpcBatch)
+            // instead of one awaited HTTP round-trip per ingredient in the loop below -- with a
+            // few dozen ingredients, sequential per-item lookups added up to ~20s of pure serialized
+            // Kroger API latency on a single cart preview.
+            var upcs = vm.Items.Where(i => !string.IsNullOrWhiteSpace(i.Upc)).Select(i => i.Upc);
+            var productsByUpc = await GetProductsByUpcBatch(upcs, GetLocationId());
+
             foreach (var item in vm.Items)
             {
                 if (string.IsNullOrWhiteSpace(item.Upc))
@@ -350,8 +357,7 @@ namespace RecipeHelper.Services
                     continue;
                 }
 
-                var krogerProduct = await GetProductDetails(item.Upc);
-                if (krogerProduct == null)
+                if (!productsByUpc.TryGetValue(item.Upc, out var krogerProduct))
                 {
                     _logger.LogWarning("Could not fetch product details for UPC {upc}, skipping.", item.Upc);
                     continue;

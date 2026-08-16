@@ -54,13 +54,7 @@
         <div class="flex-1 min-w-0 space-y-1">
             <p class="row-name text-[15px] font-semibold leading-snug" style="color: var(--ios-label);">@row.Name</p>
             <div class="row-details space-y-1">
-                @if (!string.IsNullOrWhiteSpace(row.Brand))
-                {
-                    <p class="text-[13px]" style="color: var(--ios-label-2);">@row.Brand</p>
-                }
                 <div class="flex flex-wrap items-center gap-2">
-                    @if (!string.IsNullOrWhiteSpace(row.Size))
-                    { <span class="text-[12px]" style="color: var(--ios-label-2);">@row.Size</span> }
                     @{
                         var preDiscountPrice = row.OnSale && row.PromoPrice > 0 ? row.PromoPrice : row.RegularPrice;
                         var isKrogerBrandItem = IsKrogerBrand(row.Brand);
@@ -86,12 +80,6 @@
                         <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@row.RegularPrice.ToString("C")</span>
                     }
                 </div>
-                @if (!string.IsNullOrWhiteSpace(row.StockLevel))
-                {
-                    <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium @GetStockLevelBadgeClasses(row.StockLevel)">
-                        @row.StockLevel
-                    </span>
-                }
                 @if (!string.IsNullOrWhiteSpace(row.OriginalIngredient))
                 {
                     <p class="text-[11px]" style="color: var(--ios-label-2);">Needed: @row.OriginalIngredient</p>
@@ -295,18 +283,3 @@
     </script>
 }
 
-@functions {
-    public string GetStockLevelBadgeClasses(string level)
-    {
-        level = level?.ToUpperInvariant() ?? "";
-
-        return level switch
-        {
-            "HIGH" => "bg-green-50 text-green-700 border border-green-200",
-            "MEDIUM" => "bg-yellow-50 text-yellow-700 border border-yellow-300",
-            "LOW" => "bg-orange-50 text-orange-700 border border-orange-300",
-            "OUT_OF_STOCK" or "NONE" or "TEMPORARILY_OUT_OF_STOCK" => "bg-red-50 text-red-700 border border-red-300",
-            _ => "bg-gray-100 text-gray-700 border border-gray-200"
-        };
-    }
-}

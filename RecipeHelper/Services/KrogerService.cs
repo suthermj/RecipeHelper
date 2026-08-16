@@ -24,6 +24,14 @@ namespace RecipeHelper.Services
         private const string TokenCacheKey = "kroger:client-credentials-token";
         private static readonly TimeSpan RefreshSkew = TimeSpan.FromSeconds(60);
 
+        // Single user-facing conversion-warning message. The mechanism-specific detail
+        // (which dimension mismatched, which fallback fired, whether a density was
+        // assumed) is genuinely useful for debugging and stays in the server logs via
+        // the LogWarning/LogInformation calls at each site below -- but a shopper
+        // reviewing the cart preview doesn't need any of that to decide whether to
+        // double-check a quantity, so every conversionNote uses this same short text.
+        private const string QuantityNeedsReviewNote = "Estimated — please verify quantity";
+
 
         public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor)
         {
@@ -494,8 +502,8 @@ namespace RecipeHelper.Services
                 quantity = ingredientDim == MeasureDimension.Count
                     ? Math.Max(1, (int)Math.Ceiling(item.Quantity))
                     : 1;
-                conversionNote = "Could not parse product size — quantity defaulted to 1, please verify";
-                _logger.LogWarning("Could not parse size '{size}' for UPC {upc}", krogerProduct.size, item.Upc);
+                conversionNote = QuantityNeedsReviewNote;
+                _logger.LogWarning("Could not parse size '{size}' for UPC {upc} -- quantity defaulted to 1", krogerProduct.size, item.Upc);
             }
             // BRANCH 1: Weight-sold items (produce/deli priced per-lb)
             // Kroger expects quantity in the unit they price by (usually lb)
@@ -518,7 +526,8 @@ namespace RecipeHelper.Services
             else if (ingredientDim == MeasureDimension.Count)
             {
                 quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
-                conversionNote = $"Ingredient is counted but product is sold by {pack.Dimension} — using raw count";
+                conversionNote = QuantityNeedsReviewNote;
+                _logger.LogInformation("Ingredient is counted but product for UPC {upc} is sold by {dim} -- using raw count", item.Upc, pack.Dimension);
             }
             // BRANCH 4: Same dimension (both volume or both weight)
             else if (AreSameDimension(ingredientDim, pack.Dimension))
@@ -537,7 +546,8 @@ namespace RecipeHelper.Services
             else
             {
                 quantity = 1;
-                conversionNote = "Could not determine conversion method — quantity defaulted to 1, please verify";
+                conversionNote = QuantityNeedsReviewNote;
+                _logger.LogWarning("Could not determine a conversion method for UPC {upc} -- quantity defaulted to 1", item.Upc);
             }
 
             return (quantity, conversionNote);
@@ -567,17 +577,21 @@ namespace RecipeHelper.Services
                     var pounds = grams / 453.592m;
 
                     if (density == null)
-                        conversionNote = "Weight-sold item: used default density (water) for volume→weight";
+                    {
+                        conversionNote = QuantityNeedsReviewNote;
+                        _logger.LogInformation("Weight-sold item for UPC {upc}: no density found for '{name}', used default (water) for volume->weight", item.Upc, productName);
+                    }
 
                     return Math.Max(1, (int)Math.Ceiling(pounds));
                 }
             }
 
-            conversionNote = "Weight-sold item: could not convert, using raw quantity";
+            conversionNote = QuantityNeedsReviewNote;
+            _logger.LogWarning("Weight-sold item for UPC {upc}: could not convert, using raw quantity", item.Upc);
             return Math.Max(1, (int)Math.Ceiling(item.Quantity));
         }
 
-        private static int ConvertSameDimension(CartItemVM item, MeasureUnit ingredientUnit,
+        private int ConvertSameDimension(CartItemVM item, MeasureUnit ingredientUnit,
             KrogerPackInfo pack, out string? conversionNote)
         {
             conversionNote = null;
@@ -592,7 +606,8 @@ namespace RecipeHelper.Services
                 return Math.Max(1, (int)Math.Ceiling(ratio));
             }
 
-            conversionNote = "Same dimension but could not compute ratio";
+            conversionNote = QuantityNeedsReviewNote;
+            _logger.LogWarning("Same-dimension conversion for UPC {upc} could not compute a ratio", item.Upc);
             return Math.Max(1, (int)Math.Ceiling(item.Quantity));
         }
 
@@ -607,7 +622,10 @@ namespace RecipeHelper.Services
             var effectiveDensity = density ?? 1.0m;
 
             if (density == null)
-                conversionNote = "Cross-dimension: used default density (water) — review quantity";
+            {
+                conversionNote = QuantityNeedsReviewNote;
+                _logger.LogInformation("Cross-dimension conversion for UPC {upc}: no density found for '{name}', used default (water)", item.Upc, productName);
+            }
 
             decimal ingredientGrams;
             decimal krogerGrams;
@@ -633,7 +651,8 @@ namespace RecipeHelper.Services
                 return Math.Max(1, (int)Math.Ceiling(ratio));
             }
 
-            conversionNote = "Cross-dimension: could not compute ratio";
+            conversionNote = QuantityNeedsReviewNote;
+            _logger.LogWarning("Cross-dimension conversion for UPC {upc} could not compute a ratio", item.Upc);
             return Math.Max(1, (int)Math.Ceiling(item.Quantity));
         }
 

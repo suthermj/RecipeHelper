@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Changed
+
+- Kroger cart preview (`Cart/PreviewAddToCart`) ingredient cards no longer show brand, stock level, or the product's own size/pack measurement — reduced clutter, keeping name, price, needed amount, and quantity. The per-row warning text (shown for "Needs review" items) no longer explains the internal reasoning for a fallback/estimate (which dimension mismatched, whether a density was assumed, etc.) — every case now shows the same short "Estimated — please verify quantity" instead of up to 7 different technical messages. The full mechanism-specific detail is still logged server-side for debugging.
+
 ### Added
 
 - Kroger cart preview (`Cart/PreviewAddToCart`) now groups items into three collapsible sections instead of one flat list: "Needs review" (a conversion fallback/guess was made — starts expanded), "Correctly mapped" (converted cleanly — starts collapsed), and "Not mapped" (couldn't be converted at all, see below — starts expanded). Unchecking a row now collapses it to just the checkbox, a small image, and the name, greyed out, instead of continuing to show its full price/notes/quantity detail — keeps a long list of excluded items from eating vertical space.

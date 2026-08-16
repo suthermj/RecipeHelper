@@ -229,6 +229,12 @@
         user-select: none;
         -webkit-touch-callout: none;
     }
+    .entry-row.entry-tappable {
+        cursor: pointer;
+    }
+    .entry-row.entry-tappable:active {
+        opacity: 0.6;
+    }
     .meal-drag-ghost {
         position: fixed;
         pointer-events: none;
@@ -370,6 +376,7 @@
     const removeEntryUrl     = '@Url.Action("RemoveEntry", "Dinner")';
     const moveEntryUrl       = '@Url.Action("MoveEntry", "Dinner")';
     const getShareLinkUrl    = '@Url.Action("GetShareLink", "Dinner")';
+    const viewRecipeUrl      = '@Url.Action("ViewRecipe", "Recipe", new { Id = 0 })'.replace(/\/0$/, '');
     const pickerBaseBottom   = 'calc(49px + env(safe-area-inset-bottom))';
     let activeDay = null;
     let hideTimeout = null;
@@ -550,6 +557,7 @@
         });
 
         bindClearButtons();
+        bindEntryTaps();
         bindMoveGestures();
         updateRecipeAvailability();
 
@@ -573,7 +581,22 @@
         });
     }
 
+    function bindEntryTaps() {
+        document.querySelectorAll('.entry-row').forEach(row => {
+            const recipeId = row.dataset.recipeId;
+            if (!recipeId) return;
+            row.classList.add('entry-tappable');
+            row.addEventListener('click', e => {
+                if (e.target.closest('.clear-btn')) return;
+                // A drag in progress prevents the synthetic click that follows
+                // touchend, so a click reaching here is always a genuine tap.
+                window.location.href = `${viewRecipeUrl}/${recipeId}`;
+            });
+        });
+    }
+
     bindClearButtons();
+    bindEntryTaps();
 
     function updateRecipeAvailability() {
         document.querySelectorAll('.recipe-option').forEach(btn => {

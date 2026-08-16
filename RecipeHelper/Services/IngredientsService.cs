@@ -616,10 +616,18 @@ namespace RecipeHelper.Services
             }
 
             _logger.LogInformation("Photo extraction validation started. PhotoCount={PhotoCount}", photos.Count);
-            var normalizedPhotos = new List<NormalizedRecipePhoto>();
+
+            // Validate every photo up front (cheap, needs to run in order so the right file's
+            // error surfaces first), then run the actual per-photo work concurrently instead of
+            // one at a time -- each conversion (Magick.NET DNG decode/resize/recompress) is
+            // independent CPU-bound work, and multi-photo imports were paying for them fully
+            // serialized (~1.7s each, ~5s total for a 3-photo DNG import). Same shape as the
+            // Kroger cart preview's sequential product lookups (see GetProductsByUpcBatch).
+            var conversionTasks = new Task<NormalizedRecipePhoto>[photos.Count];
             for (var i = 0; i < photos.Count; i++)
             {
                 var photo = photos[i];
+                var index = i;
                 var isDng = IsDngImage(photo);
                 var maxRawBytes = isDng ? DngPhotoMaxBytes : MaxRawUploadBytes;
                 if (photo.Length > maxRawBytes)
@@ -638,13 +646,13 @@ namespace RecipeHelper.Services
                 var mimeType = GetAllowedImageMimeType(photo);
                 if (mimeType is null && isDng)
                 {
-                    normalizedPhotos.Add(ConvertDngToJpeg(photo, i));
+                    conversionTasks[i] = Task.Run(() => ConvertDngToJpeg(photo, index));
                     continue;
                 }
 
                 if (mimeType is not null && photo.Length > StandardPhotoCompressThresholdBytes)
                 {
-                    normalizedPhotos.Add(CompressStandardImage(photo, i, mimeType));
+                    conversionTasks[i] = Task.Run(() => CompressStandardImage(photo, index, mimeType));
                     continue;
                 }
 
@@ -659,25 +667,10 @@ namespace RecipeHelper.Services
                     throw new ArgumentException($"\"{photo.FileName}\" does not appear to be a valid JPEG, PNG, or WebP image.");
                 }
 
-                using var ms = new MemoryStream();
-                await photo.CopyToAsync(ms);
-                normalizedPhotos.Add(new NormalizedRecipePhoto(
-                    photo.FileName,
-                    photo.FileName,
-                    mimeType,
-                    ms.ToArray(),
-                    false,
-                    photo.ContentType,
-                    photo.Length));
-
-                _logger.LogInformation(
-                    "Photo extraction accepted file. Index={Index}, FileName={FileName}, PostedContentType={PostedContentType}, DetectedMimeType={DetectedMimeType}, LengthBytes={LengthBytes}",
-                    i,
-                    photo.FileName,
-                    photo.ContentType,
-                    mimeType,
-                    photo.Length);
+                conversionTasks[i] = CopyPlainPhotoAsync(photo, mimeType, index);
             }
+
+            var normalizedPhotos = (await Task.WhenAll(conversionTasks)).ToList();
 
             _logger.LogInformation(
                 "Photo extraction normalization completed. PhotoCount={PhotoCount}, ConvertedCount={ConvertedCount}, TotalElapsedMs={TotalElapsedMs}",
@@ -686,6 +679,31 @@ namespace RecipeHelper.Services
                 stopwatch.ElapsedMilliseconds);
 
             return normalizedPhotos;
+        }
+
+        // Extracted from NormalizeRecipePhotosAsync's loop so the plain-image path (no
+        // conversion needed) can run concurrently with the other photos' conversions too.
+        private async Task<NormalizedRecipePhoto> CopyPlainPhotoAsync(IFormFile photo, string mimeType, int index)
+        {
+            using var ms = new MemoryStream();
+            await photo.CopyToAsync(ms);
+
+            _logger.LogInformation(
+                "Photo extraction accepted file. Index={Index}, FileName={FileName}, PostedContentType={PostedContentType}, DetectedMimeType={DetectedMimeType}, LengthBytes={LengthBytes}",
+                index,
+                photo.FileName,
+                photo.ContentType,
+                mimeType,
+                photo.Length);
+
+            return new NormalizedRecipePhoto(
+                photo.FileName,
+                photo.FileName,
+                mimeType,
+                ms.ToArray(),
+                false,
+                photo.ContentType,
+                photo.Length);
         }
 
         public async Task<ImportRecipeVM> ExtractRecipeFromPhotosAsync(List<IFormFile> photos)

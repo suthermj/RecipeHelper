@@ -171,7 +171,7 @@ namespace RecipeHelper.Services
 
                 if (image.Width > maxDimension || image.Height > maxDimension)
                 {
-                    image.Resize(new MagickGeometry(maxDimension, maxDimension)
+                    image.Resize(new MagickGeometry((uint)maxDimension, (uint)maxDimension)
                     {
                         IgnoreAspectRatio = false
                     });

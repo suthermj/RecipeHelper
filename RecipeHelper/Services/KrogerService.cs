@@ -479,11 +479,22 @@ namespace RecipeHelper.Services
             string? conversionNote = null;
             int quantity;
 
-            // If product size couldn't be parsed, fall back to raw quantity
+            // If product size couldn't be parsed, fall back to raw quantity -- but only
+            // when that quantity is actually a count (e.g. "3" cloves), where treating it
+            // as roughly the pack count is a reasonable guess. For Volume/Weight, `item`
+            // here may be a per-UPC bucket already expressed in base units (teaspoons/
+            // grams, see AddRow above) rather than the ingredient's original display
+            // unit -- ceiling that raw number would wildly overstate the pack count (e.g.
+            // "1.5 Cups" becomes 72 base teaspoons, producing a bogus Qty 72 instead of a
+            // small number). There's no way to size a pack without a parseable size, so
+            // default to 1 and flag it for a human to check instead of guessing a number
+            // that looks precise but isn't.
             if (!pack.ParsedOk)
             {
-                quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
-                conversionNote = "Could not parse product size, using ingredient quantity as-is";
+                quantity = ingredientDim == MeasureDimension.Count
+                    ? Math.Max(1, (int)Math.Ceiling(item.Quantity))
+                    : 1;
+                conversionNote = "Could not parse product size — quantity defaulted to 1, please verify";
                 _logger.LogWarning("Could not parse size '{size}' for UPC {upc}", krogerProduct.size, item.Upc);
             }
             // BRANCH 1: Weight-sold items (produce/deli priced per-lb)
@@ -519,11 +530,14 @@ namespace RecipeHelper.Services
             {
                 quantity = ConvertCrossDimension(item, ingredientUnit, ingredientDim, pack, krogerProduct.name, out conversionNote);
             }
-            // BRANCH 6: Fallback
+            // BRANCH 6: Fallback -- only reachable for Volume/Weight ingredients (Count
+            // is always caught by BRANCH 2/3 above), where `item.Quantity` is a base-unit
+            // amount, not a pack-count-like number (see the !pack.ParsedOk comment above
+            // for why ceiling-ing it directly would be wildly wrong). Default to 1.
             else
             {
-                quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
-                conversionNote = "Could not determine conversion method";
+                quantity = 1;
+                conversionNote = "Could not determine conversion method — quantity defaulted to 1, please verify";
             }
 
             return (quantity, conversionNote);

@@ -158,6 +158,13 @@
             </button>
         </form>
 
+        <button type="button" id="shareBtn" class="btn-secondary w-full gap-2">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+            </svg>
+            Share this week
+        </button>
+
         <form asp-action="DeletePlan" method="post"
               onsubmit="return confirm('Delete this meal plan?')">
             @Html.AntiForgeryToken()
@@ -362,6 +369,7 @@
     const addDayFreeTextUrl  = '@Url.Action("AddDayFreeText", "Dinner")';
     const removeEntryUrl     = '@Url.Action("RemoveEntry", "Dinner")';
     const moveEntryUrl       = '@Url.Action("MoveEntry", "Dinner")';
+    const getShareLinkUrl    = '@Url.Action("GetShareLink", "Dinner")';
     const pickerBaseBottom   = 'calc(49px + env(safe-area-inset-bottom))';
     let activeDay = null;
     let hideTimeout = null;
@@ -772,6 +780,34 @@
             undimCard(card);
         }
     }
+
+    document.getElementById('shareBtn').addEventListener('click', async () => {
+        const planId = parseInt(deletePlanIdInput.value);
+        if (!planId) return;
+
+        const body = new URLSearchParams();
+        body.append('planId', String(planId));
+        try {
+            const resp = await fetch(getShareLinkUrl, {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': getToken(), 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                body: body.toString()
+            });
+            if (!resp.ok) throw new Error('Share link failed: ' + resp.status);
+            const data = await resp.json();
+
+            if (navigator.share) {
+                await navigator.share({ title: 'Meal Plan', text: "Here's what's for dinner this week", url: data.url });
+            } else {
+                await navigator.clipboard.writeText(data.url);
+                alert('Link copied to clipboard!');
+            }
+        } catch (err) {
+            if (err?.name !== 'AbortError') {
+                alert('Could not create share link. Please try again.');
+            }
+        }
+    });
 
     async function postMove(entryId, day) {
         const row = document.querySelector(`[data-entry-id="${entryId}"]`);

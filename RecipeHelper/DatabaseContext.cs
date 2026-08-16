@@ -41,6 +41,15 @@ namespace RecipeHelper
                 .HasPrincipalKey(p => p.Upc)
                 .IsRequired(false);
 
+            builder.Entity<MealPlan>()
+                .Property(p => p.ShareToken)
+                .HasMaxLength(450);
+
+            builder.Entity<MealPlan>()
+                .HasIndex(p => p.ShareToken)
+                .IsUnique()
+                .HasFilter("[ShareToken] IS NOT NULL");
+
             // RecipeId is optional (free-text entries have no Recipe), but still
             // cascade-delete on the DB side to match the prior required-FK behavior
             // when a Recipe is deleted -- the convention default for an optional FK

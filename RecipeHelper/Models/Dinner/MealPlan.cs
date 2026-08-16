@@ -7,6 +7,7 @@ namespace RecipeHelper.Models.Dinner
         public int Id { get; set; }
         public DateTime WeekStartDate { get; set; }
         public DateTime CreatedUtc { get; set; }
+        public string? ShareToken { get; set; }
         public List<MealPlanEntry> Entries { get; set; } = new();
     }
 
@@ -28,5 +29,11 @@ namespace RecipeHelper.Models.Dinner
         public DateTime WeekStart { get; set; }
         public MealPlan? Plan { get; set; }
         public List<ViewRecipeVM> AllRecipes { get; set; } = new();
+    }
+
+    public class ShareMealPlanVM
+    {
+        public DateTime WeekStart { get; set; }
+        public MealPlan Plan { get; set; } = null!;
     }
 }

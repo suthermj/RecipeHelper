@@ -98,6 +98,18 @@ namespace RecipeHelper.Controllers
             return Json(BuildPlanJson(plan));
         }
 
+        // POST: Dinner/GetShareLink — get or create the public share link for a plan
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> GetShareLink(int planId)
+        {
+            var token = await _mealPlanService.GetOrCreateShareTokenAsync(planId);
+            if (token == null) return NotFound();
+
+            var url = Url.Action("MealPlan", "Share", new { token }, Request.Scheme);
+            return Json(new { url });
+        }
+
         // POST: Dinner/DeletePlan/5
         [HttpPost]
         [ValidateAntiForgeryToken]

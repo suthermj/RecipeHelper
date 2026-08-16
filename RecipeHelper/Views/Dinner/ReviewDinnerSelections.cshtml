@@ -8,25 +8,12 @@
     ViewData["BackLink"]  = Url.Action("Index", "Dinner");
     ViewData["BackLabel"] = "Meal Plan";
 
+    // Sort priority only -- the Section view no longer shows headers (recipe grouping is
+    // now the default and the more reliable of the two; the underlying grocery-section
+    // data is frequently wrong or absent, see PR notes), but ingredients still render in
+    // this order so genuinely-categorized items still cluster together even without a
+    // visible label.
     var sectionOrder = new[] { "Produce", "Meat", "Dairy", "Pantry", "Bakery", "Frozen" };
-
-    // Real Apple system colors, loosely mapped to each department's actual substance
-    // (green=fresh produce, pink=meat, blue=dairy, brown=dry goods, orange=baked goods,
-    // teal=frozen/cold) rather than invented hues -- keeps the page feeling native to
-    // the app's existing iOS palette instead of importing a new one. Deliberately only
-    // covers the known grocery categories: "Other" and anything else (including
-    // recipe-internal headings that leak into this field on some imported recipes --
-    // see PR notes) fall through to a neutral gray dot rather than being colored as if
-    // they were a real department, which would make that data gap harder to notice.
-    var sectionColors = new Dictionary<string, string>
-    {
-        ["Produce"] = "#34C759",
-        ["Meat"]    = "#FF2D55",
-        ["Dairy"]   = "#007AFF",
-        ["Pantry"]  = "#A2845E",
-        ["Bakery"]  = "#FF9500",
-        ["Frozen"]  = "#5AC8FA",
-    };
 
     var grouped = Model.Ingredients
         .GroupBy(i => string.IsNullOrWhiteSpace(i.Section) ? "Other" : i.Section.Trim())
@@ -96,20 +83,6 @@
               data-loading-text="Building Kroger cart items…">
             @Html.AntiForgeryToken()
 
-            <!-- Progress -- the page's actual job (get from unsorted ingredients to a
-                 confirmed list) made visible as it happens, updated live by JS
-                 (updateCounts below) from the same canonical checkbox state that drives
-                 submission -- purely a read-out, no effect on what's submitted. -->
-            <div class="px-4 pb-3">
-                <div class="flex items-center justify-between mb-1.5">
-                    <span class="text-[13px] font-semibold" style="color: var(--ios-label);">Shopping progress</span>
-                    <span id="progressLabel" class="text-[13px]" style="color: var(--ios-label-2);">@Model.Ingredients.Count of @Model.Ingredients.Count checked</span>
-                </div>
-                <div class="ios-progress-track">
-                    <div id="progressFill" class="ios-progress-fill" style="width: 100%;"></div>
-                </div>
-            </div>
-
             <!-- Search + view toggle + bulk actions -->
             <div class="px-4 pb-3 space-y-2.5">
                 <div class="flex items-center gap-2">
@@ -122,8 +95,8 @@
                                class="ios-search-input" />
                     </div>
                     <div class="ios-segmented shrink-0">
-                        <button type="button" id="viewBySectionBtn" class="view-toggle-btn ios-segmented-btn active" data-view="section">Section</button>
-                        <button type="button" id="viewByRecipeBtn"  class="view-toggle-btn ios-segmented-btn" data-view="recipe">Recipe</button>
+                        <button type="button" id="viewBySectionBtn" class="view-toggle-btn ios-segmented-btn" data-view="section">Section</button>
+                        <button type="button" id="viewByRecipeBtn"  class="view-toggle-btn ios-segmented-btn active" data-view="recipe">Recipe</button>
                     </div>
                 </div>
                 <div class="flex overflow-x-auto gap-2 hide-scrollbar">
@@ -160,31 +133,26 @@
                 }
             </div>
 
-            <!-- Grouped by grocery section (default view) -->
-            <div id="viewBySection" class="review-view">
-                @foreach (var group in grouped)
-                {
-                    var dotColor = sectionColors.TryGetValue(group.Key, out var c) ? c : "var(--ios-label-3)";
-                    <div class="section-group mb-5" data-section="@group.Key">
-                        <div class="flex items-center justify-between px-4 pt-1 pb-1.5">
-                            <div class="flex items-center gap-2">
-                                <span class="h-2.5 w-2.5 rounded-full shrink-0" style="background: @dotColor;"></span>
-                                <p class="ios-section-hdr" style="padding: 0;">@group.Key</p>
-                            </div>
-                            <span class="group-count text-[12px]" style="color: var(--ios-label-3);">@group.Count() of @group.Count()</span>
-                        </div>
-                        <div class="ios-group">
-                            @foreach (var item in group)
+            <!-- Flat list, sorted by grocery section priority -- no headers (see
+                 sectionOrder comment above for why: the underlying grocery-section data
+                 is unreliable, so a flat list avoids presenting broken/leaked headings
+                 as if they were real categories). -->
+            <div id="viewBySection" class="review-view hidden">
+                <div class="section-group mb-5">
+                    <div class="ios-group">
+                        @foreach (var group in grouped)
+                        {
+                            foreach (var item in group)
                             {
                                 @RenderRow((item, false))
                             }
-                        </div>
+                        }
                     </div>
-                }
+                </div>
             </div>
 
             <!-- Grouped by recipe -->
-            <div id="viewByRecipe" class="review-view hidden">
+            <div id="viewByRecipe" class="review-view">
                 @foreach (var recipeGroup in Model.RecipeGroups)
                 {
                     <div class="section-group mb-5" data-section="@recipeGroup.RecipeName">
@@ -226,10 +194,10 @@
                 border-top: 0.5px solid var(--ios-separator);">
         <div class="max-w-3xl mx-auto flex gap-3">
             <button type="button" id="add-to-list-button" class="btn-secondary flex-1">
-                Shopping List
+                <span id="listCount">Add @Model.Ingredients.Count to List</span>
             </button>
             <button type="submit" form="add-to-kroger-form" id="add-to-kroger-button" class="btn-primary flex-1">
-                Kroger Cart
+                <span id="cartCount">Add @Model.Ingredients.Count to Cart</span>
             </button>
         </div>
     </div>
@@ -283,21 +251,30 @@
             }
         }
 
-        var progressLabel = document.getElementById('progressLabel');
-        var progressFill  = document.getElementById('progressFill');
+        var cartCountEl = document.getElementById('cartCount');
+        var listCountEl = document.getElementById('listCount');
 
         // Reads the same canonical checkbox state that drives submission -- purely a
-        // read-out for the progress bar / per-group counts, no effect on what's
-        // actually submitted. Called after every state-changing action.
+        // read-out for the action-button counts / per-group counts, no effect on what's
+        // actually submitted. This is a selection count, not a completion tracker --
+        // checked means "will be added," not "already have" or "done," so leaving items
+        // unchecked (pantry staples you already own, etc.) is a normal end state, not an
+        // incomplete one. Matches how the reference grocery app frames this same step:
+        // a live count baked into the "Add N items" action itself, no separate progress
+        // affordance implying a finish line. Called after every state-changing action.
         function updateCounts() {
             var allInputs = document.querySelectorAll('.ing-inputs');
-            var total = allInputs.length;
             var checked = 0;
             allInputs.forEach(function (el) {
                 if (el.querySelector('.ingredient-checkbox')?.checked) checked++;
             });
-            if (progressLabel) progressLabel.textContent = checked + ' of ' + total + ' checked';
-            if (progressFill) progressFill.style.width = (total ? Math.round(checked / total * 100) : 0) + '%';
+            // Whole label set in one go (not just the number) -- .btn-primary/.btn-secondary
+            // are display:flex, which collapses the plain-space text nodes flex would
+            // otherwise need between "Add", the count, and "to Cart"/"to List", running
+            // the words together with no visible space. Setting one element's full text
+            // sidesteps that instead of fighting flex's whitespace handling.
+            if (cartCountEl) cartCountEl.textContent = 'Add ' + checked + ' to Cart';
+            if (listCountEl) listCountEl.textContent = 'Add ' + checked + ' to List';
 
             document.querySelectorAll('.section-group').forEach(function (group) {
                 var rows = group.querySelectorAll('.ingredient-row');
@@ -383,7 +360,7 @@
             recipe:  document.getElementById('viewByRecipe')
         };
         function setView(view) {
-            if (!views[view]) view = 'section';
+            if (!views[view]) view = 'recipe';
             Object.keys(views).forEach(function (key) {
                 views[key].classList.toggle('hidden', key !== view);
             });
@@ -396,7 +373,7 @@
         viewToggleBtns.forEach(function (btn) {
             btn.addEventListener('click', function () { setView(btn.dataset.view); });
         });
-        setView(localStorage.getItem('reviewIngredientsView') || 'section');
+        setView(localStorage.getItem('reviewIngredientsView') || 'recipe');
         updateCounts();
     });
 </script>

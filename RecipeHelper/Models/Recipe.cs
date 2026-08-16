@@ -119,5 +119,30 @@ namespace RecipeHelper.Models
                 return Measurement;
             }
         }
+
+        // Identifies which canonical (merged) row on the ingredient review page this
+        // ingredient belongs to -- name + dimension family, not name + exact measurement
+        // string. DinnerController.SubmitDinnerSelections can emit up to 3 rows for one
+        // ingredient name when merged entries span dimensions (volume/weight/unit), and
+        // the "best display unit" it then picks for a merged row (e.g. summed
+        // tablespoons re-expressed as cups) need not match any single recipe's original
+        // measurement string. Bucketing by dimension family instead of the literal
+        // string is what lets the by-recipe view (#78) and the merged section view stay
+        // in sync when toggling the same ingredient from either one. Count and Unknown
+        // both bucket as "Unit", matching the `default:` case in that same aggregation.
+        public string DimensionKey
+        {
+            get
+            {
+                var dim = UnitConverter.GetDimension(UnitConverter.Parse(Measurement));
+                var bucket = dim switch
+                {
+                    MeasureDimension.Volume => "Volume",
+                    MeasureDimension.Weight => "Weight",
+                    _ => "Unit"
+                };
+                return $"{Name?.Trim().ToLowerInvariant()}|{bucket}";
+            }
+        }
     }
 }

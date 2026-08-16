@@ -185,6 +185,53 @@ html {
   color: #fff;
 }
 
+/* ─── Segmented Control ─── */
+/* Two-or-more-way exclusive view toggle (e.g. "Section | Recipe" on the ingredient
+   review page) -- visually distinct from .ios-pill's independent filter buttons so a
+   row combining both reads as two different kinds of control at a glance. */
+.ios-segmented {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--ios-fill);
+  border-radius: 9px;
+  gap: 2px;
+}
+
+.ios-segmented-btn {
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ios-label-2);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.ios-segmented-btn.active {
+  background: var(--ios-surface);
+  color: var(--ios-label);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* ─── Check-circle pop ─── */
+/* Same shape as day-card-target-pop (Dinner/Index) applied to a 24px check circle --
+   a brief scale-up-then-settle on check, standing in for haptic feedback the same way
+   day-card-target-pop does when dragging a meal plan entry across days. */
+@keyframes check-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.check-circle.pop {
+  animation: check-pop 0.22s ease-out;
+}
+
 .ios-choice-input {
   position: absolute;
   opacity: 0;

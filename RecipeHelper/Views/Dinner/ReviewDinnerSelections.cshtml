@@ -8,6 +8,11 @@
     ViewData["BackLink"]  = Url.Action("Index", "Dinner");
     ViewData["BackLabel"] = "Meal Plan";
 
+    // Sort priority only -- the All view no longer shows headers (recipe grouping is
+    // now the default and the more reliable of the two; the underlying grocery-section
+    // data is frequently wrong or absent, see PR notes), but ingredients still render in
+    // this order so genuinely-categorized items still cluster together even without a
+    // visible label.
     var sectionOrder = new[] { "Produce", "Meat", "Dairy", "Pantry", "Bakery", "Frozen" };
 
     var grouped = Model.Ingredients
@@ -18,6 +23,44 @@
         })
         .ThenBy(g => g.Key)
         .ToList();
+
+    // Keys that appear in more than one recipe group -- flagged in the by-recipe view
+    // so it's clear an ingredient's amount there is only that recipe's share, not the
+    // full shopping total (which still lives in the All view / merged Ingredients).
+    var sharedKeys = Model.RecipeGroups
+        .SelectMany(g => g.Ingredients.Select(i => i.DimensionKey).Distinct())
+        .GroupBy(k => k)
+        .Where(g => g.Count() > 1)
+        .Select(g => g.Key)
+        .ToHashSet();
+
+    // Shared row template for both views (#78) -- display only, no form inputs. Every
+    // row is tagged data-key (IngredientVM.DimensionKey: name + dimension family) so
+    // toggling any row with a given key, in either view, can find and update every
+    // other row sharing it plus the one canonical hidden input block that actually
+    // submits (see #ingredient-inputs below).
+    Func<(IngredientVM Item, bool IsRecipeView), object> RenderRow = @<div class="ingredient-row ios-cell cursor-pointer select-none transition-opacity"
+         data-key="@item.Item.DimensionKey"
+         data-name="@item.Item.Name.ToLowerInvariant()"
+         style="border-bottom: 0.5px solid var(--ios-separator);">
+        <!-- Check circle -->
+        <div class="check-circle h-6 w-6 rounded-full shrink-0 flex items-center justify-center transition-colors"
+             style="background: #34C759; border: 2px solid #34C759;">
+            <svg class="check-icon h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+        </div>
+        <span class="item-name flex-1 text-[15px] font-medium" style="color: var(--ios-label);">
+            @item.Item.Name
+            @if (item.IsRecipeView && sharedKeys.Contains(item.Item.DimensionKey))
+            {
+                <span class="text-[11px] font-normal" style="color: var(--ios-label-2);">(shared)</span>
+            }
+        </span>
+        <span class="text-[12px] font-medium shrink-0 px-2 py-0.5 rounded-full" style="color: var(--ios-label-2); background: var(--ios-fill);">
+            @item.Item.DisplayQuantity @item.Item.DisplayMeasurement
+        </span>
+    </div>;
 }
 
 <div class="pt-2 pb-36">
@@ -40,60 +83,97 @@
               data-loading-text="Building Kroger cart items…">
             @Html.AntiForgeryToken()
 
-            <!-- Search + bulk actions -->
-            <div class="px-4 pb-3 space-y-2">
-                <div class="ios-search-wrap">
-                    <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                    </svg>
-                    <input type="text" id="ingredientSearch" placeholder="Search ingredients…"
-                           class="ios-search-input" />
+            <!-- Search + view toggle + bulk actions -->
+            <div class="px-4 pb-3 space-y-2.5">
+                <div class="flex items-center gap-2">
+                    <div class="ios-search-wrap flex-1">
+                        <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        </svg>
+                        <input type="text" id="ingredientSearch" placeholder="Search ingredients…"
+                               class="ios-search-input" />
+                    </div>
+                    <div class="ios-segmented shrink-0">
+                        <button type="button" id="viewByAllBtn"    class="view-toggle-btn ios-segmented-btn" data-view="all">All</button>
+                        <button type="button" id="viewByRecipeBtn"  class="view-toggle-btn ios-segmented-btn active" data-view="recipe">Recipe</button>
+                    </div>
                 </div>
-                <div class="flex gap-2 flex-wrap">
+                <div class="flex overflow-x-auto gap-2 hide-scrollbar">
                     <button type="button" id="selectAllBtn" class="ios-pill">Select all</button>
                     <button type="button" id="clearAllBtn"  class="ios-pill">Clear all</button>
                     <button type="button" id="pantryBtn"    class="ios-pill">Uncheck pantry</button>
                 </div>
             </div>
 
-            <!-- Ingredient list grouped by section -->
-            <div id="ingredientList">
+            <!-- Canonical form inputs -- the only thing that submits. One block per
+                 merged ingredient row, in the same section-grouped order/index sequence
+                 as before this change, so Items[i] indices are unchanged regardless of
+                 which display view is active. -->
+            <div id="ingredient-inputs" hidden>
                 @{var i = 0;}
                 @foreach (var group in grouped)
                 {
-                    <div class="section-group" data-section="@group.Key">
-                        <p class="ios-section-hdr" style="padding-top:12px;">@group.Key</p>
-                        <div class="ios-group">
-                            @foreach (var item in group)
-                            {
-                                <div class="ingredient-row ios-cell cursor-pointer select-none transition-opacity"
-                                     data-name="@item.Name.ToLowerInvariant()"
-                                     style="border-bottom: 0.5px solid var(--ios-separator);">
-                                    <!-- Check circle -->
-                                    <div class="check-circle h-6 w-6 rounded-full shrink-0 flex items-center justify-center transition-colors"
-                                         style="background: #34C759; border: 2px solid #34C759;">
-                                        <svg class="check-icon h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    </div>
-                                    <span class="item-name flex-1 text-[15px] font-medium" style="color: var(--ios-label);">@item.Name</span>
-                                    <span class="text-[13px] shrink-0" style="color: var(--ios-label-2);">
-                                        @item.DisplayQuantity @item.DisplayMeasurement
-                                    </span>
+                    foreach (var item in group)
+                    {
+                        <div class="ing-inputs" data-key="@item.DimensionKey">
+                            <input type="checkbox"
+                                   name="Items[@i].Include"
+                                   value="true"
+                                   checked
+                                   class="ingredient-checkbox" />
+                            <input type="hidden" name="Items[@i].Name"        value="@item.Name" />
+                            <input type="hidden" name="Items[@i].Upc"         value="@item.Upc" />
+                            <input type="hidden" name="Items[@i].Quantity"    value="@item.Quantity" />
+                            <input type="hidden" name="Items[@i].Modality"    value="PICKUP" />
+                            <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
+                        </div>
+                        i++;
+                    }
+                }
+            </div>
 
-                                    <input type="checkbox"
-                                           name="Items[@i].Include"
-                                           value="true"
-                                           checked
-                                           class="ingredient-checkbox sr-only" />
-                                    <input type="hidden" name="Items[@i].Name"        value="@item.Name" />
-                                    <input type="hidden" name="Items[@i].Upc"         value="@item.Upc" />
-                                    <input type="hidden" name="Items[@i].Quantity"    value="@item.Quantity" />
-                                    <input type="hidden" name="Items[@i].Modality"    value="PICKUP" />
-                                    <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
-                                </div>
-                                i++;
+            <!-- Flat list, sorted by grocery section priority -- no headers (see
+                 sectionOrder comment above for why: the underlying grocery-section data
+                 is unreliable, so a flat list avoids presenting broken/leaked headings
+                 as if they were real categories). -->
+            <div id="viewByAll" class="review-view hidden">
+                <div class="section-group mb-5">
+                    <div class="ios-group">
+                        @foreach (var group in grouped)
+                        {
+                            foreach (var item in group)
+                            {
+                                @RenderRow((item, false))
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grouped by recipe -->
+            <div id="viewByRecipe" class="review-view">
+                @foreach (var recipeGroup in Model.RecipeGroups)
+                {
+                    <div class="section-group mb-5" data-section="@recipeGroup.RecipeName">
+                        <div class="flex items-center gap-2.5 px-4 pt-1 pb-2">
+                            <div class="h-9 w-9 rounded-lg overflow-hidden shrink-0" style="background: var(--ios-fill); box-shadow: 0 1px 4px rgba(0,0,0,0.07);">
+                                <img src="@(recipeGroup.ThumbnailUri is { Length: > 0 } tu ? tu : recipeGroup.ImageUri)"
+                                     alt="" loading="lazy" decoding="async" class="h-full w-full object-cover" />
+                            </div>
+                            <p class="flex-1 text-[15px] font-semibold truncate" style="color: var(--ios-label);">
+                                @recipeGroup.RecipeName
+                                @if (recipeGroup.Occurrences > 1)
+                                {
+                                    <span class="text-[12px] font-medium" style="color: var(--ios-label-2);">×@recipeGroup.Occurrences</span>
+                                }
+                            </p>
+                            <span class="group-count text-[12px] shrink-0" style="color: var(--ios-label-3);">@recipeGroup.Ingredients.Count of @recipeGroup.Ingredients.Count</span>
+                        </div>
+                        <div class="ios-group">
+                            @foreach (var item in recipeGroup.Ingredients)
+                            {
+                                @RenderRow((item, true))
                             }
                         </div>
                     </div>
@@ -114,10 +194,10 @@
                 border-top: 0.5px solid var(--ios-separator);">
         <div class="max-w-3xl mx-auto flex gap-3">
             <button type="button" id="add-to-list-button" class="btn-secondary flex-1">
-                Shopping List
+                <span id="listCount">Add @Model.Ingredients.Count to List</span>
             </button>
             <button type="submit" form="add-to-kroger-form" id="add-to-kroger-button" class="btn-primary flex-1">
-                Kroger Cart
+                <span id="cartCount">Add @Model.Ingredients.Count to Cart</span>
             </button>
         </div>
     </div>
@@ -139,38 +219,105 @@
             form.requestSubmit();
         });
 
-        function setRowState(row, checked) {
+        function styleRow(row, checked) {
             var circle = row.querySelector('.check-circle');
             var icon   = row.querySelector('.check-icon');
             var name   = row.querySelector('.item-name');
-            var cb     = row.querySelector('.ingredient-checkbox');
 
             if (checked) {
                 row.style.opacity = '';
-                if (circle) { circle.style.background = '#34C759'; circle.style.borderColor = '#34C759'; }
+                if (circle) {
+                    circle.style.background = '#34C759';
+                    circle.style.borderColor = '#34C759';
+                    // Brief scale-pop on check only (not uncheck, so bulk clear-all
+                    // doesn't fire it) -- stands in for haptic feedback, same idea as
+                    // Dinner/Index's day-card-target-pop on a drag crossing into a new
+                    // day. 'animationend' with once:true means rapid re-taps just
+                    // restart cleanly rather than stacking listeners.
+                    circle.classList.remove('pop');
+                    void circle.offsetWidth; // force reflow so re-adding the class restarts the animation
+                    circle.classList.add('pop');
+                    circle.addEventListener('animationend', function () {
+                        circle.classList.remove('pop');
+                    }, { once: true });
+                }
                 if (icon)   icon.classList.remove('hidden');
                 if (name)   { name.style.textDecoration = ''; name.style.color = ''; }
-                if (cb)     cb.checked = true;
             } else {
                 row.style.opacity = '0.4';
                 if (circle) { circle.style.background = 'var(--ios-fill)'; circle.style.borderColor = 'var(--ios-separator)'; }
                 if (icon)   icon.classList.add('hidden');
                 if (name)   { name.style.textDecoration = 'line-through'; name.style.color = 'var(--ios-label-2)'; }
-                if (cb)     cb.checked = false;
             }
+        }
+
+        var cartCountEl = document.getElementById('cartCount');
+        var listCountEl = document.getElementById('listCount');
+
+        // Reads the same canonical checkbox state that drives submission -- purely a
+        // read-out for the action-button counts / per-group counts, no effect on what's
+        // actually submitted. This is a selection count, not a completion tracker --
+        // checked means "will be added," not "already have" or "done," so leaving items
+        // unchecked (pantry staples you already own, etc.) is a normal end state, not an
+        // incomplete one. Matches how the reference grocery app frames this same step:
+        // a live count baked into the "Add N items" action itself, no separate progress
+        // affordance implying a finish line. Called after every state-changing action.
+        function updateCounts() {
+            var allInputs = document.querySelectorAll('.ing-inputs');
+            var checked = 0;
+            allInputs.forEach(function (el) {
+                if (el.querySelector('.ingredient-checkbox')?.checked) checked++;
+            });
+            // Whole label set in one go (not just the number) -- .btn-primary/.btn-secondary
+            // are display:flex, which collapses the plain-space text nodes flex would
+            // otherwise need between "Add", the count, and "to Cart"/"to List", running
+            // the words together with no visible space. Setting one element's full text
+            // sidesteps that instead of fighting flex's whitespace handling.
+            if (cartCountEl) cartCountEl.textContent = 'Add ' + checked + ' to Cart';
+            if (listCountEl) listCountEl.textContent = 'Add ' + checked + ' to List';
+
+            document.querySelectorAll('.section-group').forEach(function (group) {
+                var rows = group.querySelectorAll('.ingredient-row');
+                var groupChecked = 0;
+                rows.forEach(function (row) {
+                    var cb = document.querySelector('.ing-inputs[data-key="' + CSS.escape(row.dataset.key) + '"] .ingredient-checkbox');
+                    if (cb?.checked) groupChecked++;
+                });
+                var countEl = group.querySelector('.group-count');
+                if (countEl) countEl.textContent = groupChecked + ' of ' + rows.length;
+            });
+        }
+
+        // Toggling a key updates every display row sharing it (in both views) plus the
+        // one canonical hidden input block that actually submits.
+        function setKeyState(key, checked) {
+            document.querySelectorAll('.ingredient-row[data-key="' + CSS.escape(key) + '"]').forEach(function (row) {
+                styleRow(row, checked);
+            });
+            var inputBlock = document.querySelector('.ing-inputs[data-key="' + CSS.escape(key) + '"]');
+            var cb = inputBlock?.querySelector('.ingredient-checkbox');
+            if (cb) cb.checked = checked;
+            updateCounts();
+        }
+
+        function allKeys() {
+            return Array.from(document.querySelectorAll('.ing-inputs')).map(function (el) { return el.dataset.key; });
         }
 
         document.addEventListener('click', function (e) {
             var row = e.target.closest('.ingredient-row');
             if (!row) return;
-            var cb = row.querySelector('.ingredient-checkbox');
-            setRowState(row, !cb.checked);
+            var key = row.dataset.key;
+            var cb = document.querySelector('.ing-inputs[data-key="' + CSS.escape(key) + '"] .ingredient-checkbox');
+            setKeyState(key, !cb?.checked);
         });
 
         var searchInput = document.getElementById('ingredientSearch');
-        searchInput?.addEventListener('input', function () {
-            var term = this.value.toLowerCase().trim();
-            document.querySelectorAll('.section-group').forEach(function (group) {
+        function applySearch() {
+            var term = (searchInput?.value || '').toLowerCase().trim();
+            var activeView = document.querySelector('.review-view:not(.hidden)');
+            if (!activeView) return;
+            activeView.querySelectorAll('.section-group').forEach(function (group) {
                 var visibleCount = 0;
                 group.querySelectorAll('.ingredient-row').forEach(function (row) {
                     var matches = !term || row.dataset.name.includes(term);
@@ -179,7 +326,8 @@
                 });
                 group.classList.toggle('hidden', visibleCount === 0);
             });
-        });
+        }
+        searchInput?.addEventListener('input', applySearch);
 
         var pantryKeywords = [
             'olive oil','vegetable oil','canola oil','cooking oil',
@@ -191,17 +339,46 @@
         ];
 
         document.getElementById('selectAllBtn')?.addEventListener('click', function () {
-            document.querySelectorAll('.ingredient-row').forEach(function (row) { setRowState(row, true); });
+            allKeys().forEach(function (key) { setKeyState(key, true); });
         });
         document.getElementById('clearAllBtn')?.addEventListener('click', function () {
-            document.querySelectorAll('.ingredient-row').forEach(function (row) { setRowState(row, false); });
+            allKeys().forEach(function (key) { setKeyState(key, false); });
         });
         document.getElementById('pantryBtn')?.addEventListener('click', function () {
-            document.querySelectorAll('.ingredient-row').forEach(function (row) {
-                if (pantryKeywords.some(function (kw) { return row.dataset.name.includes(kw); })) {
-                    setRowState(row, false);
+            allKeys().forEach(function (key) {
+                var name = key.split('|')[0];
+                if (pantryKeywords.some(function (kw) { return name.includes(kw); })) {
+                    setKeyState(key, false);
                 }
             });
         });
+
+        // View toggle (All / Recipe), persisted in localStorage. Renaming the "Section"
+        // view to "All" (it's a flat list now, not grouped headers -- see the
+        // sectionOrder comment above) also fixes a real bug for free: a browser that
+        // already has the old 'section' string stored from before this rename won't
+        // match any key in `views` below, so `setView` falls through to the 'recipe'
+        // default instead of silently keeping the stale view forever.
+        var viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
+        var views = {
+            all:    document.getElementById('viewByAll'),
+            recipe: document.getElementById('viewByRecipe')
+        };
+        function setView(view) {
+            if (!views[view]) view = 'recipe';
+            Object.keys(views).forEach(function (key) {
+                views[key].classList.toggle('hidden', key !== view);
+            });
+            viewToggleBtns.forEach(function (btn) {
+                btn.classList.toggle('active', btn.dataset.view === view);
+            });
+            localStorage.setItem('reviewIngredientsView', view);
+            applySearch();
+        }
+        viewToggleBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () { setView(btn.dataset.view); });
+        });
+        setView(localStorage.getItem('reviewIngredientsView') || 'recipe');
+        updateCounts();
     });
 </script>

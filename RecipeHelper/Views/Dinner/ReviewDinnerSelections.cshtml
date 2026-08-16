@@ -8,7 +8,7 @@
     ViewData["BackLink"]  = Url.Action("Index", "Dinner");
     ViewData["BackLabel"] = "Meal Plan";
 
-    // Sort priority only -- the Section view no longer shows headers (recipe grouping is
+    // Sort priority only -- the All view no longer shows headers (recipe grouping is
     // now the default and the more reliable of the two; the underlying grocery-section
     // data is frequently wrong or absent, see PR notes), but ingredients still render in
     // this order so genuinely-categorized items still cluster together even without a
@@ -26,7 +26,7 @@
 
     // Keys that appear in more than one recipe group -- flagged in the by-recipe view
     // so it's clear an ingredient's amount there is only that recipe's share, not the
-    // full shopping total (which still lives in the section view / merged Ingredients).
+    // full shopping total (which still lives in the All view / merged Ingredients).
     var sharedKeys = Model.RecipeGroups
         .SelectMany(g => g.Ingredients.Select(i => i.DimensionKey).Distinct())
         .GroupBy(k => k)
@@ -95,7 +95,7 @@
                                class="ios-search-input" />
                     </div>
                     <div class="ios-segmented shrink-0">
-                        <button type="button" id="viewBySectionBtn" class="view-toggle-btn ios-segmented-btn" data-view="section">Section</button>
+                        <button type="button" id="viewByAllBtn"    class="view-toggle-btn ios-segmented-btn" data-view="all">All</button>
                         <button type="button" id="viewByRecipeBtn"  class="view-toggle-btn ios-segmented-btn active" data-view="recipe">Recipe</button>
                     </div>
                 </div>
@@ -137,7 +137,7 @@
                  sectionOrder comment above for why: the underlying grocery-section data
                  is unreliable, so a flat list avoids presenting broken/leaked headings
                  as if they were real categories). -->
-            <div id="viewBySection" class="review-view hidden">
+            <div id="viewByAll" class="review-view hidden">
                 <div class="section-group mb-5">
                     <div class="ios-group">
                         @foreach (var group in grouped)
@@ -353,11 +353,16 @@
             });
         });
 
-        // View toggle (Section / Recipe), persisted in localStorage.
+        // View toggle (All / Recipe), persisted in localStorage. Renaming the "Section"
+        // view to "All" (it's a flat list now, not grouped headers -- see the
+        // sectionOrder comment above) also fixes a real bug for free: a browser that
+        // already has the old 'section' string stored from before this rename won't
+        // match any key in `views` below, so `setView` falls through to the 'recipe'
+        // default instead of silently keeping the stale view forever.
         var viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
         var views = {
-            section: document.getElementById('viewBySection'),
-            recipe:  document.getElementById('viewByRecipe')
+            all:    document.getElementById('viewByAll'),
+            recipe: document.getElementById('viewByRecipe')
         };
         function setView(view) {
             if (!views[view]) view = 'recipe';

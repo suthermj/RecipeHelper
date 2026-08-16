@@ -183,8 +183,7 @@ namespace RecipeHelper.Controllers
         public async Task<IActionResult> DeleteMultiple(List<int> ids)
         {
             _logger.LogInformation("DeleteMultiple started. ListCount={ListCount}", ids?.Count ?? 0);
-            foreach (var id in ids ?? new())
-                await _shoppingListService.DeleteAsync(id);
+            await _shoppingListService.DeleteManyAsync(ids ?? new());
             return RedirectToAction(nameof(Index));
         }
 

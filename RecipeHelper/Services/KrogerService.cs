@@ -584,10 +584,17 @@ namespace RecipeHelper.Services
                 var content = await cartsResponse.Content.ReadAsStringAsync();
                 var cartItems = JsonConvert.DeserializeObject<KrogerGetCartsResponse>(content);
 
-                foreach (var item in cartItems.data[0].items)
+                // Batch-fetch product details instead of one sequential Kroger call per
+                // cart line -- same fix as ConvertIngredientsToCartItems already applies,
+                // now reused here for the "View Cart" load.
+                var items = cartItems.data[0].items;
+                var productsByUpc = await GetProductsByUpcBatch(items.Select(i => i.upc), GetLocationId());
+                foreach (var item in items)
                 {
-                    var productDetails = await GetProductDetails(item.upc);
-                    products.Add(productDetails.ToDetailedCartItem(item.quantity));
+                    if (productsByUpc.TryGetValue(item.upc, out var productDetails))
+                    {
+                        products.Add(productDetails.ToDetailedCartItem(item.quantity));
+                    }
                 }
 
                 return products;

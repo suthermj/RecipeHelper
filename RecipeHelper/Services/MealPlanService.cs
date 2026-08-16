@@ -99,6 +99,7 @@ namespace RecipeHelper.Services
 
             var plan = await _context.MealPlans
                 .Include(p => p.Entries)
+                    .ThenInclude(e => e.Recipe)
                 .FirstOrDefaultAsync(p => p.WeekStartDate == weekStart);
 
             if (plan == null)
@@ -115,26 +116,25 @@ namespace RecipeHelper.Services
             if (plan.Entries.Any(e => e.RecipeId == recipeId))
             {
                 _logger.LogInformation("AddEntryAsync: RecipeId={RecipeId} already on PlanId={PlanId} for DayOfWeek={DayOfWeek}, skipping duplicate add.", recipeId, plan.Id, dayOfWeek);
-                return await _context.MealPlans
-                    .Include(p => p.Entries)
-                        .ThenInclude(e => e.Recipe)
-                    .FirstAsync(p => p.Id == plan.Id);
+                return plan;
             }
 
-            plan.Entries.Add(new MealPlanEntry
+            var newEntry = new MealPlanEntry
             {
                 MealPlanId = plan.Id,
                 RecipeId = recipeId,
                 DayOfWeek = dayOfWeek
-            });
+            };
+            plan.Entries.Add(newEntry);
 
             await _context.SaveChangesAsync();
+            // The Recipe nav wasn't loaded by the Include above (this entry didn't exist
+            // yet) -- explicit-load just it (single indexed lookup by PK) rather than
+            // re-querying the whole plan graph again for BuildPlanJson's sake.
+            await _context.Entry(newEntry).Reference(e => e.Recipe).LoadAsync();
             _logger.LogInformation("AddEntryAsync: added RecipeId={RecipeId} to PlanId={PlanId} for DayOfWeek={DayOfWeek}.", recipeId, plan.Id, dayOfWeek);
 
-            return await _context.MealPlans
-                .Include(p => p.Entries)
-                    .ThenInclude(e => e.Recipe)
-                .FirstAsync(p => p.Id == plan.Id);
+            return plan;
         }
 
         // Appends a free-text (non-recipe) placeholder entry for the given day, e.g.
@@ -151,6 +151,7 @@ namespace RecipeHelper.Services
 
             var plan = await _context.MealPlans
                 .Include(p => p.Entries)
+                    .ThenInclude(e => e.Recipe)
                 .FirstOrDefaultAsync(p => p.WeekStartDate == weekStart);
 
             if (plan == null)
@@ -171,13 +172,11 @@ namespace RecipeHelper.Services
                 DayOfWeek = dayOfWeek
             });
 
+            // No Recipe nav to load -- free-text entries have no RecipeId.
             await _context.SaveChangesAsync();
             _logger.LogInformation("AddFreeTextEntryAsync: added free-text entry to PlanId={PlanId} for DayOfWeek={DayOfWeek}.", plan.Id, dayOfWeek);
 
-            return await _context.MealPlans
-                .Include(p => p.Entries)
-                    .ThenInclude(e => e.Recipe)
-                .FirstAsync(p => p.Id == plan.Id);
+            return plan;
         }
 
         public async Task<MealPlan?> MoveEntryAsync(int entryId, int dayOfWeek)
@@ -187,6 +186,8 @@ namespace RecipeHelper.Services
 
             var entry = await _context.MealPlanEntries
                 .Include(e => e.MealPlan)
+                    .ThenInclude(p => p.Entries)
+                        .ThenInclude(e => e.Recipe)
                 .FirstOrDefaultAsync(e => e.Id == entryId);
 
             if (entry == null)
@@ -200,10 +201,7 @@ namespace RecipeHelper.Services
             await _context.SaveChangesAsync();
             _logger.LogInformation("MoveEntryAsync: EntryId={EntryId} moved from DayOfWeek={PreviousDayOfWeek} to DayOfWeek={NewDayOfWeek}.", entryId, previousDayOfWeek, dayOfWeek);
 
-            return await _context.MealPlans
-                .Include(p => p.Entries)
-                    .ThenInclude(e => e.Recipe)
-                .FirstAsync(p => p.Id == entry.MealPlanId);
+            return entry.MealPlan;
         }
 
         // Removes a single entry by id. Deletes the plan when the last entry is cleared.
@@ -213,6 +211,7 @@ namespace RecipeHelper.Services
             var entry = await _context.MealPlanEntries
                 .Include(e => e.MealPlan)
                     .ThenInclude(p => p.Entries)
+                        .ThenInclude(e => e.Recipe)
                 .FirstOrDefaultAsync(e => e.Id == entryId);
 
             if (entry == null)
@@ -236,10 +235,7 @@ namespace RecipeHelper.Services
             await _context.SaveChangesAsync();
             _logger.LogInformation("RemoveEntryAsync: removed EntryId={EntryId} from PlanId={PlanId}, {RemainingCount} entries remain.", entryId, plan.Id, plan.Entries.Count);
 
-            return await _context.MealPlans
-                .Include(p => p.Entries)
-                    .ThenInclude(e => e.Recipe)
-                .FirstAsync(p => p.Id == plan.Id);
+            return plan;
         }
 
         // Returns the plan's existing share token, generating and persisting one on first call.

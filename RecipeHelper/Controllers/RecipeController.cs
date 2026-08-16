@@ -31,10 +31,10 @@ namespace RecipeHelper.Controllers
             _ingredientsService = ingredientsService;
         }
 
-        public ActionResult Recipe()
+        public async Task<ActionResult> Recipe()
         {
 
-            var recipes = _context.Recipes.Select(r => new ViewRecipeVM
+            var recipes = await _context.Recipes.AsNoTracking().Select(r => new ViewRecipeVM
             {
                 Id = r.Id,
                 RecipeName = r.Name,
@@ -48,14 +48,14 @@ namespace RecipeHelper.Controllers
                     Measurement = rp.Measurement.Name,
                     Section = rp.Section,
                 }).ToList(),
-            }).ToList();
+            }).ToListAsync();
 
             return View(recipes);
         }
 
-        public ActionResult ViewRecipe(int Id)
+        public async Task<ActionResult> ViewRecipe(int Id)
         {
-            var data = _context.Recipes.Where(r => r.Id == Id).Select(r => new
+            var data = await _context.Recipes.AsNoTracking().Where(r => r.Id == Id).Select(r => new
             {
                 r.Id,
                 r.Name,
@@ -70,7 +70,7 @@ namespace RecipeHelper.Controllers
                     Measurement = rp.Measurement.Name,
                     Section = rp.Section,
                 }).ToList(),
-            }).FirstOrDefault();
+            }).FirstOrDefaultAsync();
 
             if (data == null) return RedirectToAction("Recipe");
 
@@ -105,7 +105,7 @@ namespace RecipeHelper.Controllers
             }
             else
             {
-                var data = await _context.Recipes.Where(r => r.Id == id).Select(r => new
+                var data = await _context.Recipes.AsNoTracking().Where(r => r.Id == id).Select(r => new
                 {
                     r.Id,
                     r.Name,

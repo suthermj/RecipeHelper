@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
 using RecipeHelper.Models.Dinner;
 using RecipeHelper.Services;
@@ -31,14 +32,14 @@ namespace RecipeHelper.Controllers
             {
                 WeekStart = week,
                 Plan = plan,
-                AllRecipes = _context.Recipes.Select(r => new ViewRecipeVM
+                AllRecipes = await _context.Recipes.AsNoTracking().Select(r => new ViewRecipeVM
                 {
                     Id = r.Id,
                     RecipeName = r.Name,
                     ImageUri = r.ImageUri,
                     ThumbnailUri = r.ThumbnailUri,
                     DinnerCategory = r.DinnerCategory,
-                }).ToList(),
+                }).ToListAsync(),
             };
 
             return View(vm);
@@ -123,9 +124,9 @@ namespace RecipeHelper.Controllers
         }
 
         // GET: Dinner/SelectWeeklyRecipes — kept for ingredient review flow
-        public ActionResult SelectWeeklyRecipes()
+        public async Task<ActionResult> SelectWeeklyRecipes()
         {
-            var recipes = _context.Recipes.Select(r => new ViewRecipeVM
+            var recipes = await _context.Recipes.AsNoTracking().Select(r => new ViewRecipeVM
             {
                 Id = r.Id,
                 RecipeName = r.Name,
@@ -137,7 +138,7 @@ namespace RecipeHelper.Controllers
                     Name = rp.DisplayName,
                     Quantity = rp.Quantity,
                 }).ToList(),
-            }).ToList();
+            }).ToListAsync();
 
             return View(recipes);
         }
@@ -145,7 +146,7 @@ namespace RecipeHelper.Controllers
         // POST: Dinner/SubmitDinnerSelections — ingredient aggregation
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult SubmitDinnerSelections(List<int> selectedRecipes)
+        public async Task<ActionResult> SubmitDinnerSelections(List<int> selectedRecipes)
         {
             _logger.LogInformation("SubmitDinnerSelections started. SelectedRecipeCount={SelectedRecipeCount}", selectedRecipes?.Count ?? 0);
 
@@ -159,7 +160,7 @@ namespace RecipeHelper.Controllers
             var idCounts = selectedRecipes.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
             var distinctIds = idCounts.Keys.ToList();
 
-            var recipeRows = _context.Recipes.Where(r => distinctIds.Contains(r.Id)).Select(r => new ViewRecipeVM
+            var recipeRows = await _context.Recipes.AsNoTracking().Where(r => distinctIds.Contains(r.Id)).Select(r => new ViewRecipeVM
             {
                 Id = r.Id,
                 RecipeName = r.Name,
@@ -173,7 +174,7 @@ namespace RecipeHelper.Controllers
                     Upc = rp.SelectedKrogerUpc,
                     Measurement = rp.Measurement.Name == null ? "Count" : rp.Measurement.Name
                 }).ToList(),
-            }).ToList();
+            }).ToListAsync();
 
             // Expand each recipe by its occurrence count before aggregation
             var recipes = new List<ViewRecipeVM>();

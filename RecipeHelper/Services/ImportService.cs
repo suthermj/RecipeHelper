@@ -141,8 +141,28 @@ namespace RecipeHelper.Services
 
             var ingredientsNoExactMatch = new List<PreviewImportedRecipeIngredient>();
 
-            foreach (var ingredient in mergedIngredients)
+            // Canonicalize (OpenAI call, no DbContext access) up front across all
+            // ingredients at once instead of one sequential await per ingredient in the
+            // loop below -- same throttled fan-out pattern as IngredientFuzzySearch's
+            // Kroger lookups just below this method.
+            var canonicalizeThrottle = new SemaphoreSlim(5);
+            var canonicalizeTasks = mergedIngredients.Select(async ing =>
             {
+                await canonicalizeThrottle.WaitAsync();
+                try
+                {
+                    return await _ingredientService.CanonicalizeAsync(ing.CleanName, CancellationToken.None);
+                }
+                finally
+                {
+                    canonicalizeThrottle.Release();
+                }
+            }).ToList();
+            var canonicalNames = await Task.WhenAll(canonicalizeTasks);
+
+            for (var idx = 0; idx < mergedIngredients.Count; idx++)
+            {
+                var ingredient = mergedIngredients[idx];
                 var ingredientPreview = new ImportPreviewIngredient
                 {
                     Name = ingredient.Name,
@@ -151,8 +171,7 @@ namespace RecipeHelper.Services
                     Section = ingredient.Section,
                 };
 
-                var canonicalName = await _ingredientService.CanonicalizeAsync(ingredient.CleanName, CancellationToken.None);
-                var cleanedName = canonicalName.CanonicalName;  
+                var cleanedName = canonicalNames[idx].CanonicalName;
 
                 if (ingredientDict.TryGetValue(cleanedName, out var ingredientId))
                 {
@@ -220,6 +239,30 @@ namespace RecipeHelper.Services
             }
             _logger.LogInformation($"Attempting to add [{recipe.Ingredients.Count}] ingredients to recipe [{recipe.Title}]");
 
+            // Canonicalize (OpenAI call, no DbContext access) up front for every ingredient
+            // that'll need it below, instead of one sequential await per ingredient inside
+            // the DB-writing loop -- same throttled fan-out pattern used in
+            // GetImportedRecipePreview/IngredientFuzzySearch. The loop itself stays
+            // sequential (it creates rows and depends on each other's generated ids), but
+            // this collapses what was N sequential OpenAI round trips into one batch.
+            var canonicalizeThrottle = new SemaphoreSlim(5);
+            var canonicalizeTasks = recipe.Ingredients.Select(async ing =>
+            {
+                if (ing.Include == false || !(ing.IngredientId is null || ing.IngredientId == 0))
+                    return (string?)null;
+                await canonicalizeThrottle.WaitAsync();
+                try
+                {
+                    var result = await _ingredientService.CanonicalizeAsync(ing.Name, CancellationToken.None);
+                    return result.CanonicalName;
+                }
+                finally
+                {
+                    canonicalizeThrottle.Release();
+                }
+            }).ToList();
+            var canonicalNames = await Task.WhenAll(canonicalizeTasks);
+
             for (var index = 0; index < recipe.Ingredients.Count; index++)
             {
                 var ingredient = recipe.Ingredients[index];
@@ -228,8 +271,7 @@ namespace RecipeHelper.Services
                 // Create new canonical ingredient since no ingredientId is present
                 if (ingredient.IngredientId is null || ingredient.IngredientId == 0)
                 {
-                    var canonicalResult = await _ingredientService.CanonicalizeAsync(ingredient.Name, CancellationToken.None);
-                    var canonicalName = canonicalResult.CanonicalName;
+                    var canonicalName = canonicalNames[index]!;
 
                     var canonicalIngredient = await _ingredientService.GetIngredientByCanonical(canonicalName);
 

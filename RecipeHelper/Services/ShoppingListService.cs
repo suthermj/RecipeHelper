@@ -129,6 +129,20 @@ namespace RecipeHelper.Services
             return true;
         }
 
+        // Batch version of DeleteAsync for multi-select delete -- one Include query +
+        // one SaveChangesAsync for the whole set instead of a per-id round trip.
+        public async Task DeleteManyAsync(IEnumerable<int> listIds)
+        {
+            var ids = listIds.Distinct().ToList();
+            var lists = await _context.ShoppingLists
+                .Include(l => l.Items)
+                .Where(l => ids.Contains(l.Id))
+                .ToListAsync();
+            _context.ShoppingLists.RemoveRange(lists);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Shopping lists deleted. RequestedCount={RequestedCount}, DeletedCount={DeletedCount}", ids.Count, lists.Count);
+        }
+
         public async Task DeleteAllAsync()
         {
             var lists = await _context.ShoppingLists.Include(l => l.Items).ToListAsync();

@@ -49,6 +49,7 @@ namespace RecipeHelper.Services
                 if (blobResponse != null)
                 {
                     newRecipe.ImageUri = blobResponse.BlobUri;
+                    newRecipe.ThumbnailUri = blobResponse.ThumbnailUri;
                 }
                 else
                 {
@@ -162,6 +163,7 @@ namespace RecipeHelper.Services
                 if (blobResponse != null)
                 {
                     recipe.ImageUri = blobResponse.BlobUri;
+                    recipe.ThumbnailUri = blobResponse.ThumbnailUri;
                 }
                 else
                 {

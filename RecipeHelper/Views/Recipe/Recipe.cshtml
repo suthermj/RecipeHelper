@@ -88,9 +88,11 @@
                    style="text-decoration: none;">
 
                     <div class="w-full aspect-[4/3] overflow-hidden" style="background: var(--ios-fill);">
-                        <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri)
-                                        ? Url.Content("https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp")
-                                        : recipe.ImageUri)"
+                        <img src="@(!string.IsNullOrWhiteSpace(recipe.ThumbnailUri)
+                                        ? recipe.ThumbnailUri
+                                        : string.IsNullOrWhiteSpace(recipe.ImageUri)
+                                            ? Url.Content("https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp")
+                                            : recipe.ImageUri)"
                              alt="@recipe.RecipeName"
                              loading="lazy"
                              decoding="async"

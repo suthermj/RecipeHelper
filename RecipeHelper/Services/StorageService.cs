@@ -20,6 +20,14 @@ namespace RecipeHelper.Services
         private const int MaxImageDimension = 2000;
         private const int JpegQuality = 88;
 
+        // Second, smaller derivative generated alongside the full-size image, used
+        // anywhere a recipe image renders as a thumbnail rather than full-size (meal
+        // plan entries at 56x40 CSS px, the recipe picker at 48x48, recipe list/select
+        // cards up to a few hundred CSS px wide) -- 500px covers all of those sharply
+        // even at 3x device pixel ratio, while still being a small fraction of the
+        // 2000px full-size original.
+        private const int ThumbnailMaxDimension = 500;
+
         private BlobContainerClient _blobContainerClient;
         private BlobClient _blobClient;
         private BlobServiceClient _blobServiceClient;
@@ -89,6 +97,34 @@ namespace RecipeHelper.Services
 
                 response.BlobUri = $"{_accountUri}/recipe-images/{fileName}";
                 response.BlobName = fileName;
+
+                // Best-effort: a thumbnail failure shouldn't fail the whole upload, since
+                // the main image (already uploaded above) is what matters most. Callers
+                // fall back to the full-size image when ThumbnailUri/ThumbnailName are null.
+                try
+                {
+                    var (thumbBytes, thumbFileNameBase, thumbContentType) = CompressRecipeImage(
+                        originalBuffer.ToArray(), originalFileName, contentType, ThumbnailMaxDimension);
+                    string thumbFileName = "thumb_" + thumbFileNameBase.Replace(" ", ",") + guid.ToString();
+
+                    var thumbBlobClient = containerClient.GetBlobClient(thumbFileName);
+                    using var thumbUploadStream = new MemoryStream(thumbBytes);
+
+                    await thumbBlobClient.UploadAsync(thumbUploadStream, new BlobHttpHeaders
+                    {
+                        ContentType = thumbContentType,
+                        CacheControl = RecipeImageCacheControl
+                    });
+
+                    response.ThumbnailUri = $"{_accountUri}/recipe-images/{thumbFileName}";
+                    response.ThumbnailName = thumbFileName;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to store recipe image thumbnail; recipe will fall back to the full-size image. FileName={FileName}, ExceptionType={ExceptionType}",
+                        originalFileName, ex.GetType().FullName);
+                }
+
                 return response;
             }
             catch (Exception ex)
@@ -121,7 +157,7 @@ namespace RecipeHelper.Services
         // StoreRecipeImage's outer catch, silently dropping the image entirely instead of
         // just skipping the resize/recompress step.
         private (byte[] Bytes, string FileName, string ContentType) CompressRecipeImage(
-            byte[] originalBytes, string originalFileName, string originalContentType)
+            byte[] originalBytes, string originalFileName, string originalContentType, int maxDimension = MaxImageDimension)
         {
             try
             {
@@ -133,9 +169,9 @@ namespace RecipeHelper.Services
                 image.Format = MagickFormat.Jpeg;
                 image.Quality = JpegQuality;
 
-                if (image.Width > MaxImageDimension || image.Height > MaxImageDimension)
+                if (image.Width > maxDimension || image.Height > maxDimension)
                 {
-                    image.Resize(new MagickGeometry(MaxImageDimension, MaxImageDimension)
+                    image.Resize(new MagickGeometry(maxDimension, maxDimension)
                     {
                         IgnoreAspectRatio = false
                     });
@@ -146,8 +182,8 @@ namespace RecipeHelper.Services
 
                 var convertedFileName = Path.ChangeExtension(originalFileName, ".jpg") ?? originalFileName;
                 _logger.LogInformation(
-                    "Recipe image compressed. FileName={FileName}, SourceLengthBytes={SourceLengthBytes}, CompressedLengthBytes={CompressedLengthBytes}, Width={Width}, Height={Height}",
-                    originalFileName, originalBytes.Length, output.Length, image.Width, image.Height);
+                    "Recipe image compressed. FileName={FileName}, SourceLengthBytes={SourceLengthBytes}, CompressedLengthBytes={CompressedLengthBytes}, Width={Width}, Height={Height}, MaxDimension={MaxDimension}",
+                    originalFileName, originalBytes.Length, output.Length, image.Width, image.Height, maxDimension);
 
                 return (output.ToArray(), convertedFileName, "image/jpeg");
             }

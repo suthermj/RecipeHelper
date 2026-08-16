@@ -12,6 +12,12 @@ namespace RecipeHelper.Models
         public int Id { get; set; }
         public required string Name { get; set; }
         public string? ImageUri { get; set; } = string.Empty;
+        // Small (~500px max dimension) derivative of ImageUri, used anywhere the image
+        // renders as a thumbnail (meal plan entries, recipe picker, recipe list) instead
+        // of transferring the full-size image for a tiny box. Null for recipes whose
+        // image was uploaded before this existed, or if thumbnail generation failed --
+        // callers fall back to ImageUri in that case.
+        public string? ThumbnailUri { get; set; }
         public string? Instructions { get; set; }
         public string? DinnerCategory { get; set; }
         public string? SourceUrl { get; set; }
@@ -23,6 +29,7 @@ namespace RecipeHelper.Models
         public int Id { get; set; }
         public required string RecipeName { get; set; }
         public string ImageUri { get; set; } = string.Empty;
+        public string? ThumbnailUri { get; set; }
         public string? DinnerCategory { get; set; }
         public string? SourceUrl { get; set; }
         public List<IngredientVM> Ingredients { get; set; } = [];

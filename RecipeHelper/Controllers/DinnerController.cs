@@ -36,6 +36,7 @@ namespace RecipeHelper.Controllers
                     Id = r.Id,
                     RecipeName = r.Name,
                     ImageUri = r.ImageUri,
+                    ThumbnailUri = r.ThumbnailUri,
                     DinnerCategory = r.DinnerCategory,
                 }).ToList(),
             };
@@ -52,7 +53,7 @@ namespace RecipeHelper.Controllers
                 dayOfWeek = e.DayOfWeek,
                 recipeId = e.RecipeId,
                 name = e.Recipe?.Name ?? e.FreeText ?? "",
-                img = e.Recipe?.ImageUri ?? "",
+                img = e.Recipe?.ThumbnailUri ?? e.Recipe?.ImageUri ?? "",
                 isFreeText = e.RecipeId == null
             }).ToArray() ?? Array.Empty<object>()
         };
@@ -129,6 +130,7 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
+                ThumbnailUri = r.ThumbnailUri,
                 DinnerCategory = r.DinnerCategory,
                 Ingredients = r.Ingredients.Select(rp => new IngredientVM
                 {

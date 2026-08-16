@@ -33,15 +33,21 @@ namespace RecipeHelper.Services
 
         // Downloads a recipe-source-hosted image and re-uploads it to our own Blob Storage
         // (through StorageService.StoreRecipeImage, so it gets the same resize/recompress +
-        // immutable Cache-Control as a manual upload) instead of linking the source site's
-        // URL directly. Falls back to the original URL on any failure -- a slow/unreachable
-        // source shouldn't block the import or leave the recipe with no image at all.
-        private async Task<string?> RehostExternalImageAsync(string? sourceUrl)
+        // immutable Cache-Control as a manual upload, plus a thumbnail derivative) instead
+        // of linking the source site's URL directly. Falls back to the original URL on any
+        // failure -- a slow/unreachable source shouldn't block the import or leave the
+        // recipe with no image at all.
+        //
+        // If sourceUrl is already one of our own blobs (the photo-import flow already
+        // uploaded it via StoreRecipeImage before this runs), this is a no-op and returns
+        // it unchanged -- ThumbnailUri comes back null in that case since re-deriving it
+        // here would mean re-downloading and re-uploading an image we already have hosted.
+        private async Task<(string? ImageUri, string? ThumbnailUri)> RehostExternalImageAsync(string? sourceUrl)
         {
-            if (string.IsNullOrWhiteSpace(sourceUrl)) return sourceUrl;
+            if (string.IsNullOrWhiteSpace(sourceUrl)) return (sourceUrl, null);
             if (sourceUrl.StartsWith(_storageService.AccountUri, StringComparison.OrdinalIgnoreCase))
             {
-                return sourceUrl;
+                return (sourceUrl, null);
             }
 
             try
@@ -56,7 +62,7 @@ namespace RecipeHelper.Services
                 {
                     _logger.LogWarning("Failed to download recipe image for re-hosting (status {StatusCode}): {SourceUrl}",
                         (int)response.StatusCode, sourceUrl);
-                    return sourceUrl;
+                    return (sourceUrl, null);
                 }
 
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
@@ -68,15 +74,15 @@ namespace RecipeHelper.Services
                 if (blobResponse == null)
                 {
                     _logger.LogWarning("Failed to re-host recipe image, keeping source URL: {SourceUrl}", sourceUrl);
-                    return sourceUrl;
+                    return (sourceUrl, null);
                 }
 
-                return blobResponse.BlobUri;
+                return (blobResponse.BlobUri, blobResponse.ThumbnailUri);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Exception re-hosting recipe image, keeping source URL: {SourceUrl}", sourceUrl);
-                return sourceUrl;
+                return (sourceUrl, null);
             }
         }
 
@@ -187,10 +193,13 @@ namespace RecipeHelper.Services
             ImportRecipeResponse response = new ImportRecipeResponse();
             await using var tx = await _context.Database.BeginTransactionAsync();
 
+            var (rehostedImageUri, rehostedThumbnailUri) = await RehostExternalImageAsync(recipe.Image);
+
             var newRecipe = new Recipe
             {
                 Name = recipe.Title,
-                ImageUri = await RehostExternalImageAsync(recipe.Image),
+                ImageUri = rehostedImageUri,
+                ThumbnailUri = rehostedThumbnailUri,
                 SourceUrl = recipe.SourceUrl,
                 Instructions = recipe.Steps.Count > 0
                     ? System.Text.Json.JsonSerializer.Serialize(recipe.Steps)

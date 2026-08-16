@@ -125,23 +125,18 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        var form      = document.getElementById('add-to-kroger-form');
-        var krogerBtn = document.getElementById('add-to-kroger-button');
-        var listBtn   = document.getElementById('add-to-list-button');
+        var form    = document.getElementById('add-to-kroger-form');
+        var listBtn = document.getElementById('add-to-list-button');
 
-        krogerBtn?.addEventListener('click', function () {
-            krogerBtn.disabled = true;
-            krogerBtn.classList.add('opacity-70', 'cursor-not-allowed');
-            krogerBtn.textContent = 'Adding to Kroger…';
-            form.submit();
-        });
-
+        // add-to-kroger-button is type="submit" (associated to #add-to-kroger-form via its
+        // form="" attribute), so clicking it already submits natively -- no JS
+        // needed. The shared loading overlay (site.js, driven by the form's
+        // "loading-form" class) covers the whole screen once shown, which is
+        // enough to block a repeat tap; a separate button-text swap would just
+        // be a second, redundant loading indicator underneath it.
         listBtn?.addEventListener('click', function () {
             form.action = '@Url.Action("CreateFromMealPlan", "ShoppingList")';
-            listBtn.disabled = true;
-            listBtn.classList.add('opacity-70', 'cursor-not-allowed');
-            listBtn.textContent = 'Creating list…';
-            form.submit();
+            form.requestSubmit();
         });
 
         function setRowState(row, checked) {

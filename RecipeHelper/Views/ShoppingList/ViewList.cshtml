@@ -449,7 +449,7 @@
     switchStoreBtn.addEventListener('click', async function () {
         if (!pendingNearbyStore) return;
         switchStoreBtn.disabled = true;
-        switchStoreBtn.textContent = 'Updating aisles…';
+        showLoadingOverlay('Updating store & aisles…');
         const fd = new FormData();
         fd.append('locationId', pendingNearbyStore.locationId);
         fd.append('storeName',  pendingNearbyStore.name);

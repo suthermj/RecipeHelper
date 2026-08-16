@@ -11,17 +11,6 @@
 
 <div class="pt-2 pb-6">
 
-    <!-- Loading overlay -->
-    <div id="loadingOverlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center" style="background: rgba(0,0,0,0.3);">
-        <div class="flex items-center gap-3 px-5 py-4 rounded-2xl" style="background: var(--ios-surface);">
-            <svg class="animate-spin h-5 w-5" style="color: var(--ios-red);" viewBox="0 0 24 24" fill="none">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
-            </svg>
-            <span id="loadingText" class="text-[15px]" style="color: var(--ios-label);">Importing recipe...</span>
-        </div>
-    </div>
-
     @if (!hasResult)
     {
         <!-- Tab switcher -->
@@ -269,13 +258,10 @@
 
 <script>
     (function () {
-        const overlay     = document.getElementById('loadingOverlay');
-        const loadingText = document.getElementById('loadingText');
         const initialTab  = '@preferredTab';
 
         window.addEventListener('pageshow', function () {
-            if (!overlay) return;
-            overlay.classList.add('hidden');
+            hideLoadingOverlay();
         });
 
         // Tab switching
@@ -331,8 +317,7 @@
                 urlInput.readOnly = true;
                 importSpinner.classList.remove('hidden');
                 importBtnText.textContent = 'Importing...';
-                loadingText.textContent = 'Importing recipe...';
-                overlay.classList.remove('hidden');
+                showLoadingOverlay('Importing recipe...');
             });
         }
 
@@ -518,11 +503,10 @@
                     return;
                 }
 
-                loadingText.textContent = 'Extracting recipe from photo...';
-                overlay.classList.remove('hidden');
+                showLoadingOverlay('Extracting recipe from photo...');
                 photoSubmitBtn.disabled = true;
                 photoLoadingTimer = window.setTimeout(function () {
-                    loadingText.textContent = 'Still extracting. DNG photos may take longer to convert.';
+                    showLoadingOverlay('Still extracting. DNG photos may take longer to convert.');
                 }, 30000);
             });
         }

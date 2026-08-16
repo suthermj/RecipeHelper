@@ -65,22 +65,33 @@ function showUpdateBanner(onReload) {
     });
 }
 
-// Loading overlay for forms with class "loading-form"
-// Optionally set data-loading-text="Custom message..." on the form
+// Shared full-screen loading overlay (markup lives once in _Layout.cshtml).
+// showLoadingOverlay/hideLoadingOverlay let any page-level JS (not just
+// ".loading-form" submits below) opt into the same overlay instead of
+// hand-rolling its own disable/textContent loading feedback.
 (function () {
     var overlay = document.getElementById('loadingOverlay');
     var loadingText = document.getElementById('loadingText');
     if (!overlay) return;
 
+    window.showLoadingOverlay = function (text) {
+        if (loadingText) loadingText.textContent = text || 'Loading...';
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+    };
+
+    window.hideLoadingOverlay = function () {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+    };
+
+    // Loading overlay for forms with class "loading-form"
+    // Optionally set data-loading-text="Custom message..." on the form
     document.addEventListener('submit', function (e) {
         var form = e.target;
         if (!form.classList.contains('loading-form')) return;
 
-        var text = form.getAttribute('data-loading-text') || 'Loading...';
-        if (loadingText) loadingText.textContent = text;
-
-        overlay.classList.remove('hidden');
-        overlay.classList.add('flex');
+        window.showLoadingOverlay(form.getAttribute('data-loading-text'));
 
         // Disable all submit buttons in the form to prevent double-submit
         form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {

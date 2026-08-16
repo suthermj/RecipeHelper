@@ -33,7 +33,7 @@
                 <label class="text-[13px]" style="color: var(--ios-label-2);">Image</label>
                 @if (!string.IsNullOrEmpty(Model.ImageUri))
                 {
-                    <img src="@Model.ImageUri" alt="Current recipe image"
+                    <img src="@(Model.ThumbnailUri is { Length: > 0 } tu ? tu : Model.ImageUri)" alt="Current recipe image"
                          class="h-20 w-20 rounded-xl object-cover" />
                 }
                 <div class="flex items-center gap-3 flex-wrap">

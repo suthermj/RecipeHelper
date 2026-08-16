@@ -34,9 +34,11 @@
                         data-id="@recipe.Id">
 
                     <div class="relative w-full h-28 sm:h-32 bg-gray-100 overflow-hidden">
-                        <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri)
-                                        ? "https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp"
-                                        : recipe.ImageUri)"
+                        <img src="@(!string.IsNullOrWhiteSpace(recipe.ThumbnailUri)
+                                        ? recipe.ThumbnailUri
+                                        : string.IsNullOrWhiteSpace(recipe.ImageUri)
+                                            ? "https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp"
+                                            : recipe.ImageUri)"
                              alt="@recipe.RecipeName"
                              class="w-full h-full object-cover" />
                         <div class="absolute top-2 right-2 hidden js-check-indicator">

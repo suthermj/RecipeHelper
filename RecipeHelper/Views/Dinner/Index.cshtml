@@ -106,7 +106,7 @@
                                     }
                                     else
                                     {
-                                        <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
+                                        <img src="@(entry.Recipe?.ThumbnailUri is { Length: > 0 } tu ? tu : entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
                                              alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
                                     }
                                 </div>
@@ -331,14 +331,17 @@
             </button>
             @foreach (var recipe in Model.AllRecipes)
             {
+                var recipeThumb = string.IsNullOrWhiteSpace(recipe.ThumbnailUri)
+                    ? (string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)
+                    : recipe.ThumbnailUri;
                 <button type="button"
                         class="recipe-option w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:opacity-60"
                         style="border-bottom: 0.5px solid var(--ios-separator); background: none;"
                         data-id="@recipe.Id"
                         data-name="@recipe.RecipeName"
-                        data-img="@(string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)">
+                        data-img="@recipeThumb">
                     <div class="w-12 h-12 rounded-xl overflow-hidden shrink-0" style="background: var(--ios-fill);">
-                        <img src="@(string.IsNullOrWhiteSpace(recipe.ImageUri) ? DefaultImg : recipe.ImageUri)"
+                        <img src="@recipeThumb"
                              alt="" loading="lazy" decoding="async"
                              class="w-full h-full object-cover" />
                     </div>

@@ -141,6 +141,9 @@
         <div class="mx-4 mt-3 rounded-2xl px-4 py-3 text-[14px]" style="background: #FFF0F0; color: var(--ios-red);">
             @errorMsg
         </div>
+        <div class="mx-4 mt-3">
+            <a asp-controller="Recipe" asp-action="Recipe" class="btn-secondary w-full">Back to Recipes</a>
+        </div>
     }
 
     @if (hasResult)
@@ -184,8 +187,20 @@
                 <div>
                     <p class="ios-section-hdr" style="padding-left: 0;">Ingredients</p>
                     <div class="ios-group">
+                        @{ string? lastPreviewSection = null; }
                         @foreach (var ing in Model.Preview.Ingredients)
                         {
+                            if (ing.Section != lastPreviewSection)
+                            {
+                                lastPreviewSection = ing.Section;
+                                if (!string.IsNullOrEmpty(lastPreviewSection))
+                                {
+                                    <div class="px-4 py-2 text-[12px] font-semibold uppercase tracking-wide"
+                                         style="color: var(--ios-label-2); background: rgba(242,242,247,0.6); border-bottom: 0.5px solid var(--ios-separator);">
+                                        @lastPreviewSection
+                                    </div>
+                                }
+                            }
                             <div class="ios-cell">
                                 <span class="text-[15px]" style="color: var(--ios-label);">
                                     @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
@@ -237,6 +252,7 @@
                     <input type="hidden" name="Ingredients[@i].CleanName" value="@ing.CleanName" />
                     <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
                     <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
+                    <input type="hidden" name="Ingredients[@i].Section" value="@ing.Section" />
                 }
                 @if (Model.Preview.Steps != null)
                 {
@@ -387,6 +403,20 @@
             return '';
         }
 
+        function dngPlaceholderHtml(fileName) {
+            return '<div class="h-24 w-24 rounded-xl flex flex-col items-center justify-center px-2 text-center" style="background: var(--ios-fill); color: var(--ios-label-2);"><span class="text-[13px] font-semibold">DNG</span><span class="text-[10px] break-all">' + escapeHtml(fileName) + '</span></div>';
+        }
+
+        // img "error" events don't bubble, so catch them via a capturing listener
+        // on the shared container instead of binding one per image.
+        photoPreviews.addEventListener('error', function (e) {
+            const img = e.target;
+            if (!(img instanceof HTMLImageElement) || !img.classList.contains('js-dng-preview')) return;
+            const fallback = document.createElement('div');
+            fallback.innerHTML = dngPlaceholderHtml(img.dataset.fileName || '');
+            img.replaceWith(fallback.firstElementChild);
+        }, true);
+
         function renderPreviews(files) {
             photoPreviews.innerHTML = '';
 
@@ -399,12 +429,15 @@
             photoPreviews.classList.remove('hidden');
             files.forEach(function (file, idx) {
                 const isDng = rawPhotoExtensions.test(file.name || '') || (file.type || '').toLowerCase().includes('dng');
-                const url = isDng ? '' : URL.createObjectURL(file);
                 const wrap = document.createElement('div');
                 wrap.className = 'relative';
-                const previewHtml = isDng
-                    ? '<div class="h-24 w-24 rounded-xl flex flex-col items-center justify-center px-2 text-center" style="background: var(--ios-fill); color: var(--ios-label-2);"><span class="text-[13px] font-semibold">DNG</span><span class="text-[10px] break-all">' + escapeHtml(file.name) + '</span></div>'
-                    : '<img src="' + url + '" class="h-24 w-24 object-cover rounded-xl" />';
+                // Always try a real thumbnail, even for DNG -- this PWA is iPhone-only
+                // and Safari's native image decoder can render Apple ProRAW DNGs
+                // directly via <img>, so don't assume it can't. Fall back to the
+                // generic placeholder (via the delegated 'error' listener above) only
+                // if the browser actually fails to decode it.
+                const url = URL.createObjectURL(file);
+                const previewHtml = '<img src="' + url + '" class="h-24 w-24 object-cover rounded-xl' + (isDng ? ' js-dng-preview' : '') + '" data-file-name="' + escapeHtml(file.name) + '" />';
                 wrap.innerHTML =
                     previewHtml +
                     '<button type="button" data-idx="' + idx + '" ' +

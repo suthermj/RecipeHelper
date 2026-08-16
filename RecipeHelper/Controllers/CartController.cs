@@ -2,11 +2,14 @@
 using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models.Kroger;
 using RecipeHelper.Services;
+using RecipeHelper.Utility;
 
 namespace RecipeHelper.Controllers
 {
     public class CartController : Controller
     {
+        private const string PendingPreviewSessionKey = "PendingAddToCartPreview";
+
         private readonly KrogerService _krogerService;
         private readonly KrogerAuthService _krogerAuthService;
         private readonly ILogger<AuthController> _logger;
@@ -32,6 +35,7 @@ namespace RecipeHelper.Controllers
                 // User is not authorized → redirect them to Kroger login.
                 // After login, your Auth callback should LocalRedirect(returnUrl),
                 // which will call THIS action again.
+                _logger.LogInformation("ViewCart: not authorized, redirecting to Kroger login.");
                 return Redirect(auth.RedirectUrl);
             }
 
@@ -47,6 +51,7 @@ namespace RecipeHelper.Controllers
             // Only ingredients the user left checked on the review screen should
             // reach the Kroger cart preview.
             vm.Items = vm.Items.Where(i => i.Include).ToList();
+            _logger.LogInformation("PreviewAddToCart started. IncludedItemCount={IncludedItemCount}", vm.Items.Count);
 
             // vm.Items currently holds ingredients (with measurement/quantity/etc)
             var detailedCartItems = await _krogerService.ConvertIngredientsToCartItems(vm);
@@ -79,7 +84,24 @@ namespace RecipeHelper.Controllers
                 Items = previewItems
             };
 
-            return View("PreviewAddToCart", previewVm); // Views/Cart/PreviewAddToCart.cshtml
+            _logger.LogInformation("PreviewAddToCart completed. PreviewItemCount={PreviewItemCount}", previewItems.Count);
+
+            // Redirect-after-post so this page has a GET URL that's safe to reload
+            // (see the matching comment in DinnerController.SubmitDinnerSelections).
+            PendingResultCache.Set(HttpContext.Session, PendingPreviewSessionKey, previewVm);
+            return RedirectToAction(nameof(PreviewAddToCart));
+        }
+
+        // GET: Cart/PreviewAddToCart -- renders the preview computed above.
+        [HttpGet]
+        public IActionResult PreviewAddToCart()
+        {
+            if (!PendingResultCache.TryGet<AddToCartPreviewVM>(HttpContext.Session, PendingPreviewSessionKey, out var previewVm))
+            {
+                return RedirectToAction("SelectWeeklyRecipes", "Dinner");
+            }
+
+            return View(previewVm); // Views/Cart/PreviewAddToCart.cshtml
         }
 
         // Called when user clicks "Add all items to cart"
@@ -90,6 +112,7 @@ namespace RecipeHelper.Controllers
 
             if (!vm.Items.Any())
             {
+                _logger.LogWarning("BeginAddToCart: no items to add, redirecting back to review.");
                 TempData["ErrorMessage"] = "No valid ingredients were found to add to your Kroger cart.";
                 return RedirectToAction("ReviewDinnerSelections", "Dinner");
             }
@@ -122,6 +145,7 @@ namespace RecipeHelper.Controllers
             {
                 // If this happens, either redirect them to authorization again
                 // or back to the review page with an error message.
+                _logger.LogWarning("CompleteAddToCart: no valid Kroger access token, redirecting back to review.");
                 TempData["ErrorMessage"] = "Your Kroger session expired. Please try adding items again.";
                 return RedirectToAction("ReviewDinnerSelections", "Dinner");
             }
@@ -130,6 +154,7 @@ namespace RecipeHelper.Controllers
             if (string.IsNullOrEmpty(pendingCartJson))
             {
                 // nothing to process, fallback somewhere sensible
+                _logger.LogWarning("CompleteAddToCart: no PendingCart in session, redirecting to SelectWeeklyRecipes.");
                 return RedirectToAction("SelectWeeklyRecipes", "Dinner");
             }
 
@@ -150,12 +175,17 @@ namespace RecipeHelper.Controllers
                 // Optional: clear it after use
                 HttpContext.Session.Remove("PendingCart");
 
+                _logger.LogInformation("CompleteAddToCart succeeded. ItemCount={ItemCount}", itemCount);
                 TempData["SuccessMessage"] = $"{itemCount} item{(itemCount == 1 ? "" : "s")} were added to your Kroger cart. " + "You can review or edit them in the Kroger app.";
                 return RedirectToAction("Recipe", "Recipe");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                // Exception type/message are put directly in the message template (not
+                // just passed as the LogError exception argument) -- see the matching
+                // comment in StorageService.StoreRecipeImage for why.
+                _logger.LogError(ex, "CompleteAddToCart failed. ItemCount={ItemCount}, ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
+                    vm.Items.Count, ex.GetType().FullName, ex.Message);
                 TempData["ErrorMessage"] = "There was a problem adding items to your Kroger cart. Please try again.";
                 return RedirectToAction("SelectWeeklyRecipes", "Dinner");
 

@@ -8,6 +8,8 @@ namespace RecipeHelper.Controllers
 {
     public class DinnerController : Controller
     {
+        private const string PendingReviewSessionKey = "PendingDinnerReview";
+
         private readonly DatabaseContext _context;
         private readonly MealPlanService _mealPlanService;
         private readonly ILogger<RecipeController> _logger;
@@ -49,8 +51,9 @@ namespace RecipeHelper.Controllers
                 entryId = e.Id,
                 dayOfWeek = e.DayOfWeek,
                 recipeId = e.RecipeId,
-                name = e.Recipe?.Name ?? "",
-                img = e.Recipe?.ImageUri ?? ""
+                name = e.Recipe?.Name ?? e.FreeText ?? "",
+                img = e.Recipe?.ImageUri ?? "",
+                isFreeText = e.RecipeId == null
             }).ToArray() ?? Array.Empty<object>()
         };
 
@@ -61,6 +64,19 @@ namespace RecipeHelper.Controllers
         {
             var week = MealPlanService.GetWeekStart(weekStart);
             var plan = await _mealPlanService.AddEntryAsync(week, dayOfWeek, recipeId);
+            return Json(BuildPlanJson(plan));
+        }
+
+        // POST: Dinner/AddDayFreeText — append a free-text (non-recipe) placeholder entry to a day slot
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddDayFreeText(DateTime weekStart, int dayOfWeek, string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return BadRequest();
+
+            var week = MealPlanService.GetWeekStart(weekStart);
+            var plan = await _mealPlanService.AddFreeTextEntryAsync(week, dayOfWeek, text);
             return Json(BuildPlanJson(plan));
         }
 
@@ -129,6 +145,8 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         public ActionResult SubmitDinnerSelections(List<int> selectedRecipes)
         {
+            _logger.LogInformation("SubmitDinnerSelections started. SelectedRecipeCount={SelectedRecipeCount}", selectedRecipes?.Count ?? 0);
+
             ReviewDinnerSelectionsVM model = new ReviewDinnerSelectionsVM
             {
                 SelectedRecipes = new List<SelectedRecipeVM>(),
@@ -315,7 +333,29 @@ namespace RecipeHelper.Controllers
                 .ThenBy(i => i.Name)
                 .ToList();
 
-            return View("ReviewDinnerSelections", model);
+            _logger.LogInformation("SubmitDinnerSelections completed. RecipeCount={RecipeCount}, DistinctIngredientCount={DistinctIngredientCount}, ResultRowCount={ResultRowCount}", recipes.Count, ingDict.Count, model.Ingredients.Count);
+
+            // Redirect-after-post: this page needs to be safely reloadable (e.g. after
+            // tapping the PWA's "update available" banner), which a page rendered
+            // directly from a POST is not -- a reload would resubmit the POST instead
+            // of just re-fetching the page. Stash the computed review in session and
+            // hand off to the GET action below instead.
+            PendingResultCache.Set(HttpContext.Session, PendingReviewSessionKey, model);
+            return RedirectToAction(nameof(ReviewDinnerSelections));
+        }
+
+        // GET: Dinner/ReviewDinnerSelections -- renders the review computed by
+        // SubmitDinnerSelections above. Also the redirect target CartController uses
+        // when it needs to bounce the user back here (e.g. empty cart, expired auth).
+        [HttpGet]
+        public ActionResult ReviewDinnerSelections()
+        {
+            if (!PendingResultCache.TryGet<ReviewDinnerSelectionsVM>(HttpContext.Session, PendingReviewSessionKey, out var model))
+            {
+                return RedirectToAction(nameof(SelectWeeklyRecipes));
+            }
+
+            return View(model);
         }
     }
 }

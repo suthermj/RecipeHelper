@@ -31,7 +31,11 @@ namespace RecipeHelper.Controllers
         public async Task<IActionResult> ViewList(int id)
         {
             var list = await _shoppingListService.GetByIdAsync(id);
-            if (list == null) return NotFound();
+            if (list == null)
+            {
+                _logger.LogWarning("ViewList: no ShoppingList found for ListId={ListId}.", id);
+                return NotFound();
+            }
             ViewData["CurrentStoreId"]   = Request.Cookies["KrogerLocationId"] ?? _configuration["Kroger:mariemontLocationId"] ?? "01400421";
             ViewData["CurrentStoreName"] = Request.Cookies["KrogerLocationName"] ?? "Mariemont (Default)";
             return View(list);
@@ -82,6 +86,7 @@ namespace RecipeHelper.Controllers
         public async Task<IActionResult> CreateFromMealPlan(CreateFromMealPlanVM model)
         {
             var includedItems = model.Items.Where(i => i.Include).ToList();
+            _logger.LogInformation("CreateFromMealPlan started. IncludedItemCount={IncludedItemCount}", includedItems.Count);
 
             var storeId = _httpContextAccessor.HttpContext?.Request.Cookies["KrogerLocationId"]
                 ?? _configuration["Kroger:mariemontLocationId"]
@@ -123,6 +128,7 @@ namespace RecipeHelper.Controllers
 
             var name = $"Meal Plan – {DateTime.Now:MMM d, yyyy}";
             var list = await _shoppingListService.CreateAsync(name, items, storeId);
+            _logger.LogInformation("CreateFromMealPlan completed. ListId={ListId}, ItemCount={ItemCount}, StoreId={StoreId}", list.Id, items.Count, storeId);
 
             return RedirectToAction(nameof(ViewList), new { id = list.Id });
         }
@@ -131,11 +137,18 @@ namespace RecipeHelper.Controllers
         public async Task<IActionResult> RefreshAisles(int id, string storeId)
         {
             var list = await _shoppingListService.GetByIdAsync(id);
-            if (list == null) return NotFound();
+            if (list == null)
+            {
+                _logger.LogWarning("RefreshAisles: no ShoppingList found for ListId={ListId}.", id);
+                return NotFound();
+            }
 
             var upcItems = list.Items.Where(i => !string.IsNullOrWhiteSpace(i.Upc)).ToList();
             if (!upcItems.Any())
+            {
+                _logger.LogInformation("RefreshAisles: ListId={ListId} has no UPC items, nothing to refresh.", id);
                 return Ok();
+            }
 
             var products = await _krogerService.GetProductsByUpcBatch(upcItems.Select(i => i.Upc!), storeId);
 
@@ -152,6 +165,8 @@ namespace RecipeHelper.Controllers
             }
 
             await _shoppingListService.UpdateItemAislesAsync(id, storeId, updates);
+            _logger.LogInformation("RefreshAisles completed. ListId={ListId}, StoreId={StoreId}, UpcItemCount={UpcItemCount}, MatchedCount={MatchedCount}",
+                id, storeId, upcItems.Count, updates.Count);
             return Ok();
         }
 
@@ -167,7 +182,8 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteMultiple(List<int> ids)
         {
-            foreach (var id in ids)
+            _logger.LogInformation("DeleteMultiple started. ListCount={ListCount}", ids?.Count ?? 0);
+            foreach (var id in ids ?? new())
                 await _shoppingListService.DeleteAsync(id);
             return RedirectToAction(nameof(Index));
         }

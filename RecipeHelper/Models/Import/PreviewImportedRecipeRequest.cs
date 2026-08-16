@@ -15,8 +15,9 @@ namespace RecipeHelper.Models.Import
     {
         public string Name { get; set; } = "";
         public string CleanName { get; set; } = "";
-        public decimal Amount { get; set; }      
-        public string? Unit { get; set; }       
+        public decimal Amount { get; set; }
+        public string? Unit { get; set; }
+        public string? Section { get; set; }
     }
 
 
@@ -39,8 +40,9 @@ namespace RecipeHelper.Models.Import
         [Required]
         public string Name { get; set; } = "";
 
-        public decimal Amount { get; set; }  
+        public decimal Amount { get; set; }
         public string? Unit { get; set; }
+        public string? Section { get; set; }
 
         public int? MatchedIngredientId { get; set; }
         public string? MatchedCanonicalName { get; set; }

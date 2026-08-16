@@ -1,26 +1,29 @@
-﻿@using RecipeHelper.Models
+@using RecipeHelper.Models
 @model ErrorViewModel
 @{
-    ViewData["Title"] = "Error";
+    ViewData["Title"] = "Something went wrong";
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+<div class="px-4 pt-14 pb-6 flex flex-col items-center text-center gap-4">
+    <svg class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"
+         style="color: var(--ios-label-2);">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+    </svg>
+    <div>
+        <p class="text-[17px] font-semibold" style="color: var(--ios-label);">Something went wrong</p>
+        <p class="text-[15px] mt-1" style="color: var(--ios-label-2);">
+            Please try again. If this keeps happening, going back and retrying usually helps.
+        </p>
+    </div>
 
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-    </p>
-}
+    @if (Model.ShowRequestId)
+    {
+        <p class="text-[12px]" style="color: var(--ios-label-2);">Request ID: <code>@Model.RequestId</code></p>
+    }
 
-<h3>Development Mode</h3>
-<p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
+    <div class="w-full max-w-xs flex flex-col gap-2 pt-2">
+        <button type="button" class="btn-primary w-full" onclick="location.reload()">Try again</button>
+        <a asp-controller="Recipe" asp-action="Recipe" class="btn-secondary w-full">Back to Recipes</a>
+    </div>
+</div>

@@ -105,19 +105,24 @@ namespace RecipeHelper.Services
                 .Select(i => new { i.Id, i.CanonicalName })
                 .ToDictionaryAsync(x => x.CanonicalName, x => x.Id);
 
-            // merge any duplicates
+            // merge any duplicates -- keyed by Section too, so the same ingredient name
+            // appearing under two different section headings (e.g. a base recipe and a
+            // sauce that both call for salt) stays split rather than merging into one
+            // row and losing its section.
             var mergedIngredients = ingredients
                         .GroupBy(i => new
                         {
                             Name = i.Name,
                             CleanName = i.CleanName.Trim().ToLowerInvariant(),
-                            Unit = MeasurementHelper.NormalizeMeasurementUnit(i.Unit) ?? i.Unit
+                            Unit = MeasurementHelper.NormalizeMeasurementUnit(i.Unit) ?? i.Unit,
+                            Section = i.Section
                         })
                         .Select(g => new PreviewImportedRecipeIngredient
                         {
                             Name = g.Key.Name,
                             CleanName = g.Key.CleanName,
                             Unit = g.Key.Unit,
+                            Section = g.Key.Section,
                             Amount = g.Sum(x => x.Amount)
                         })
                         .ToList();
@@ -137,6 +142,7 @@ namespace RecipeHelper.Services
                     Name = ingredient.Name,
                     Unit = ingredient.Unit,
                     Amount = ingredient.Amount,
+                    Section = ingredient.Section,
                 };
 
                 var canonicalName = await _ingredientService.CanonicalizeAsync(ingredient.CleanName, CancellationToken.None);
@@ -205,8 +211,9 @@ namespace RecipeHelper.Services
             }
             _logger.LogInformation($"Attempting to add [{recipe.Ingredients.Count}] ingredients to recipe [{recipe.Title}]");
 
-            foreach (var ingredient in recipe.Ingredients)
+            for (var index = 0; index < recipe.Ingredients.Count; index++)
             {
+                var ingredient = recipe.Ingredients[index];
                 if (ingredient.Include == false) continue;
 
                 // Create new canonical ingredient since no ingredientId is present
@@ -242,7 +249,9 @@ namespace RecipeHelper.Services
                     Quantity = ingredient.Amount,
                     MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null,
                     SelectedKrogerUpc = ingredient.Upc,
-                    IngredientId = (int)ingredient.IngredientId
+                    IngredientId = (int)ingredient.IngredientId,
+                    Section = string.IsNullOrWhiteSpace(ingredient.Section) ? null : ingredient.Section,
+                    SortOrder = index
                 };
 
                 // Link kroger product to ingredient if UPC is provided 
@@ -348,8 +357,7 @@ namespace RecipeHelper.Services
                 await throttle.WaitAsync();     // ✅ wait until a slot is available
                 try
                 {
-                    var results = await _krogerService.SearchProductByFilter(ing.CleanName);
-                    return (ing.Name, results);
+                    return await _krogerService.SearchProductByFilter(ing.CleanName);
                 }
                 finally
                 {
@@ -357,17 +365,21 @@ namespace RecipeHelper.Services
                 }
             }).ToList();
 
-            var krogerResults = await Task.WhenAll(krogerTasks);
-            var krogerMap = krogerResults.ToDictionary(x => x.Name, x => x.results);
+            // Indexed rather than keyed by Name -- two ingredients from different
+            // sections (e.g. "salt" in both the base recipe and a sauce) can share the
+            // same Name now that merging is section-aware, and a Name-keyed dictionary
+            // would throw on the duplicate key.
+            var krogerResultsByIndex = await Task.WhenAll(krogerTasks);
 
-
-            foreach (var ingredient in ingredients)
+            for (var idx = 0; idx < ingredients.Count; idx++)
             {
+                var ingredient = ingredients[idx];
                 var ingredientPreview = new ImportPreviewIngredient
                 {
                     Name = ingredient.Name,
                     Unit = ingredient.Unit,
                     Amount = ingredient.Amount,
+                    Section = ingredient.Section,
                 };
 
                 var ingredientName = ingredient.CleanName.ToLowerInvariant();
@@ -403,7 +415,7 @@ namespace RecipeHelper.Services
                     }
                 }
 
-                var krogerProducts = krogerMap.TryGetValue(ingredient.Name, out var products);
+                var products = krogerResultsByIndex[idx];
                 var krogerFuzzySearch = products?
                     .Select(c => new
                     {

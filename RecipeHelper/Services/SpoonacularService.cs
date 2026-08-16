@@ -31,42 +31,52 @@ namespace RecipeHelper.Services
         {
             var client = _httpClientFactory.CreateClient();
             var requestUri = $"{_baseUri}/recipes/extract?url={Uri.EscapeDataString(recipeUrl)}&apiKey={_apiKey}";
+            _logger.LogInformation("Spoonacular ImportRecipe started. RecipeUrl={RecipeUrl}", recipeUrl);
             try
             {
                 var response = await client.GetAsync(requestUri);
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    return JsonConvert.DeserializeObject<Recipe>(content);
+                    var recipe = JsonConvert.DeserializeObject<Recipe>(content);
+                    _logger.LogInformation("Spoonacular ImportRecipe succeeded. RecipeUrl={RecipeUrl}", recipeUrl);
+                    return recipe;
                 }
                 else
                 {
-                    _logger.LogError($"Error retrieving recipe from Spoonacular: {response.ReasonPhrase}");
+                    _logger.LogWarning("Spoonacular ImportRecipe failed. RecipeUrl={RecipeUrl}, StatusCode={StatusCode}, ReasonPhrase={ReasonPhrase}",
+                        recipeUrl, (int)response.StatusCode, response.ReasonPhrase);
                     return null;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Exception occurred while importing recipe: {ex.Message}");
+                // Exception type/message are put directly in the message template (not
+                // just passed as the LogError exception argument) -- see the matching
+                // comment in StorageService.StoreRecipeImage for why.
+                _logger.LogError(ex, "Spoonacular ImportRecipe threw. RecipeUrl={RecipeUrl}, ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
+                    recipeUrl, ex.GetType().FullName, ex.Message);
                 return null;
             }
         }
 
         public async Task<ImportRecipeVM> Import(string recipeUrl)
         {
+            _logger.LogInformation("Spoonacular Import (JSON-LD fallback) started. RecipeUrl={RecipeUrl}", recipeUrl);
             var http = new HttpClient();
             var recipeNode = await RecipeJsonLdExtractor.ExtractRecipeNodeAsync(http, recipeUrl);
 
             if (recipeNode is null)
             {
+                _logger.LogWarning("Spoonacular Import (JSON-LD fallback) found no recipe node. RecipeUrl={RecipeUrl}", recipeUrl);
                 return null;
             }
             else
             {
                 var recipe = System.Text.Json.JsonSerializer.Deserialize<JsonLdRecipe>(recipeNode.Value.GetRawText());
-                
+
                 var ings = await _ingredientService.TransformRawIngredients(recipe.RecipeIngredient, CancellationToken.None);
-                
+
                 var import = new ImportRecipeVM
                 {
                     Title = recipe.Name ?? "Imported Recipe",
@@ -88,6 +98,8 @@ namespace RecipeHelper.Services
                         .ToList() ?? new()
                 };
 
+                _logger.LogInformation("Spoonacular Import (JSON-LD fallback) completed. RecipeUrl={RecipeUrl}, IngredientCount={IngredientCount}, StepCount={StepCount}",
+                    recipeUrl, import.Ingredients.Count, import.Steps.Count);
                 return import;
             }
         }

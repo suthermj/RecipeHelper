@@ -164,14 +164,18 @@ namespace RecipeHelper.Controllers
 
             if (string.IsNullOrWhiteSpace(normalizedTitle))
             {
+                _logger.LogWarning("CreateRecipe: missing title.");
                 ModelState.AddModelError(nameof(vm.Title), "Recipe title is required.");
                 return View("Create", vm);
             }
+
+            _logger.LogInformation("CreateRecipe started. Title={Title}, IngredientCount={IngredientCount}", normalizedTitle, vm.Ingredients?.Count ?? 0);
 
             var recipeExists = await _recipeService.RecipeNameExists(normalizedTitle);
 
             if (recipeExists)
             {
+                _logger.LogWarning("CreateRecipe: title already exists. Title={Title}", normalizedTitle);
                 ModelState.AddModelError(nameof(vm.Title), "A recipe with this title already exists. Please choose a different title.");
                 return View("Create", vm);
             }
@@ -201,6 +205,7 @@ namespace RecipeHelper.Controllers
             };
 
             var recipe = await _recipeService.CreateRecipe(request);
+            _logger.LogInformation("CreateRecipe completed. RecipeId={RecipeId}, Title={Title}", recipe.Id, normalizedTitle);
 
             return RedirectToAction("ViewRecipe", new { Id = recipe.Id });
         }
@@ -209,6 +214,8 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> EditRecipe(EditRecipeVM vm)
         {
+            _logger.LogInformation("EditRecipe started. RecipeId={RecipeId}, Title={Title}", vm.RecipeId, vm.Title);
+
             var filteredEdit = vm.Ingredients.Where(i => !string.IsNullOrWhiteSpace(i.RawText)).ToList();
 
             // Split into modified (need OpenAI parsing) vs unchanged (reuse DB data)
@@ -285,6 +292,7 @@ namespace RecipeHelper.Controllers
             };
 
             await _recipeService.UpdateRecipeAsync(request);
+            _logger.LogInformation("EditRecipe completed. RecipeId={RecipeId}, IngredientCount={IngredientCount}", vm.RecipeId, resultDtos.Length);
 
             return RedirectToAction("ViewRecipe", new { Id = vm.RecipeId });
         }
@@ -350,7 +358,14 @@ namespace RecipeHelper.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex.Message, "Error deleting recipe with id [{id}]", id);
+                    // Exception type/message are put directly in the message template (not
+                    // just passed as the LogError exception argument) -- see the matching
+                    // comment in StorageService.StoreRecipeImage for why. (The previous
+                    // version of this line passed ex.Message as the format template itself
+                    // -- with the real message and {id} as unused positional args -- which
+                    // both discarded the exception object and mismatched the placeholders.)
+                    _logger.LogError(ex, "Error deleting recipe with id [{Id}]. ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
+                        id, ex.GetType().FullName, ex.Message);
                     return RedirectToAction("Recipe");
                 }
                 _logger.LogInformation("[DeleteRecipe] Deleted recipe [{recipeName}] with id [{id}]", recipe.Name, id);

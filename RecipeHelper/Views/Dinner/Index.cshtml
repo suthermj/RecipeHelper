@@ -95,13 +95,23 @@
                     <div class="day-entries space-y-1" data-day="@d">
                         @foreach (var entry in dayEntries)
                         {
+                            var isFreeText = entry.RecipeId == null;
                             <div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="@entry.Id" data-recipe-id="@entry.RecipeId">
-                                <div class="w-14 h-10 rounded-lg overflow-hidden shrink-0" style="background: var(--ios-fill);">
-                                    <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
-                                         alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
+                                <div class="w-14 h-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center" style="background: var(--ios-fill);">
+                                    @if (isFreeText)
+                                    {
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" style="color: var(--ios-label-3);">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487 18.549 2.8a2.062 2.062 0 0 1 2.916 2.914L9.35 17.83a4.5 4.5 0 0 1-1.897 1.13L4.5 19.5l.54-2.953a4.5 4.5 0 0 1 1.13-1.897l10.693-10.163Z" />
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
+                                             alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
+                                    }
                                 </div>
-                                <p class="flex-1 text-[14px] font-medium truncate" style="color: var(--ios-label);">
-                                    @(entry.Recipe?.Name ?? "")
+                                <p class="flex-1 text-[14px] font-medium truncate @(isFreeText ? "italic" : "")" style="color: @(isFreeText ? "var(--ios-label-2)" : "var(--ios-label)");">
+                                    @(entry.Recipe?.Name ?? entry.FreeText ?? "")
                                 </p>
                                 <button type="button"
                                         class="clear-btn shrink-0 flex items-center justify-center h-7 w-7 rounded-full transition active:opacity-50"
@@ -135,7 +145,7 @@
         <form asp-action="SubmitDinnerSelections" method="post">
             @Html.AntiForgeryToken()
             <div id="reviewHiddenInputs">
-                @foreach (var entry in allEntries)
+                @foreach (var entry in allEntries.Where(e => e.RecipeId.HasValue))
                 {
                     <input type="hidden" name="selectedRecipes" value="@entry.RecipeId" />
                 }
@@ -301,6 +311,18 @@
         <!-- Recipe list -->
         <div id="recipeList" class="overflow-y-auto overscroll-contain min-h-0"
              style="border-top: none;">
+            <button type="button" id="addFreeTextOption"
+                    class="hidden w-full items-center gap-3 px-4 py-3 text-left transition-colors active:opacity-60"
+                    style="border-bottom: 0.5px solid var(--ios-separator); background: none;">
+                <div class="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center" style="background: var(--ios-fill);">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" style="color: var(--ios-label-3);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                </div>
+                <p class="flex-1 text-[15px] leading-snug text-left" style="color: var(--ios-label);">
+                    Add "<span id="addFreeTextTerm"></span>" as a placeholder
+                </p>
+            </button>
             @foreach (var recipe in Model.AllRecipes)
             {
                 <button type="button"
@@ -336,19 +358,22 @@
     const recipeSearch = document.getElementById('recipeSearch');
     const clearSearch  = document.getElementById('clearSearch');
     const noResults    = document.getElementById('noResults');
+    const addFreeTextOption = document.getElementById('addFreeTextOption');
+    const addFreeTextTerm   = document.getElementById('addFreeTextTerm');
     const planActions  = document.getElementById('planActions');
     const reviewHiddenInputs = document.getElementById('reviewHiddenInputs');
     const deletePlanIdInput  = document.getElementById('deletePlanId');
     const weekStart          = '@weekStart.ToString("yyyy-MM-dd")';
     const defaultImg         = '@DefaultImg';
     const addDayRecipeUrl    = '@Url.Action("AddDayRecipe", "Dinner")';
+    const addDayFreeTextUrl  = '@Url.Action("AddDayFreeText", "Dinner")';
     const removeEntryUrl     = '@Url.Action("RemoveEntry", "Dinner")';
     const moveEntryUrl       = '@Url.Action("MoveEntry", "Dinner")';
     const getShareLinkUrl    = '@Url.Action("GetShareLink", "Dinner")';
     const pickerBaseBottom   = 'calc(49px + env(safe-area-inset-bottom))';
     let activeDay = null;
     let hideTimeout = null;
-    let selectedRecipeIds = new Set([@string.Join(",", allEntries.Select(e => e.RecipeId))]);
+    let selectedRecipeIds = new Set([@string.Join(",", allEntries.Where(e => e.RecipeId.HasValue).Select(e => e.RecipeId))]);
     let mealDrag = null;
 
     function getToken() {
@@ -451,6 +476,16 @@
         });
         noResults.classList.toggle('hidden', visible > 0);
         noResults.textContent = term ? 'No recipes match your search' : 'All recipes are already planned this week';
+
+        const rawTerm = recipeSearch.value.trim();
+        if (rawTerm) {
+            addFreeTextTerm.textContent = rawTerm;
+            addFreeTextOption.classList.remove('hidden');
+            addFreeTextOption.classList.add('flex');
+        } else {
+            addFreeTextOption.classList.add('hidden');
+            addFreeTextOption.classList.remove('flex');
+        }
     }
 
     document.querySelectorAll('.recipe-option').forEach(btn => {
@@ -463,13 +498,36 @@
         });
     });
 
+    addFreeTextOption.addEventListener('click', () => {
+        if (activeDay === null) return;
+        const day  = activeDay;
+        const text = recipeSearch.value.trim();
+        if (!text) return;
+        closePicker();
+        postAddFreeText(day, text);
+    });
+
+    function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s ?? '';
+        return div.innerHTML;
+    }
+
     function entryRowHtml(entry) {
-        const img = entry.img || defaultImg;
-        return `<div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="${entry.entryId}" data-recipe-id="${entry.recipeId}">
-            <div class="w-14 h-10 rounded-lg overflow-hidden shrink-0" style="background:var(--ios-fill);">
-                <img src="${img}" alt="" class="w-full h-full object-cover" />
-            </div>
-            <p class="flex-1 text-[14px] font-medium truncate" style="color:var(--ios-label);">${entry.name}</p>
+        const thumb = entry.isFreeText
+            ? `<div class="w-14 h-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center" style="background:var(--ios-fill);">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" style="color:var(--ios-label-3);">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487 18.549 2.8a2.062 2.062 0 0 1 2.916 2.914L9.35 17.83a4.5 4.5 0 0 1-1.897 1.13L4.5 19.5l.54-2.953a4.5 4.5 0 0 1 1.13-1.897l10.693-10.163Z" />
+                </svg>
+            </div>`
+            : `<div class="w-14 h-10 rounded-lg overflow-hidden shrink-0" style="background:var(--ios-fill);">
+                <img src="${entry.img || defaultImg}" alt="" class="w-full h-full object-cover" />
+            </div>`;
+        const nameClass = entry.isFreeText ? 'flex-1 text-[14px] font-medium truncate italic' : 'flex-1 text-[14px] font-medium truncate';
+        const nameColor = entry.isFreeText ? 'var(--ios-label-2)' : 'var(--ios-label)';
+        return `<div class="entry-row flex items-center gap-3 py-1.5" data-entry-id="${entry.entryId}" data-recipe-id="${entry.recipeId ?? ''}">
+            ${thumb}
+            <p class="${nameClass}" style="color:${nameColor};">${escapeHtml(entry.name)}</p>
             <button type="button" class="clear-btn shrink-0 flex items-center justify-center h-7 w-7 rounded-full transition active:opacity-50"
                     style="color:var(--ios-label-3);"
                     data-entry-id="${entry.entryId}" title="Remove">
@@ -484,7 +542,7 @@
         const byDay = {};
         for (let d = 0; d < 7; d++) byDay[d] = [];
         (data.entries || []).forEach(e => byDay[e.dayOfWeek].push(e));
-        selectedRecipeIds = new Set((data.entries || []).map(e => e.recipeId));
+        selectedRecipeIds = new Set((data.entries || []).map(e => e.recipeId).filter(id => id != null));
 
         document.querySelectorAll('.day-entries').forEach(container => {
             const day = parseInt(container.dataset.day);
@@ -497,6 +555,7 @@
 
         reviewHiddenInputs.innerHTML = '';
         (data.entries || []).forEach(e => {
+            if (e.recipeId == null) return;
             const input = document.createElement('input');
             input.type  = 'hidden';
             input.name  = 'selectedRecipes';
@@ -674,6 +733,28 @@
             renderAll(await resp.json());
         } catch (err) {
             alert('Could not add recipe. Please try again.');
+        } finally {
+            undimCard(card);
+        }
+    }
+
+    async function postAddFreeText(day, text) {
+        const card = document.querySelector(`#daySlots .day-card[data-day="${day}"]`);
+        dimCard(card);
+        const body = new URLSearchParams();
+        body.append('weekStart', weekStart);
+        body.append('dayOfWeek', String(day));
+        body.append('text', text);
+        try {
+            const resp = await fetch(addDayFreeTextUrl, {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': getToken(), 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                body: body.toString()
+            });
+            if (!resp.ok) throw new Error('Add failed: ' + resp.status);
+            renderAll(await resp.json());
+        } catch (err) {
+            alert('Could not add placeholder. Please try again.');
         } finally {
             undimCard(card);
         }

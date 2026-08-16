@@ -224,7 +224,8 @@ namespace RecipeHelper.Services
             {
               "title": "Recipe name as printed",
               "ingredients": [
-                { "quantity": 1.5, "unit": "cup", "name": "all-purpose flour" }
+                { "quantity": 1.5, "unit": "cup", "name": "all-purpose flour", "section": null },
+                { "quantity": 1, "unit": "tsp", "name": "salt", "section": "Blackening Seasoning" }
               ],
               "steps": [
                 "Preheat the oven to 350°F.",
@@ -244,6 +245,13 @@ namespace RecipeHelper.Services
             - quantity: decimal number or null (convert fractions: 1/2 → 0.5, 3/4 → 0.75, 1/3 → 0.33)
             - unit: use one of: tsp, tbsp, cup, oz, fl oz, lb, g, ml, l, pt, qt — or null for unitless items (e.g. 2 eggs)
             - name: clean display name with no quantity or unit prefix
+            - section: the group heading this ingredient is printed under, copied verbatim
+              (e.g. "Blackening Seasoning", "Tomato Parmesan Cream Sauce"), or null if the
+              recipe has just one unlabeled list with no visible sub-headings. If the
+              printed recipe itself labels its first/main list (e.g. a heading literally
+              reading "Ingredients"), use that same label rather than null — mirror
+              whatever grouping and headings are visible in the photo, don't invent or
+              collapse groups that aren't there
             - steps: complete cooking instructions in order; each instruction is one string
             - If multiple images are provided, treat them as pages of the same recipe
             - coverImage: if a clear photo or illustration of the finished recipe appears anywhere in the uploaded images, return a crop box for it
@@ -271,7 +279,8 @@ namespace RecipeHelper.Services
         private sealed record RawExtractedIngredient(
             [property: JsonPropertyName("quantity")] decimal? Quantity,
             [property: JsonPropertyName("unit")] string? Unit,
-            [property: JsonPropertyName("name")] string Name);
+            [property: JsonPropertyName("name")] string Name,
+            [property: JsonPropertyName("section")] string? Section);
 
         public sealed record NormalizedRecipePhoto(
             string OriginalFileName,
@@ -292,9 +301,16 @@ namespace RecipeHelper.Services
 
         private static string? GetAllowedImageMimeType(IFormFile photo)
         {
+            // Stream.Read is allowed to return fewer bytes than requested even when
+            // more data is available — IFormFile.OpenReadStream() can hand back a
+            // disk-backed FileBufferingReadStream once a multipart upload spills past
+            // the in-memory threshold, and a single Read() against that can come back
+            // short. ReadAtLeast loops internally until the buffer is full or the
+            // stream ends, so a short first read can no longer misclassify a valid
+            // image as an invalid one.
             Span<byte> header = stackalloc byte[12];
             using var stream = photo.OpenReadStream();
-            var bytesRead = stream.Read(header);
+            var bytesRead = stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false);
 
             if (bytesRead >= 3 &&
                 header[0] == 0xFF &&
@@ -757,7 +773,8 @@ namespace RecipeHelper.Services
                     Name = i.Name,
                     CleanName = i.Name,
                     Amount = i.Quantity ?? 0,
-                    Unit = i.Unit ?? string.Empty
+                    Unit = i.Unit ?? string.Empty,
+                    Section = string.IsNullOrWhiteSpace(i.Section) ? null : i.Section.Trim()
                 }).ToList(),
                 Steps = steps,
                 SuggestedCoverSourceImageIndex = coverCrop?.SourceImageIndex,

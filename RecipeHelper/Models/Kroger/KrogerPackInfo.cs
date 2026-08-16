@@ -27,6 +27,12 @@ namespace RecipeHelper.Models.Kroger
         public PackDimension Dimension { get; set; } // Unit / Weight / Volume / Unknown
         public bool ParsedOk { get; set; }
 
+        // True when PrimaryQty/PrimaryUnit/Dimension came from Kroger's own nutrition-
+        // panel serving data (servingSize x servingsPerPackage) rather than parsing the
+        // free-text size string. Exposed mainly so callers/tests can tell which source
+        // produced a given pack figure.
+        public bool FromServingData { get; set; }
+
         public static KrogerPackInfo BuildPackInfo(KrogerProductDto product)
         {
             var pack = new KrogerPackInfo
@@ -36,22 +42,47 @@ namespace RecipeHelper.Models.Kroger
                 ParsedOk = false
             };
 
-            // 1️⃣ Parse size string
-            // TryParse always returns an instance (never null) -- it signals failure via
-            // parsed.ParsedOk (e.g. "Varies", "N/A", "1 lb 4 oz" all fail to match either
-            // regex). Must propagate that flag rather than assuming success just because
-            // an object came back, or every unparseable size silently skips the "could not
-            // parse product size" fallback in KrogerService.ConvertIngredientsToCartItems.
-            var parsed = KrogerSizeParser.TryParse(product.size);
+            // 1️⃣ Prefer Kroger's own nutrition-panel serving data when present:
+            // servingSize x servingsPerPackage is the manufacturer-reported total pack
+            // content in a real cooking/weight unit (e.g. "1 tsp" x 45 servings = 45 tsp
+            // of minced garlic; "240 ml" x 4 = 960 ml of broth). A free-text size string
+            // like "8 oz" or "32 oz" is ambiguous (fluid vs weight ounces isn't stated)
+            // and, when it doesn't share a dimension with the ingredient, forces a guess
+            // at the product's density -- serving data sidesteps both problems entirely
+            // when its unit is one we recognize.
+            var servingUnit = string.IsNullOrWhiteSpace(product.servingSizeUnitAbbreviation)
+                ? MeasureUnit.Unknown
+                : UnitConverter.Parse(product.servingSizeUnitAbbreviation);
 
-            pack.PrimaryQty = parsed.PrimaryQty;
-            pack.PrimaryUnit = parsed.PrimaryUnit;
-            pack.CountEach = parsed.CountEach;
-            pack.IsComposite = parsed.IsComposite;
-            pack.Dimension = parsed.Dimension;
-            pack.ParsedOk = parsed.ParsedOk;
+            if (product.servingSizeQty is > 0 && product.servingsPerPackage is > 0 && servingUnit != MeasureUnit.Unknown)
+            {
+                pack.PrimaryQty = product.servingSizeQty * product.servingsPerPackage;
+                pack.PrimaryUnit = product.servingSizeUnitAbbreviation;
+                pack.Dimension = ToPackDimension(UnitConverter.GetDimension(servingUnit));
+                pack.IsComposite = false;
+                pack.CountEach = null;
+                pack.ParsedOk = true;
+                pack.FromServingData = true;
+            }
+            else
+            {
+                // 2️⃣ Fall back to parsing the size string. TryParse always returns an
+                // instance (never null) -- it signals failure via parsed.ParsedOk (e.g.
+                // "Varies", "N/A", "1 lb 4 oz" all fail to match either regex). Must
+                // propagate that flag rather than assuming success just because an object
+                // came back, or every unparseable size silently skips the "could not
+                // parse product size" fallback in KrogerService.ConvertIngredientsToCartItems.
+                var parsed = KrogerSizeParser.TryParse(product.size);
 
-            // 2️⃣ Infer soldBy if missing
+                pack.PrimaryQty = parsed.PrimaryQty;
+                pack.PrimaryUnit = parsed.PrimaryUnit;
+                pack.CountEach = parsed.CountEach;
+                pack.IsComposite = parsed.IsComposite;
+                pack.Dimension = parsed.Dimension;
+                pack.ParsedOk = parsed.ParsedOk;
+            }
+
+            // 3️⃣ Infer soldBy if missing
             pack.SoldByEffective = SoldByInference.InferSoldBy(
                 product.soldBy,
                 product.size,
@@ -60,6 +91,14 @@ namespace RecipeHelper.Models.Kroger
 
             return pack;
         }
+
+        private static PackDimension ToPackDimension(MeasureDimension dim) => dim switch
+        {
+            MeasureDimension.Volume => PackDimension.Volume,
+            MeasureDimension.Weight => PackDimension.Weight,
+            MeasureDimension.Count => PackDimension.Unit,
+            _ => PackDimension.Unknown,
+        };
     }
 
     public enum PackDimension

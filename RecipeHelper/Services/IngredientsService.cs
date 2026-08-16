@@ -110,6 +110,10 @@ namespace RecipeHelper.Services
                 - butter vs margarine
                 - flour vs bread flour vs almond flour
                 - cheddar cheese vs parmesan cheese
+                - yellow onion vs red onion vs white onion vs green onion
+                - green bell pepper vs red bell pepper vs yellow bell pepper
+                - russet potato vs red potato vs sweet potato vs yukon gold potato
+                - red apple vs green apple
 
                 Ingredient: ""{normalized}""
                 ";
@@ -183,6 +187,10 @@ namespace RecipeHelper.Services
                 - butter vs margarine
                 - flour vs bread flour vs almond flour
                 - cheddar cheese vs parmesan cheese
+                - yellow onion vs red onion vs white onion vs green onion
+                - green bell pepper vs red bell pepper vs yellow bell pepper
+                - russet potato vs red potato vs sweet potato vs yukon gold potato
+                - red apple vs green apple
 
                 Remove “optional” ingredients. Do no include ingredients that are obviously not ingredients.
                 Return ONLY JSON, no markdown.

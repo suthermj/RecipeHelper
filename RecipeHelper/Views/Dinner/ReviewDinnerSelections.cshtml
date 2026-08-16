@@ -10,6 +10,24 @@
 
     var sectionOrder = new[] { "Produce", "Meat", "Dairy", "Pantry", "Bakery", "Frozen" };
 
+    // Real Apple system colors, loosely mapped to each department's actual substance
+    // (green=fresh produce, pink=meat, blue=dairy, brown=dry goods, orange=baked goods,
+    // teal=frozen/cold) rather than invented hues -- keeps the page feeling native to
+    // the app's existing iOS palette instead of importing a new one. Deliberately only
+    // covers the known grocery categories: "Other" and anything else (including
+    // recipe-internal headings that leak into this field on some imported recipes --
+    // see PR notes) fall through to a neutral gray dot rather than being colored as if
+    // they were a real department, which would make that data gap harder to notice.
+    var sectionColors = new Dictionary<string, string>
+    {
+        ["Produce"] = "#34C759",
+        ["Meat"]    = "#FF2D55",
+        ["Dairy"]   = "#007AFF",
+        ["Pantry"]  = "#A2845E",
+        ["Bakery"]  = "#FF9500",
+        ["Frozen"]  = "#5AC8FA",
+    };
+
     var grouped = Model.Ingredients
         .GroupBy(i => string.IsNullOrWhiteSpace(i.Section) ? "Other" : i.Section.Trim())
         .OrderBy(g => {
@@ -78,6 +96,20 @@
               data-loading-text="Building Kroger cart items…">
             @Html.AntiForgeryToken()
 
+            <!-- Progress -- the page's actual job (get from unsorted ingredients to a
+                 confirmed list) made visible as it happens, updated live by JS
+                 (updateCounts below) from the same canonical checkbox state that drives
+                 submission -- purely a read-out, no effect on what's submitted. -->
+            <div class="px-4 pb-3">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[13px] font-semibold" style="color: var(--ios-label);">Shopping progress</span>
+                    <span id="progressLabel" class="text-[13px]" style="color: var(--ios-label-2);">@Model.Ingredients.Count of @Model.Ingredients.Count checked</span>
+                </div>
+                <div class="ios-progress-track">
+                    <div id="progressFill" class="ios-progress-fill" style="width: 100%;"></div>
+                </div>
+            </div>
+
             <!-- Search + view toggle + bulk actions -->
             <div class="px-4 pb-3 space-y-2.5">
                 <div class="flex items-center gap-2">
@@ -132,10 +164,14 @@
             <div id="viewBySection" class="review-view">
                 @foreach (var group in grouped)
                 {
+                    var dotColor = sectionColors.TryGetValue(group.Key, out var c) ? c : "var(--ios-label-3)";
                     <div class="section-group mb-5" data-section="@group.Key">
                         <div class="flex items-center justify-between px-4 pt-1 pb-1.5">
-                            <p class="ios-section-hdr" style="padding: 0;">@group.Key</p>
-                            <span class="text-[12px]" style="color: var(--ios-label-3);">@group.Count() item@(group.Count() == 1 ? "" : "s")</span>
+                            <div class="flex items-center gap-2">
+                                <span class="h-2.5 w-2.5 rounded-full shrink-0" style="background: @dotColor;"></span>
+                                <p class="ios-section-hdr" style="padding: 0;">@group.Key</p>
+                            </div>
+                            <span class="group-count text-[12px]" style="color: var(--ios-label-3);">@group.Count() of @group.Count()</span>
                         </div>
                         <div class="ios-group">
                             @foreach (var item in group)
@@ -153,7 +189,7 @@
                 {
                     <div class="section-group mb-5" data-section="@recipeGroup.RecipeName">
                         <div class="flex items-center gap-2.5 px-4 pt-1 pb-2">
-                            <div class="h-9 w-9 rounded-lg overflow-hidden shrink-0" style="background: var(--ios-fill);">
+                            <div class="h-9 w-9 rounded-lg overflow-hidden shrink-0" style="background: var(--ios-fill); box-shadow: 0 1px 4px rgba(0,0,0,0.07);">
                                 <img src="@(recipeGroup.ThumbnailUri is { Length: > 0 } tu ? tu : recipeGroup.ImageUri)"
                                      alt="" loading="lazy" decoding="async" class="h-full w-full object-cover" />
                             </div>
@@ -164,7 +200,7 @@
                                     <span class="text-[12px] font-medium" style="color: var(--ios-label-2);">×@recipeGroup.Occurrences</span>
                                 }
                             </p>
-                            <span class="text-[12px] shrink-0" style="color: var(--ios-label-3);">@recipeGroup.Ingredients.Count item@(recipeGroup.Ingredients.Count == 1 ? "" : "s")</span>
+                            <span class="group-count text-[12px] shrink-0" style="color: var(--ios-label-3);">@recipeGroup.Ingredients.Count of @recipeGroup.Ingredients.Count</span>
                         </div>
                         <div class="ios-group">
                             @foreach (var item in recipeGroup.Ingredients)
@@ -222,7 +258,21 @@
 
             if (checked) {
                 row.style.opacity = '';
-                if (circle) { circle.style.background = '#34C759'; circle.style.borderColor = '#34C759'; }
+                if (circle) {
+                    circle.style.background = '#34C759';
+                    circle.style.borderColor = '#34C759';
+                    // Brief scale-pop on check only (not uncheck, so bulk clear-all
+                    // doesn't fire it) -- stands in for haptic feedback, same idea as
+                    // Dinner/Index's day-card-target-pop on a drag crossing into a new
+                    // day. 'animationend' with once:true means rapid re-taps just
+                    // restart cleanly rather than stacking listeners.
+                    circle.classList.remove('pop');
+                    void circle.offsetWidth; // force reflow so re-adding the class restarts the animation
+                    circle.classList.add('pop');
+                    circle.addEventListener('animationend', function () {
+                        circle.classList.remove('pop');
+                    }, { once: true });
+                }
                 if (icon)   icon.classList.remove('hidden');
                 if (name)   { name.style.textDecoration = ''; name.style.color = ''; }
             } else {
@@ -231,6 +281,34 @@
                 if (icon)   icon.classList.add('hidden');
                 if (name)   { name.style.textDecoration = 'line-through'; name.style.color = 'var(--ios-label-2)'; }
             }
+        }
+
+        var progressLabel = document.getElementById('progressLabel');
+        var progressFill  = document.getElementById('progressFill');
+
+        // Reads the same canonical checkbox state that drives submission -- purely a
+        // read-out for the progress bar / per-group counts, no effect on what's
+        // actually submitted. Called after every state-changing action.
+        function updateCounts() {
+            var allInputs = document.querySelectorAll('.ing-inputs');
+            var total = allInputs.length;
+            var checked = 0;
+            allInputs.forEach(function (el) {
+                if (el.querySelector('.ingredient-checkbox')?.checked) checked++;
+            });
+            if (progressLabel) progressLabel.textContent = checked + ' of ' + total + ' checked';
+            if (progressFill) progressFill.style.width = (total ? Math.round(checked / total * 100) : 0) + '%';
+
+            document.querySelectorAll('.section-group').forEach(function (group) {
+                var rows = group.querySelectorAll('.ingredient-row');
+                var groupChecked = 0;
+                rows.forEach(function (row) {
+                    var cb = document.querySelector('.ing-inputs[data-key="' + CSS.escape(row.dataset.key) + '"] .ingredient-checkbox');
+                    if (cb?.checked) groupChecked++;
+                });
+                var countEl = group.querySelector('.group-count');
+                if (countEl) countEl.textContent = groupChecked + ' of ' + rows.length;
+            });
         }
 
         // Toggling a key updates every display row sharing it (in both views) plus the
@@ -242,6 +320,7 @@
             var inputBlock = document.querySelector('.ing-inputs[data-key="' + CSS.escape(key) + '"]');
             var cb = inputBlock?.querySelector('.ingredient-checkbox');
             if (cb) cb.checked = checked;
+            updateCounts();
         }
 
         function allKeys() {
@@ -318,5 +397,6 @@
             btn.addEventListener('click', function () { setView(btn.dataset.view); });
         });
         setView(localStorage.getItem('reviewIngredientsView') || 'section');
+        updateCounts();
     });
 </script>

@@ -273,6 +273,50 @@
             var steps = @Json.Serialize(Model.Instructions);
             if (!steps || steps.length === 0) return;
 
+            var ingredientNames = @Json.Serialize(
+                (Model.Ingredients ?? new List<IngredientVM>())
+                    .Select(i => i.Name)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct()
+                    .ToList());
+
+            function escapeHtml(s) {
+                return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            function escapeRegex(s) {
+                return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            // Build the set of terms to look for in step text: each ingredient's full
+            // name, plus its last word as a fallback (so "all-purpose flour" also
+            // matches a step that just says "flour"). Sorted longest-first so a
+            // multi-word ingredient name wins over a shorter fallback word.
+            var ingredientTerms = [];
+            ingredientNames.forEach(function (name) {
+                var trimmed = (name || '').trim();
+                if (!trimmed) return;
+                ingredientTerms.push(trimmed);
+                var words = trimmed.split(/\s+/);
+                var lastWord = words[words.length - 1];
+                if (words.length > 1 && lastWord.length > 2) ingredientTerms.push(lastWord);
+            });
+            ingredientTerms = ingredientTerms
+                .filter(function (term, i) { return ingredientTerms.indexOf(term) === i; })
+                .sort(function (a, b) { return b.length - a.length; });
+
+            // Match plural forms too (onion/onions, tomato/tomatoes) without a full
+            // stemming library — good enough for common ingredient names.
+            var highlightRegex = ingredientTerms.length
+                ? new RegExp('\\b(' + ingredientTerms.map(escapeRegex).join('|') + ')(e?s)?\\b', 'gi')
+                : null;
+
+            function highlightIngredients(text) {
+                var escaped = escapeHtml(text || '');
+                if (!highlightRegex) return escaped;
+                return escaped.replace(highlightRegex, '<span class="cook-ingredient-highlight">$&</span>');
+            }
+
             var cookStep = 0;
             var wakeLock = null;
             var cookOpen = false;
@@ -291,7 +335,7 @@
             var ingrCloseBtn = document.getElementById('cookIngrClose');
 
             function renderStep() {
-                stepText.textContent = steps[cookStep];
+                stepText.innerHTML  = highlightIngredients(steps[cookStep]);
                 counter.textContent  = 'Step ' + (cookStep + 1) + ' of ' + steps.length;
                 prevBtn.disabled     = cookStep === 0;
                 prevBtn.style.opacity = cookStep === 0 ? '0.4' : '';

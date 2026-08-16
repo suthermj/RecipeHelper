@@ -176,6 +176,34 @@ namespace RecipeHelper.Controllers
                 }).ToList(),
             }).ToListAsync();
 
+            // Per-recipe grouping for the "group by recipe" view on the review page
+            // (#78) -- built from the distinct recipeRows (not the occurrence-expanded
+            // list below), so a recipe on multiple days produces one group with
+            // Occurrences set, not duplicate groups. Ingredient quantities are
+            // multiplied by Occurrences to stay consistent with the merged totals below,
+            // which sum across every occurrence. This is purely a display grouping --
+            // model.Ingredients (built further down) remains the only source of the
+            // quantities actually submitted.
+            model.RecipeGroups = recipeRows.Select(row => new RecipeIngredientGroupVM
+            {
+                RecipeName = row.RecipeName,
+                ImageUri = row.ImageUri,
+                Occurrences = idCounts[row.Id],
+                Ingredients = row.Ingredients
+                    .Select(ing => new IngredientVM
+                    {
+                        Id = ing.Id,
+                        Name = ing.Name,
+                        Section = ing.Section,
+                        Quantity = ing.Quantity * idCounts[row.Id],
+                        Upc = ing.Upc,
+                        Measurement = ing.Measurement
+                    })
+                    .OrderBy(ing => ing.Section)
+                    .ThenBy(ing => ing.Name)
+                    .ToList()
+            }).ToList();
+
             // Expand each recipe by its occurrence count before aggregation
             var recipes = new List<ViewRecipeVM>();
             foreach (var row in recipeRows)

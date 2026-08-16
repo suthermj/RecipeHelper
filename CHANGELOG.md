@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- Meal plan ingredient review (`Dinner/ReviewDinnerSelections`) now has a "Section | Recipe" toggle, letting you view the aggregated shopping list grouped by grocery section (as before) or by which recipe each ingredient belongs to — makes it easy to see everything needed for one dish at a glance. An ingredient used by more than one recipe shows once under each, labeled "(shared)", with that recipe's own amount rather than the combined total (the combined total is still what's shopped for — the by-recipe view is presentation-only). Implemented by hoisting the actual submitted form inputs out of the display rows into a hidden canonical block, so duplicating a shared ingredient's row for display can't duplicate what gets added to the Kroger cart or shopping list — toggling a row in either view updates every row sharing its `IngredientVM.DimensionKey` (ingredient name + measurement dimension family) across both views plus the one input block that actually submits. (#78)
+
 ### Changed
 
 - Kroger cart preview (`Cart/PreviewAddToCart`) ingredient cards no longer show brand, stock level, or the product's own size/pack measurement — reduced clutter, keeping name, price, needed amount, and quantity. The per-row warning text (shown for "Needs review" items) no longer explains the internal reasoning for a fallback/estimate (which dimension mismatched, whether a density was assumed, etc.) — every case now shows the same short "Estimated — please verify quantity" instead of up to 7 different technical messages. The full mechanism-specific detail is still logged server-side for debugging.

@@ -18,6 +18,44 @@
         })
         .ThenBy(g => g.Key)
         .ToList();
+
+    // Keys that appear in more than one recipe group -- flagged in the by-recipe view
+    // so it's clear an ingredient's amount there is only that recipe's share, not the
+    // full shopping total (which still lives in the section view / merged Ingredients).
+    var sharedKeys = Model.RecipeGroups
+        .SelectMany(g => g.Ingredients.Select(i => i.DimensionKey).Distinct())
+        .GroupBy(k => k)
+        .Where(g => g.Count() > 1)
+        .Select(g => g.Key)
+        .ToHashSet();
+
+    // Shared row template for both views (#78) -- display only, no form inputs. Every
+    // row is tagged data-key (IngredientVM.DimensionKey: name + dimension family) so
+    // toggling any row with a given key, in either view, can find and update every
+    // other row sharing it plus the one canonical hidden input block that actually
+    // submits (see #ingredient-inputs below).
+    Func<(IngredientVM Item, bool IsRecipeView), object> RenderRow = @<div class="ingredient-row ios-cell cursor-pointer select-none transition-opacity"
+         data-key="@item.Item.DimensionKey"
+         data-name="@item.Item.Name.ToLowerInvariant()"
+         style="border-bottom: 0.5px solid var(--ios-separator);">
+        <!-- Check circle -->
+        <div class="check-circle h-6 w-6 rounded-full shrink-0 flex items-center justify-center transition-colors"
+             style="background: #34C759; border: 2px solid #34C759;">
+            <svg class="check-icon h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+        </div>
+        <span class="item-name flex-1 text-[15px] font-medium" style="color: var(--ios-label);">
+            @item.Item.Name
+            @if (item.IsRecipeView && sharedKeys.Contains(item.Item.DimensionKey))
+            {
+                <span class="text-[11px] font-normal" style="color: var(--ios-label-2);">(shared)</span>
+            }
+        </span>
+        <span class="text-[13px] shrink-0" style="color: var(--ios-label-2);">
+            @item.Item.DisplayQuantity @item.Item.DisplayMeasurement
+        </span>
+    </div>;
 }
 
 <div class="pt-2 pb-36">
@@ -50,16 +88,48 @@
                     <input type="text" id="ingredientSearch" placeholder="Search ingredients…"
                            class="ios-search-input" />
                 </div>
-                <div class="flex gap-2 flex-wrap">
-                    <button type="button" id="selectAllBtn" class="ios-pill">Select all</button>
-                    <button type="button" id="clearAllBtn"  class="ios-pill">Clear all</button>
-                    <button type="button" id="pantryBtn"    class="ios-pill">Uncheck pantry</button>
+                <div class="flex gap-2 flex-wrap items-center justify-between">
+                    <div class="flex gap-2 flex-wrap">
+                        <button type="button" id="selectAllBtn" class="ios-pill">Select all</button>
+                        <button type="button" id="clearAllBtn"  class="ios-pill">Clear all</button>
+                        <button type="button" id="pantryBtn"    class="ios-pill">Uncheck pantry</button>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button type="button" id="viewBySectionBtn" class="view-toggle-btn ios-pill active" data-view="section">Section</button>
+                        <button type="button" id="viewByRecipeBtn"  class="view-toggle-btn ios-pill" data-view="recipe">Recipe</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Ingredient list grouped by section -->
-            <div id="ingredientList">
+            <!-- Canonical form inputs -- the only thing that submits. One block per
+                 merged ingredient row, in the same section-grouped order/index sequence
+                 as before this change, so Items[i] indices are unchanged regardless of
+                 which display view is active. -->
+            <div id="ingredient-inputs" hidden>
                 @{var i = 0;}
+                @foreach (var group in grouped)
+                {
+                    foreach (var item in group)
+                    {
+                        <div class="ing-inputs" data-key="@item.DimensionKey">
+                            <input type="checkbox"
+                                   name="Items[@i].Include"
+                                   value="true"
+                                   checked
+                                   class="ingredient-checkbox" />
+                            <input type="hidden" name="Items[@i].Name"        value="@item.Name" />
+                            <input type="hidden" name="Items[@i].Upc"         value="@item.Upc" />
+                            <input type="hidden" name="Items[@i].Quantity"    value="@item.Quantity" />
+                            <input type="hidden" name="Items[@i].Modality"    value="PICKUP" />
+                            <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
+                        </div>
+                        i++;
+                    }
+                }
+            </div>
+
+            <!-- Grouped by grocery section (default view) -->
+            <div id="viewBySection" class="review-view">
                 @foreach (var group in grouped)
                 {
                     <div class="section-group" data-section="@group.Key">
@@ -67,33 +137,29 @@
                         <div class="ios-group">
                             @foreach (var item in group)
                             {
-                                <div class="ingredient-row ios-cell cursor-pointer select-none transition-opacity"
-                                     data-name="@item.Name.ToLowerInvariant()"
-                                     style="border-bottom: 0.5px solid var(--ios-separator);">
-                                    <!-- Check circle -->
-                                    <div class="check-circle h-6 w-6 rounded-full shrink-0 flex items-center justify-center transition-colors"
-                                         style="background: #34C759; border: 2px solid #34C759;">
-                                        <svg class="check-icon h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    </div>
-                                    <span class="item-name flex-1 text-[15px] font-medium" style="color: var(--ios-label);">@item.Name</span>
-                                    <span class="text-[13px] shrink-0" style="color: var(--ios-label-2);">
-                                        @item.DisplayQuantity @item.DisplayMeasurement
-                                    </span>
+                                @RenderRow((item, false))
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
 
-                                    <input type="checkbox"
-                                           name="Items[@i].Include"
-                                           value="true"
-                                           checked
-                                           class="ingredient-checkbox sr-only" />
-                                    <input type="hidden" name="Items[@i].Name"        value="@item.Name" />
-                                    <input type="hidden" name="Items[@i].Upc"         value="@item.Upc" />
-                                    <input type="hidden" name="Items[@i].Quantity"    value="@item.Quantity" />
-                                    <input type="hidden" name="Items[@i].Modality"    value="PICKUP" />
-                                    <input type="hidden" name="Items[@i].Measurement" value="@item.Measurement" />
-                                </div>
-                                i++;
+            <!-- Grouped by recipe -->
+            <div id="viewByRecipe" class="review-view hidden">
+                @foreach (var recipeGroup in Model.RecipeGroups)
+                {
+                    <div class="section-group" data-section="@recipeGroup.RecipeName">
+                        <p class="ios-section-hdr" style="padding-top:12px;">
+                            @recipeGroup.RecipeName
+                            @if (recipeGroup.Occurrences > 1)
+                            {
+                                <span class="ios-badge" style="margin-left:6px; background: var(--ios-fill); color: var(--ios-label-2);">×@recipeGroup.Occurrences</span>
+                            }
+                        </p>
+                        <div class="ios-group">
+                            @foreach (var item in recipeGroup.Ingredients)
+                            {
+                                @RenderRow((item, true))
                             }
                         </div>
                     </div>
@@ -139,38 +205,53 @@
             form.requestSubmit();
         });
 
-        function setRowState(row, checked) {
+        function styleRow(row, checked) {
             var circle = row.querySelector('.check-circle');
             var icon   = row.querySelector('.check-icon');
             var name   = row.querySelector('.item-name');
-            var cb     = row.querySelector('.ingredient-checkbox');
 
             if (checked) {
                 row.style.opacity = '';
                 if (circle) { circle.style.background = '#34C759'; circle.style.borderColor = '#34C759'; }
                 if (icon)   icon.classList.remove('hidden');
                 if (name)   { name.style.textDecoration = ''; name.style.color = ''; }
-                if (cb)     cb.checked = true;
             } else {
                 row.style.opacity = '0.4';
                 if (circle) { circle.style.background = 'var(--ios-fill)'; circle.style.borderColor = 'var(--ios-separator)'; }
                 if (icon)   icon.classList.add('hidden');
                 if (name)   { name.style.textDecoration = 'line-through'; name.style.color = 'var(--ios-label-2)'; }
-                if (cb)     cb.checked = false;
             }
+        }
+
+        // Toggling a key updates every display row sharing it (in both views) plus the
+        // one canonical hidden input block that actually submits.
+        function setKeyState(key, checked) {
+            document.querySelectorAll('.ingredient-row[data-key="' + CSS.escape(key) + '"]').forEach(function (row) {
+                styleRow(row, checked);
+            });
+            var inputBlock = document.querySelector('.ing-inputs[data-key="' + CSS.escape(key) + '"]');
+            var cb = inputBlock?.querySelector('.ingredient-checkbox');
+            if (cb) cb.checked = checked;
+        }
+
+        function allKeys() {
+            return Array.from(document.querySelectorAll('.ing-inputs')).map(function (el) { return el.dataset.key; });
         }
 
         document.addEventListener('click', function (e) {
             var row = e.target.closest('.ingredient-row');
             if (!row) return;
-            var cb = row.querySelector('.ingredient-checkbox');
-            setRowState(row, !cb.checked);
+            var key = row.dataset.key;
+            var cb = document.querySelector('.ing-inputs[data-key="' + CSS.escape(key) + '"] .ingredient-checkbox');
+            setKeyState(key, !cb?.checked);
         });
 
         var searchInput = document.getElementById('ingredientSearch');
-        searchInput?.addEventListener('input', function () {
-            var term = this.value.toLowerCase().trim();
-            document.querySelectorAll('.section-group').forEach(function (group) {
+        function applySearch() {
+            var term = (searchInput?.value || '').toLowerCase().trim();
+            var activeView = document.querySelector('.review-view:not(.hidden)');
+            if (!activeView) return;
+            activeView.querySelectorAll('.section-group').forEach(function (group) {
                 var visibleCount = 0;
                 group.querySelectorAll('.ingredient-row').forEach(function (row) {
                     var matches = !term || row.dataset.name.includes(term);
@@ -179,7 +260,8 @@
                 });
                 group.classList.toggle('hidden', visibleCount === 0);
             });
-        });
+        }
+        searchInput?.addEventListener('input', applySearch);
 
         var pantryKeywords = [
             'olive oil','vegetable oil','canola oil','cooking oil',
@@ -191,17 +273,40 @@
         ];
 
         document.getElementById('selectAllBtn')?.addEventListener('click', function () {
-            document.querySelectorAll('.ingredient-row').forEach(function (row) { setRowState(row, true); });
+            allKeys().forEach(function (key) { setKeyState(key, true); });
         });
         document.getElementById('clearAllBtn')?.addEventListener('click', function () {
-            document.querySelectorAll('.ingredient-row').forEach(function (row) { setRowState(row, false); });
+            allKeys().forEach(function (key) { setKeyState(key, false); });
         });
         document.getElementById('pantryBtn')?.addEventListener('click', function () {
-            document.querySelectorAll('.ingredient-row').forEach(function (row) {
-                if (pantryKeywords.some(function (kw) { return row.dataset.name.includes(kw); })) {
-                    setRowState(row, false);
+            allKeys().forEach(function (key) {
+                var name = key.split('|')[0];
+                if (pantryKeywords.some(function (kw) { return name.includes(kw); })) {
+                    setKeyState(key, false);
                 }
             });
         });
+
+        // View toggle (Section / Recipe), persisted in localStorage.
+        var viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
+        var views = {
+            section: document.getElementById('viewBySection'),
+            recipe:  document.getElementById('viewByRecipe')
+        };
+        function setView(view) {
+            if (!views[view]) view = 'section';
+            Object.keys(views).forEach(function (key) {
+                views[key].classList.toggle('hidden', key !== view);
+            });
+            viewToggleBtns.forEach(function (btn) {
+                btn.classList.toggle('active', btn.dataset.view === view);
+            });
+            localStorage.setItem('reviewIngredientsView', view);
+            applySearch();
+        }
+        viewToggleBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () { setView(btn.dataset.view); });
+        });
+        setView(localStorage.getItem('reviewIngredientsView') || 'section');
     });
 </script>

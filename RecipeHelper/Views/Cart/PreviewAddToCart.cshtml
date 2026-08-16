@@ -79,7 +79,21 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 @if (!string.IsNullOrWhiteSpace(item.Size))
                                 { <span class="text-[12px]" style="color: var(--ios-label-2);">@item.Size</span> }
-                                @if (item.OnSale && item.PromoPrice > 0)
+                                @{
+                                    var preDiscountPrice = item.OnSale && item.PromoPrice > 0 ? item.PromoPrice : item.RegularPrice;
+                                    var isKrogerBrandItem = IsKrogerBrand(item.Brand);
+                                }
+                                @if (isKrogerBrandItem && preDiscountPrice > 0)
+                                {
+                                    <span class="ios-badge" style="background: #E8F8ED; color: #1F9D55;">-10%</span>
+                                    <span class="text-[13px] font-semibold" style="color: #1F9D55;">@UnitPrice(item).ToString("C")</span>
+                                    <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@preDiscountPrice.ToString("C")</span>
+                                    @if (item.OnSale && item.PromoPrice > 0)
+                                    {
+                                        <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
+                                    }
+                                }
+                                else if (item.OnSale && item.PromoPrice > 0)
                                 {
                                     <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@item.PromoPrice.ToString("C")</span>
                                     <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@item.RegularPrice.ToString("C")</span>

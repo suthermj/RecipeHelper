@@ -13,6 +13,10 @@ namespace RecipeHelper.Models.Kroger
     public class CartItemVM
     {
         public string Upc { get; set; } = null!;
+        // The review page already posts Items[i].Name (ReviewDinnerSelections.cshtml) --
+        // this property just lets it actually bind, so a skipped/unmapped ingredient can
+        // be reported by name instead of vanishing with no identifying detail.
+        public string? Name { get; set; }
         public decimal Quantity { get; set; }
         public string Measurement { get; set; }
         public bool Include { get; set; }
@@ -37,7 +41,11 @@ namespace RecipeHelper.Models.Kroger
                 Items.Add(new CartItem
                 {
                     Upc = item.Upc,
-                    Quantity = (int)item.Quantity
+                    // Round up, not truncate -- every upstream conversion branch already
+                    // produces whole numbers via Math.Ceiling, but a straight (int) cast
+                    // would silently under-order (2.7 -> 2) if that ever changes, e.g. a
+                    // future editable-quantity input on the preview screen.
+                    Quantity = (int)Math.Ceiling(item.Quantity)
                 });
             }
         }
@@ -88,6 +96,24 @@ namespace RecipeHelper.Models.Kroger
     public class AddToCartPreviewVM
     {
         public List<AddToCartPreviewItemVM> Items { get; set; } = new();
+        public List<SkippedCartItem> Skipped { get; set; } = new();
+    }
+
+    // An ingredient ConvertIngredientsToCartItems couldn't turn into a cart line --
+    // either it had no mapped Kroger product, or the product lookup failed. Surfaced
+    // to the user instead of the item just disappearing between the review page and
+    // the cart preview with no explanation.
+    public class SkippedCartItem
+    {
+        public string Name { get; set; } = "";
+        public string Reason { get; set; } = "";
+        public decimal Quantity { get; set; }
+    }
+
+    public class ConvertIngredientsResult
+    {
+        public List<DetailedCartItem> Items { get; set; } = new();
+        public List<SkippedCartItem> Skipped { get; set; } = new();
     }
 
 }

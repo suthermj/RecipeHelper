@@ -132,6 +132,22 @@
             </div>
         </form>
     }
+
+    @if (Model.Skipped.Any())
+    {
+        <div class="mx-4 mt-4 ios-group">
+            <p class="ios-section-hdr" style="padding-top:0;">Not added (@Model.Skipped.Count)</p>
+            @foreach (var skip in Model.Skipped)
+            {
+                <div class="ios-cell" style="border-bottom: 0.5px solid var(--ios-separator);">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[14px] font-medium" style="color: var(--ios-label);">@skip.Name</p>
+                        <p class="text-[12px]" style="color: var(--ios-label-2);">@skip.Reason</p>
+                    </div>
+                </div>
+            }
+        </div>
+    }
 </div>
 
 <!-- Fixed bottom action bar -->

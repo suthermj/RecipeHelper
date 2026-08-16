@@ -100,15 +100,16 @@ namespace RecipeHelper.Controllers
                 Items = withUpc.Select(i => new CartItemVM
                 {
                     Upc = i.Upc!,
+                    Name = i.Name,
                     Quantity = i.Quantity,
                     Measurement = i.Measurement ?? "",
                     Include = true
                 }).ToList()
             };
 
-            var cartItems = await _krogerService.ConvertIngredientsToCartItems(addToCartVm);
+            var conversionResult = await _krogerService.ConvertIngredientsToCartItems(addToCartVm);
 
-            var items = cartItems.Select(c => new ShoppingListItem
+            var items = conversionResult.Items.Select(c => new ShoppingListItem
             {
                 Name = c.Name,
                 Quantity = c.Quantity,
@@ -124,6 +125,16 @@ namespace RecipeHelper.Controllers
             {
                 Name = i.Name,
                 Quantity = (int)Math.Ceiling(i.Quantity),
+            }));
+
+            // Items that had a UPC but whose Kroger product lookup failed used to be
+            // silently dropped here (they vanished between the review page and the
+            // saved list with no trace). Add them the same way as the no-UPC items
+            // above -- name + quantity only, no aisle/price -- instead of losing them.
+            items.AddRange(conversionResult.Skipped.Select(s => new ShoppingListItem
+            {
+                Name = s.Name,
+                Quantity = (int)Math.Ceiling(s.Quantity),
             }));
 
             var name = $"Meal Plan – {DateTime.Now:MMM d, yyyy}";

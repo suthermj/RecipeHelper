@@ -336,9 +336,10 @@ namespace RecipeHelper.Services
             return true;
         }
 
-        public async Task<List<DetailedCartItem>> ConvertIngredientsToCartItems(AddToCartVM vm)
+        public async Task<ConvertIngredientsResult> ConvertIngredientsToCartItems(AddToCartVM vm)
         {
             List<DetailedCartItem> cartItems = new();
+            List<SkippedCartItem> skipped = new();
 
             _logger.LogInformation("Converting {count} ingredients to Kroger cart items", vm.Items.Count);
 
@@ -351,15 +352,19 @@ namespace RecipeHelper.Services
 
             foreach (var item in vm.Items)
             {
+                var itemName = string.IsNullOrWhiteSpace(item.Name) ? "Unknown ingredient" : item.Name;
+
                 if (string.IsNullOrWhiteSpace(item.Upc))
                 {
-                    _logger.LogWarning("Ingredient has no UPC, skipping.");
+                    _logger.LogWarning("Ingredient {name} has no UPC, skipping.", itemName);
+                    skipped.Add(new SkippedCartItem { Name = itemName, Reason = "No product mapped", Quantity = item.Quantity });
                     continue;
                 }
 
                 if (!productsByUpc.TryGetValue(item.Upc, out var krogerProduct))
                 {
-                    _logger.LogWarning("Could not fetch product details for UPC {upc}, skipping.", item.Upc);
+                    _logger.LogWarning("Could not fetch product details for UPC {upc} ({name}), skipping.", item.Upc, itemName);
+                    skipped.Add(new SkippedCartItem { Name = itemName, Reason = "Product lookup failed", Quantity = item.Quantity });
                     continue;
                 }
 
@@ -390,9 +395,13 @@ namespace RecipeHelper.Services
                 {
                     cartItem.Quantity = ConvertForWeightSoldItem(item, ingredientUnit, ingredientDim, krogerProduct.name, out conversionNote);
                 }
-                // BRANCH 2: Both ingredient and product are count-based
+                // BRANCH 2: Both ingredient and product are count-based. pack.IsComposite
+                // (not pack.Dimension == Composite -- that value no longer exists here,
+                // see KrogerSizeParser) covers packs like "8 ct / 22 oz": the count
+                // ingredient compares against the pack's CountEach regardless of what
+                // dimension its primary (weight/volume) measurement is in.
                 else if (ingredientDim == MeasureDimension.Count &&
-                         (pack.Dimension == PackDimension.Unit || pack.Dimension == PackDimension.Composite))
+                         (pack.Dimension == PackDimension.Unit || pack.IsComposite))
                 {
                     var packCount = pack.CountEach ?? pack.PrimaryQty ?? 1;
                     cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity / packCount));
@@ -433,7 +442,7 @@ namespace RecipeHelper.Services
             // to the same jar of minced garlic. Each loop iteration above computes a
             // pack quantity in isolation, so without this merge they'd show up as
             // separate rows on the cart preview instead of one combined line.
-            return cartItems
+            var mergedItems = cartItems
                 .GroupBy(ci => ci.Upc, StringComparer.OrdinalIgnoreCase)
                 .Select(g =>
                 {
@@ -452,6 +461,8 @@ namespace RecipeHelper.Services
                     return merged;
                 })
                 .ToList();
+
+            return new ConvertIngredientsResult { Items = mergedItems, Skipped = skipped };
         }
 
         private int ConvertForWeightSoldItem(CartItemVM item, MeasureUnit ingredientUnit,
@@ -548,15 +559,19 @@ namespace RecipeHelper.Services
             return Math.Max(1, (int)Math.Ceiling(item.Quantity));
         }
 
-        private static bool AreSameDimension(MeasureDimension ingredientDim, PackDimension packDim)
+        // internal (not private) so RecipeHelper.Tests can exercise these directly --
+        // see InternalsVisibleTo in RecipeHelper.csproj.
+        internal static bool AreSameDimension(MeasureDimension ingredientDim, PackDimension packDim)
         {
-            return (ingredientDim == MeasureDimension.Volume &&
-                    (packDim == PackDimension.Volume || packDim == PackDimension.Composite)) ||
-                   (ingredientDim == MeasureDimension.Weight &&
-                    (packDim == PackDimension.Weight || packDim == PackDimension.Composite));
+            // packDim is never PackDimension.Composite -- KrogerSizeParser now reports a
+            // composite pack's real primary dimension (Weight/Volume/Unit) here, so a
+            // composite pack only matches the dimension its primary measurement actually
+            // is, instead of matching both volume and weight ingredients unconditionally.
+            return (ingredientDim == MeasureDimension.Volume && packDim == PackDimension.Volume) ||
+                   (ingredientDim == MeasureDimension.Weight && packDim == PackDimension.Weight);
         }
 
-        private static bool IsCrossDimension(MeasureDimension ingredientDim, PackDimension packDim)
+        internal static bool IsCrossDimension(MeasureDimension ingredientDim, PackDimension packDim)
         {
             return (ingredientDim == MeasureDimension.Volume &&
                     (packDim == PackDimension.Weight)) ||

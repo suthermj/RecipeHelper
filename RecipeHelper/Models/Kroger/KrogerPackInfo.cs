@@ -37,17 +37,19 @@ namespace RecipeHelper.Models.Kroger
             };
 
             // 1️⃣ Parse size string
-            var parsed = KrogerSizeParser.TryParse(product.size); // your new parser
+            // TryParse always returns an instance (never null) -- it signals failure via
+            // parsed.ParsedOk (e.g. "Varies", "N/A", "1 lb 4 oz" all fail to match either
+            // regex). Must propagate that flag rather than assuming success just because
+            // an object came back, or every unparseable size silently skips the "could not
+            // parse product size" fallback in KrogerService.ConvertIngredientsToCartItems.
+            var parsed = KrogerSizeParser.TryParse(product.size);
 
-            if (parsed != null)
-            {
-                pack.PrimaryQty = parsed.PrimaryQty;
-                pack.PrimaryUnit = parsed.PrimaryUnit;
-                pack.CountEach = parsed.CountEach;
-                pack.IsComposite = parsed.IsComposite;
-                pack.Dimension = parsed.Dimension;
-                pack.ParsedOk = true;
-            }
+            pack.PrimaryQty = parsed.PrimaryQty;
+            pack.PrimaryUnit = parsed.PrimaryUnit;
+            pack.CountEach = parsed.CountEach;
+            pack.IsComposite = parsed.IsComposite;
+            pack.Dimension = parsed.Dimension;
+            pack.ParsedOk = parsed.ParsedOk;
 
             // 2️⃣ Infer soldBy if missing
             pack.SoldByEffective = SoldByInference.InferSoldBy(

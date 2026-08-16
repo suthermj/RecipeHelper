@@ -55,7 +55,16 @@ namespace RecipeHelper.Utility
                 var unit = NormalizeSizeUnit(cm.Groups["unit"].Value);
 
                 var dim = GetDimensionFromUnit(unit);
-                // Composite means we have count + some measurable primary (weight/volume)
+                // Dimension is the pack's real measurement kind (Weight/Volume/Unit) from
+                // its primary unit -- e.g. "8 ct / 22 oz" is Weight, not a generic
+                // "Composite" bucket. Downstream (KrogerService.AreSameDimension) matches
+                // on this to decide whether the pack is dimensionally compatible with the
+                // ingredient; hardcoding PackDimension.Composite here used to make every
+                // composite pack look compatible with BOTH volume and weight ingredients,
+                // producing meaningless ratios (e.g. teaspoons ÷ grams) with no warning.
+                // IsComposite stays true regardless -- it's what tells the caller "this
+                // pack also has a count," which BRANCH 2 in ConvertIngredientsToCartItems
+                // still needs for count-based ingredients against a composite pack.
                 return new ParsedPackSize
                 {
                     ParsedOk = countEach.HasValue && qty.HasValue && !string.IsNullOrWhiteSpace(unit),
@@ -63,7 +72,7 @@ namespace RecipeHelper.Utility
                     CountEach = countEach,
                     PrimaryQty = qty,
                     PrimaryUnit = unit,
-                    Dimension = PackDimension.Composite
+                    Dimension = dim
                 };
             }
 

@@ -12,6 +12,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Lets RecipeHelper.Tests unit-test a few internal-static helpers (Kroger pack/
+         dimension logic) directly, without widening their public API surface. -->
+    <InternalsVisibleTo Include="RecipeHelper.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Views\Shared\_Layout.cshtml.css" />
   </ItemGroup>
 

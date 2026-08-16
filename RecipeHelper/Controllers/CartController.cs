@@ -54,7 +54,8 @@ namespace RecipeHelper.Controllers
             _logger.LogInformation("PreviewAddToCart started. IncludedItemCount={IncludedItemCount}", vm.Items.Count);
 
             // vm.Items currently holds ingredients (with measurement/quantity/etc)
-            var detailedCartItems = await _krogerService.ConvertIngredientsToCartItems(vm);
+            var conversionResult = await _krogerService.ConvertIngredientsToCartItems(vm);
+            var detailedCartItems = conversionResult.Items;
 
             // Build preview items by fetching product details for each UPC
             var previewItems = new List<AddToCartPreviewItemVM>();
@@ -81,10 +82,11 @@ namespace RecipeHelper.Controllers
 
             var previewVm = new AddToCartPreviewVM
             {
-                Items = previewItems
+                Items = previewItems,
+                Skipped = conversionResult.Skipped
             };
 
-            _logger.LogInformation("PreviewAddToCart completed. PreviewItemCount={PreviewItemCount}", previewItems.Count);
+            _logger.LogInformation("PreviewAddToCart completed. PreviewItemCount={PreviewItemCount}, SkippedItemCount={SkippedItemCount}", previewItems.Count, conversionResult.Skipped.Count);
 
             // Redirect-after-post so this page has a GET URL that's safe to reload
             // (see the matching comment in DinnerController.SubmitDinnerSelections).
@@ -171,6 +173,17 @@ namespace RecipeHelper.Controllers
                 var addToCartRequest = new AddToCartRequest(vm.Items);
 
                 var result = await _krogerService.AddToCartAsync(addToCartRequest, token);
+
+                if (!result)
+                {
+                    // AddToCartAsync returns false (rather than throwing) on a non-2xx
+                    // response from Kroger, so this doesn't hit the catch block below --
+                    // it has to be checked explicitly or a rejected request reports as a
+                    // successful cart add.
+                    _logger.LogWarning("CompleteAddToCart: AddToCartAsync reported failure. ItemCount={ItemCount}", itemCount);
+                    TempData["ErrorMessage"] = "There was a problem adding items to your Kroger cart. Please try again.";
+                    return RedirectToAction("SelectWeeklyRecipes", "Dinner");
+                }
 
                 // Optional: clear it after use
                 HttpContext.Session.Remove("PendingCart");

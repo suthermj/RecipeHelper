@@ -123,6 +123,42 @@ builder.Logging.AddOpenTelemetry(o =>
 
 var app = builder.Build();
 
+// One-time backfill of ThumbnailUri for recipes whose image was uploaded before
+// thumbnail generation existed (StoreRecipeImage only generates one for new uploads).
+// Run manually against production via:
+//   dotnet run --launch-profile "" --environment Production -- --backfill-recipe-thumbnails
+// (swap in appsettings.Production.json / AzureAd credentials the same way deploy.sh
+// and EF migrations already do -- this is not run automatically on every startup.)
+if (args.Contains("--backfill-recipe-thumbnails"))
+{
+    using var scope = app.Services.CreateScope();
+    var storageService = scope.ServiceProvider.GetRequiredService<StorageService>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
+
+    var recipes = await dbContext.Recipes
+        .Where(r => r.ImageUri != null && r.ThumbnailUri == null)
+        .ToListAsync();
+
+    int updated = 0, failed = 0;
+    foreach (var recipe in recipes)
+    {
+        var thumbnailUri = await storageService.BackfillThumbnailForImageAsync(recipe.ImageUri!);
+        if (thumbnailUri != null)
+        {
+            recipe.ThumbnailUri = thumbnailUri;
+            updated++;
+        }
+        else
+        {
+            failed++;
+        }
+    }
+    await dbContext.SaveChangesAsync();
+
+    Console.WriteLine($"Recipe thumbnail backfill complete: {updated} updated, {failed} failed (left without a thumbnail, falls back to full-size image).");
+    return;
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

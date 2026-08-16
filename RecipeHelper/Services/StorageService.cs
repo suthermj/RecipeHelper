@@ -195,55 +195,6 @@ namespace RecipeHelper.Services
             }
         }
 
-        // One-time backfill: generates a thumbnail for a recipe image uploaded before
-        // ThumbnailUri existed (StoreRecipeImage only generates one for new uploads).
-        // Downloads the existing full-size blob at imageUri, compresses it down to
-        // ThumbnailMaxDimension, and uploads the result as a new blob -- the original
-        // image is left untouched. Run manually against production via
-        // `dotnet run -- --backfill-recipe-thumbnails` (see Program.cs), same as the
-        // now-removed --backfill-compress-images/--backfill-rehost-external-images
-        // switches. Returns null on any failure (download, decode, upload) so the
-        // caller can log/skip and leave that recipe falling back to its full-size image.
-        public async Task<string?> BackfillThumbnailForImageAsync(string imageUri)
-        {
-            try
-            {
-                var blobName = imageUri[(imageUri.LastIndexOf('/') + 1)..];
-                var containerClient = _blobServiceClient.GetBlobContainerClient("recipe-images");
-                var blobClient = containerClient.GetBlobClient(blobName);
-
-                using var downloadStream = new MemoryStream();
-                await blobClient.DownloadToAsync(downloadStream);
-                var originalBytes = downloadStream.ToArray();
-                var properties = await blobClient.GetPropertiesAsync();
-
-                var (thumbBytes, thumbFileNameBase, thumbContentType) = CompressRecipeImage(
-                    originalBytes, blobName, properties.Value.ContentType ?? "application/octet-stream", ThumbnailMaxDimension);
-
-                var rand = new Random();
-                string thumbFileName = "thumb_" + thumbFileNameBase.Replace(" ", ",") + rand.Next(1000, 9999);
-                var thumbBlobClient = containerClient.GetBlobClient(thumbFileName);
-                using var thumbUploadStream = new MemoryStream(thumbBytes);
-                await thumbBlobClient.UploadAsync(thumbUploadStream, new BlobHttpHeaders
-                {
-                    ContentType = thumbContentType,
-                    CacheControl = RecipeImageCacheControl
-                });
-
-                var thumbnailUri = $"{_accountUri}/recipe-images/{thumbFileName}";
-                _logger.LogInformation(
-                    "Backfilled recipe image thumbnail. ImageUri={ImageUri}, ThumbnailUri={ThumbnailUri}",
-                    imageUri, thumbnailUri);
-                return thumbnailUri;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to backfill thumbnail for image. ImageUri={ImageUri}, ExceptionType={ExceptionType}",
-                    imageUri, ex.GetType().FullName);
-                return null;
-            }
-        }
-
         public async Task<bool> DeleteImageRecipe(string fileName)
         {
             try

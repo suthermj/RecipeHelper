@@ -19,6 +19,86 @@
     }
 
     var estimatedTotal = Model.Items.Sum(i => UnitPrice(i) * i.QuantityToAdd);
+
+    // Split into three collapsible groups. "Needs review" is anything the conversion
+    // logic left a ConversionNote on (a fallback/guess was made -- worth a second look
+    // before ordering); everything else converted cleanly. Indices below are each
+    // item's position in Model.Items and stay stable across the regrouping -- the
+    // Items[i].* hidden inputs bind by name, not by DOM order, so it doesn't matter
+    // that rows render out of their original sequence.
+    var indexedItems = Model.Items.Select((item, idx) => (Item: item, Idx: idx)).ToList();
+    var needsReview = indexedItems.Where(x => !string.IsNullOrWhiteSpace(x.Item.ConversionNote)).ToList();
+    var correctlyMapped = indexedItems.Where(x => string.IsNullOrWhiteSpace(x.Item.ConversionNote)).ToList();
+
+    Func<int, object> RenderCartRow = @<div class="ios-cell gap-3 cart-row" data-unit-price="@UnitPrice(Model.Items[item]).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+         style="border-bottom: 0.5px solid var(--ios-separator); align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
+        @{ var row = Model.Items[item]; }
+
+        <div class="pt-0.5 shrink-0">
+            <input type="checkbox"
+                   class="row-include h-5 w-5 rounded-full"
+                   style="accent-color: var(--ios-red);"
+                   name="Items[@item].Include"
+                   value="true"
+                   checked />
+            <input type="hidden" name="Items[@item].Include" value="false" />
+            <input type="hidden" name="Items[@item].Upc" value="@row.Upc" />
+        </div>
+
+        <div class="row-image h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl" style="background: var(--ios-fill);">
+            <img src="https://www.kroger.com/product/images/medium/front/@row.Upc"
+                 alt="@row.Name"
+                 class="h-full w-full object-cover" />
+        </div>
+
+        <div class="flex-1 min-w-0 space-y-1">
+            <p class="row-name text-[15px] font-semibold leading-snug" style="color: var(--ios-label);">@row.Name</p>
+            <div class="row-details space-y-1">
+                <div class="flex flex-wrap items-center gap-2">
+                    @{
+                        var preDiscountPrice = row.OnSale && row.PromoPrice > 0 ? row.PromoPrice : row.RegularPrice;
+                        var isKrogerBrandItem = IsKrogerBrand(row.Brand);
+                    }
+                    @if (isKrogerBrandItem && preDiscountPrice > 0)
+                    {
+                        <span class="ios-badge" style="background: #E8F8ED; color: #1F9D55;">-10%</span>
+                        <span class="text-[13px] font-semibold" style="color: #1F9D55;">@UnitPrice(row).ToString("C")</span>
+                        <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@preDiscountPrice.ToString("C")</span>
+                        @if (row.OnSale && row.PromoPrice > 0)
+                        {
+                            <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
+                        }
+                    }
+                    else if (row.OnSale && row.PromoPrice > 0)
+                    {
+                        <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@row.PromoPrice.ToString("C")</span>
+                        <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@row.RegularPrice.ToString("C")</span>
+                        <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
+                    }
+                    else if (row.RegularPrice > 0)
+                    {
+                        <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@row.RegularPrice.ToString("C")</span>
+                    }
+                </div>
+                @if (!string.IsNullOrWhiteSpace(row.OriginalIngredient))
+                {
+                    <p class="text-[11px]" style="color: var(--ios-label-2);">Needed: @row.OriginalIngredient</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(row.ConversionNote))
+                {
+                    <p class="text-[11px]" style="color: #FF9500;">&#9888; @row.ConversionNote</p>
+                }
+                <div class="flex items-center gap-2 pt-1">
+                    <label class="text-[12px]" style="color: var(--ios-label-2);">Qty</label>
+                    <input type="number"
+                           name="Items[@item].Quantity"
+                           value="@row.QuantityToAdd"
+                           min="1"
+                           class="row-quantity field-input w-16 text-right py-1" style="font-size: 14px;" />
+                </div>
+            </div>
+        </div>
+    </div>;
 }
 
 <div class="pt-2 pb-32">
@@ -45,92 +125,65 @@
                 </label>
             </div>
 
-            <!-- Cart items -->
-            <div class="ios-group">
-                @for (var i = 0; i < Model.Items.Count; i++)
+            @if (needsReview.Any())
+            {
+                <div class="mx-4 mb-4 section-collapsible">
+                    <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
+                        <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: #FF9500;">Needs review (@needsReview.Count)</span>
+                        <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="section-body ios-group mt-1">
+                        @foreach (var x in needsReview)
+                        {
+                            @RenderCartRow(x.Idx)
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (correctlyMapped.Any())
+            {
+                <div class="mx-4 mb-4 section-collapsible" data-default-collapsed="true">
+                    <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
+                        <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">Correctly mapped (@correctlyMapped.Count)</span>
+                        <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="section-body ios-group mt-1 hidden">
+                        @foreach (var x in correctlyMapped)
+                        {
+                            @RenderCartRow(x.Idx)
+                        }
+                    </div>
+                </div>
+            }
+        </form>
+    }
+
+    @if (Model.Skipped.Any())
+    {
+        <div class="mx-4 mb-4 section-collapsible">
+            <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
+                <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-red);">Not mapped (@Model.Skipped.Count)</span>
+                <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+                </svg>
+            </button>
+            <div class="section-body ios-group mt-1">
+                @foreach (var skip in Model.Skipped)
                 {
-                    var item = Model.Items[i];
-                    <div class="ios-cell gap-3 cart-row" data-unit-price="@UnitPrice(item).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
-                         style="border-bottom: 0.5px solid var(--ios-separator); align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
-
-                        <div class="pt-0.5 shrink-0">
-                            <input type="checkbox"
-                                   class="row-include h-5 w-5 rounded-full"
-                                   style="accent-color: var(--ios-red);"
-                                   name="Items[@i].Include"
-                                   value="true"
-                                   checked />
-                            <input type="hidden" name="Items[@i].Include" value="false" />
-                            <input type="hidden" name="Items[@i].Upc" value="@item.Upc" />
-                        </div>
-
-                        <div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl" style="background: var(--ios-fill);">
-                            <img src="https://www.kroger.com/product/images/medium/front/@item.Upc"
-                                 alt="@item.Name"
-                                 class="h-full w-full object-cover" />
-                        </div>
-
-                        <div class="flex-1 min-w-0 space-y-1">
-                            <p class="text-[15px] font-semibold leading-snug" style="color: var(--ios-label);">@item.Name</p>
-                            @if (!string.IsNullOrWhiteSpace(item.Brand))
-                            {
-                                <p class="text-[13px]" style="color: var(--ios-label-2);">@item.Brand</p>
-                            }
-                            <div class="flex flex-wrap items-center gap-2">
-                                @if (!string.IsNullOrWhiteSpace(item.Size))
-                                { <span class="text-[12px]" style="color: var(--ios-label-2);">@item.Size</span> }
-                                @{
-                                    var preDiscountPrice = item.OnSale && item.PromoPrice > 0 ? item.PromoPrice : item.RegularPrice;
-                                    var isKrogerBrandItem = IsKrogerBrand(item.Brand);
-                                }
-                                @if (isKrogerBrandItem && preDiscountPrice > 0)
-                                {
-                                    <span class="ios-badge" style="background: #E8F8ED; color: #1F9D55;">-10%</span>
-                                    <span class="text-[13px] font-semibold" style="color: #1F9D55;">@UnitPrice(item).ToString("C")</span>
-                                    <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@preDiscountPrice.ToString("C")</span>
-                                    @if (item.OnSale && item.PromoPrice > 0)
-                                    {
-                                        <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
-                                    }
-                                }
-                                else if (item.OnSale && item.PromoPrice > 0)
-                                {
-                                    <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@item.PromoPrice.ToString("C")</span>
-                                    <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@item.RegularPrice.ToString("C")</span>
-                                    <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
-                                }
-                                else if (item.RegularPrice > 0)
-                                {
-                                    <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@item.RegularPrice.ToString("C")</span>
-                                }
-                            </div>
-                            @if (!string.IsNullOrWhiteSpace(item.StockLevel))
-                            {
-                                <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium @GetStockLevelBadgeClasses(item.StockLevel)">
-                                    @item.StockLevel
-                                </span>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(item.OriginalIngredient))
-                            {
-                                <p class="text-[11px]" style="color: var(--ios-label-2);">Needed: @item.OriginalIngredient</p>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(item.ConversionNote))
-                            {
-                                <p class="text-[11px]" style="color: #FF9500;">&#9888; @item.ConversionNote</p>
-                            }
-                            <div class="flex items-center gap-2 pt-1">
-                                <label class="text-[12px]" style="color: var(--ios-label-2);">Qty</label>
-                                <input type="number"
-                                       name="Items[@i].Quantity"
-                                       value="@item.QuantityToAdd"
-                                       min="1"
-                                       class="row-quantity field-input w-16 text-right py-1" style="font-size: 14px;" />
-                            </div>
+                    <div class="ios-cell" style="border-bottom: 0.5px solid var(--ios-separator);">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[14px] font-medium" style="color: var(--ios-label);">@skip.Name</p>
+                            <p class="text-[12px]" style="color: var(--ios-label-2);">@skip.Reason</p>
                         </div>
                     </div>
                 }
             </div>
-        </form>
+        </div>
     }
 </div>
 
@@ -175,11 +228,26 @@
                 totalEl.textContent = total.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
             }
 
+            // Unchecking a row collapses it to just the checkbox + image + name, greyed
+            // out -- everything else (brand, price, stock badge, notes, qty) hides so a
+            // long list of excluded items doesn't keep eating vertical space.
+            function updateRowCollapse(row) {
+                var checkbox = row.querySelector('.row-include');
+                var image = row.querySelector('.row-image');
+                var details = row.querySelector('.row-details');
+                var collapsed = checkbox && !checkbox.checked;
+
+                row.style.opacity = collapsed ? '0.45' : '';
+                if (image) { image.style.height = collapsed ? '2rem' : ''; image.style.width = collapsed ? '2rem' : ''; }
+                if (details) details.classList.toggle('hidden', collapsed);
+            }
+
             rows.forEach(function (row) {
                 var checkbox = row.querySelector('.row-include');
                 var qtyInput = row.querySelector('.row-quantity');
-                if (checkbox) checkbox.addEventListener('change', recalcTotal);
+                if (checkbox) checkbox.addEventListener('change', function () { recalcTotal(); updateRowCollapse(row); });
                 if (qtyInput) qtyInput.addEventListener('input', recalcTotal);
+                updateRowCollapse(row);
             });
 
             if (selectAll) {
@@ -187,25 +255,31 @@
                     document.querySelectorAll('.row-include').forEach(function (cb) {
                         cb.checked = selectAll.checked;
                     });
+                    rows.forEach(updateRowCollapse);
                     recalcTotal();
                 });
             }
+
+            // Collapsible sections (Needs review / Correctly mapped / Not mapped).
+            // "Correctly mapped" starts collapsed (data-default-collapsed) since it
+            // needs no attention; the others start open.
+            document.querySelectorAll('.section-collapsible').forEach(function (section) {
+                var toggle = section.querySelector('.section-toggle');
+                var body = section.querySelector('.section-body');
+                var chevron = section.querySelector('.section-chevron');
+                if (!toggle || !body) return;
+
+                if (section.dataset.defaultCollapsed === 'true') {
+                    body.classList.add('hidden');
+                    if (chevron) chevron.style.transform = 'rotate(-90deg)';
+                }
+
+                toggle.addEventListener('click', function () {
+                    var collapsed = body.classList.toggle('hidden');
+                    if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
+                });
+            });
         });
     </script>
 }
 
-@functions {
-    public string GetStockLevelBadgeClasses(string level)
-    {
-        level = level?.ToUpperInvariant() ?? "";
-
-        return level switch
-        {
-            "HIGH" => "bg-green-50 text-green-700 border border-green-200",
-            "MEDIUM" => "bg-yellow-50 text-yellow-700 border border-yellow-300",
-            "LOW" => "bg-orange-50 text-orange-700 border border-orange-300",
-            "OUT_OF_STOCK" or "NONE" or "TEMPORARILY_OUT_OF_STOCK" => "bg-red-50 text-red-700 border border-red-300",
-            _ => "bg-gray-100 text-gray-700 border border-gray-200"
-        };
-    }
-}

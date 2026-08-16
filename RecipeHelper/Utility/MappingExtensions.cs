@@ -41,6 +41,8 @@ namespace RecipeHelper.Utility
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
 
+            var nutrition = source.nutritionInformation?.FirstOrDefault();
+
             // Adjust property names based on your actual KrogerCartItem model
             return new KrogerProductDto
             {
@@ -56,7 +58,15 @@ namespace RecipeHelper.Utility
                 categories = source.categories?.ToList() ?? new List<string>(),
                 soldBy = source.items.FirstOrDefault()?.soldBy ?? "N/A", // Assuming the first item is representative
                 size = source.items?.FirstOrDefault()?.size ?? "N/A",
-                unitOfMeasure = source.nutritionInformation?.FirstOrDefault()?.servingSize?.unitOfMeasure?.name ?? null,
+                unitOfMeasure = nutrition?.servingSize?.unitOfMeasure?.name ?? null,
+                servingSizeQty = nutrition?.servingSize?.quantity,
+                // Kroger doesn't always populate `abbreviation` (e.g. unit code "G21",
+                // "Cup US", comes back with only `name` set) -- fall back to the full
+                // name rather than silently losing perfectly good serving data and
+                // falling back to the ambiguous size string instead.
+                servingSizeUnitAbbreviation = nutrition?.servingSize?.unitOfMeasure?.abbreviation
+                    ?? nutrition?.servingSize?.unitOfMeasure?.name,
+                servingsPerPackage = nutrition?.servingsPerPackage?.value,
             };
         }
 

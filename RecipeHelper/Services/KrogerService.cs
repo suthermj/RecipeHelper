@@ -24,6 +24,14 @@ namespace RecipeHelper.Services
         private const string TokenCacheKey = "kroger:client-credentials-token";
         private static readonly TimeSpan RefreshSkew = TimeSpan.FromSeconds(60);
 
+        // Single user-facing conversion-warning message. The mechanism-specific detail
+        // (which dimension mismatched, which fallback fired, whether a density was
+        // assumed) is genuinely useful for debugging and stays in the server logs via
+        // the LogWarning/LogInformation calls at each site below -- but a shopper
+        // reviewing the cart preview doesn't need any of that to decide whether to
+        // double-check a quantity, so every conversionNote uses this same short text.
+        private const string QuantityNeedsReviewNote = "Estimated — please verify quantity";
+
 
         public KrogerService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<KrogerService> logger, KrogerAuthService krogerAuthService, IMemoryCache memoryCache, IHttpContextAccessor httpContextAccessor)
         {
@@ -336,9 +344,9 @@ namespace RecipeHelper.Services
             return true;
         }
 
-        public async Task<List<DetailedCartItem>> ConvertIngredientsToCartItems(AddToCartVM vm)
+        public async Task<ConvertIngredientsResult> ConvertIngredientsToCartItems(AddToCartVM vm)
         {
-            List<DetailedCartItem> cartItems = new();
+            List<SkippedCartItem> skipped = new();
 
             _logger.LogInformation("Converting {count} ingredients to Kroger cart items", vm.Items.Count);
 
@@ -349,109 +357,200 @@ namespace RecipeHelper.Services
             var upcs = vm.Items.Where(i => !string.IsNullOrWhiteSpace(i.Upc)).Select(i => i.Upc);
             var productsByUpc = await GetProductsByUpcBatch(upcs, GetLocationId());
 
+            // Resolve each ingredient to its Kroger product first, separating out anything
+            // that can't be converted at all before any quantity math runs.
+            var resolved = new List<(CartItemVM Item, KrogerProductDto Product)>();
             foreach (var item in vm.Items)
             {
+                var itemName = string.IsNullOrWhiteSpace(item.Name) ? "Unknown ingredient" : item.Name;
+
                 if (string.IsNullOrWhiteSpace(item.Upc))
                 {
-                    _logger.LogWarning("Ingredient has no UPC, skipping.");
+                    _logger.LogWarning("Ingredient {name} has no UPC, skipping.", itemName);
+                    skipped.Add(new SkippedCartItem { Name = itemName, Reason = "No product mapped", Quantity = item.Quantity });
                     continue;
                 }
 
                 if (!productsByUpc.TryGetValue(item.Upc, out var krogerProduct))
                 {
-                    _logger.LogWarning("Could not fetch product details for UPC {upc}, skipping.", item.Upc);
+                    _logger.LogWarning("Could not fetch product details for UPC {upc} ({name}), skipping.", item.Upc, itemName);
+                    skipped.Add(new SkippedCartItem { Name = itemName, Reason = "Product lookup failed", Quantity = item.Quantity });
                     continue;
                 }
 
-                var pack = KrogerPackInfo.BuildPackInfo(krogerProduct);
-                var cartItem = krogerProduct.ToDetailedCartItem();
-                cartItem.OriginalIngredient = $"{item.Quantity:0.##} {item.Measurement}";
-                cartItem.KrogerPackSize = krogerProduct.size;
-                string? conversionNote = null;
-
-                _logger.LogInformation(
-                    "Converting: {qty} {meas} → Kroger '{name}' (size={size}, soldBy={soldBy}, dim={dim})",
-                    item.Quantity, item.Measurement, krogerProduct.name, krogerProduct.size,
-                    pack.SoldByEffective, pack.Dimension);
-
-                var ingredientUnit = UnitConverter.Parse(item.Measurement);
-                var ingredientDim = UnitConverter.GetDimension(ingredientUnit);
-
-                // If product size couldn't be parsed, fall back to raw quantity
-                if (!pack.ParsedOk)
-                {
-                    cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
-                    conversionNote = "Could not parse product size, using ingredient quantity as-is";
-                    _logger.LogWarning("Could not parse size '{size}' for UPC {upc}", krogerProduct.size, item.Upc);
-                }
-                // BRANCH 1: Weight-sold items (produce/deli priced per-lb)
-                // Kroger expects quantity in the unit they price by (usually lb)
-                else if (pack.SoldByEffective.Equals("WEIGHT", StringComparison.OrdinalIgnoreCase))
-                {
-                    cartItem.Quantity = ConvertForWeightSoldItem(item, ingredientUnit, ingredientDim, krogerProduct.name, out conversionNote);
-                }
-                // BRANCH 2: Both ingredient and product are count-based
-                else if (ingredientDim == MeasureDimension.Count &&
-                         (pack.Dimension == PackDimension.Unit || pack.Dimension == PackDimension.Composite))
-                {
-                    var packCount = pack.CountEach ?? pack.PrimaryQty ?? 1;
-                    cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity / packCount));
-                }
-                // BRANCH 3: Ingredient is count-based but product is weight/volume
-                else if (ingredientDim == MeasureDimension.Count)
-                {
-                    cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
-                    conversionNote = $"Ingredient is counted but product is sold by {pack.Dimension} — using raw count";
-                }
-                // BRANCH 4: Same dimension (both volume or both weight)
-                else if (AreSameDimension(ingredientDim, pack.Dimension))
-                {
-                    cartItem.Quantity = ConvertSameDimension(item, ingredientUnit, pack, out conversionNote);
-                }
-                // BRANCH 5: Cross-dimension (volume ↔ weight)
-                else if (IsCrossDimension(ingredientDim, pack.Dimension))
-                {
-                    cartItem.Quantity = ConvertCrossDimension(item, ingredientUnit, ingredientDim, pack, krogerProduct.name, out conversionNote);
-                }
-                // BRANCH 6: Fallback
-                else
-                {
-                    cartItem.Quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
-                    conversionNote = "Could not determine conversion method";
-                }
-
-                cartItem.ConversionNote = conversionNote;
-                cartItems.Add(cartItem);
-
-                _logger.LogInformation("Result: {qty}x '{name}' {note}",
-                    cartItem.Quantity, cartItem.Name, conversionNote ?? "OK");
+                resolved.Add((item, krogerProduct));
             }
 
-            // Different ingredients (possibly different names/measurements across
-            // recipes) can independently map to the same Kroger UPC -- e.g. "garlic"
-            // measured in teaspoons in one recipe and by count in another, both mapped
-            // to the same jar of minced garlic. Each loop iteration above computes a
-            // pack quantity in isolation, so without this merge they'd show up as
-            // separate rows on the cart preview instead of one combined line.
-            return cartItems
-                .GroupBy(ci => ci.Upc, StringComparer.OrdinalIgnoreCase)
-                .Select(g =>
+            var cartItems = ConvertResolvedItemsToCartItems(resolved);
+            return new ConvertIngredientsResult { Items = cartItems, Skipped = skipped };
+        }
+
+        // Pure computation half of ConvertIngredientsToCartItems, split out so it's
+        // testable without a live Kroger product lookup -- callers (and
+        // RecipeHelper.Tests, via InternalsVisibleTo) supply already-resolved
+        // (ingredient, Kroger product) pairs.
+        //
+        // Groups by UPC BEFORE converting to a pack quantity, not after. Different
+        // ingredient names across recipes (e.g. "garlic" vs "minced garlic") can
+        // independently map to the same Kroger product -- if each is converted to a pack
+        // quantity on its own and THEN summed, several small amounts that each round up
+        // to "1 jar" individually add up to far more jars than the combined amount
+        // actually needs (four small garlic amounts each rounding up to 1 jar == 4 jars
+        // ordered for what was really ~1/3 of one jar). Summing the underlying need
+        // first and rounding up once per UPC avoids that.
+        internal List<DetailedCartItem> ConvertResolvedItemsToCartItems(List<(CartItemVM Item, KrogerProductDto Product)> resolved)
+        {
+            var cartItems = new List<DetailedCartItem>();
+
+            foreach (var group in resolved.GroupBy(r => r.Item.Upc, StringComparer.OrdinalIgnoreCase))
+            {
+                var groupList = group.ToList();
+                var krogerProduct = groupList[0].Product;
+                var upc = groupList[0].Item.Upc;
+                var itemName = string.IsNullOrWhiteSpace(groupList[0].Item.Name) ? "Unknown ingredient" : groupList[0].Item.Name;
+                var pack = KrogerPackInfo.BuildPackInfo(krogerProduct);
+
+                // Bucket by dimension (same shape as DinnerController.SubmitDinnerSelections'
+                // own mixed-measurement aggregation) so amounts in compatible units (e.g.
+                // teaspoons and tablespoons) combine into one total instead of staying as
+                // separate rows just because their source ingredients used different units.
+                decimal totalVolumeBase = 0, totalWeightBase = 0, totalCount = 0;
+                bool hasVolume = false, hasWeight = false, hasCount = false;
+                var originalParts = new List<string>();
+
+                foreach (var (item, _) in groupList)
                 {
-                    var merged = g.First();
-                    if (g.Count() > 1)
+                    originalParts.Add($"{item.Quantity:0.##} {item.Measurement}");
+                    var unit = UnitConverter.Parse(item.Measurement);
+                    switch (UnitConverter.GetDimension(unit))
                     {
-                        merged.Quantity = g.Sum(x => x.Quantity);
-                        merged.OriginalIngredient = string.Join(" + ",
-                            g.Select(x => x.OriginalIngredient).Where(s => !string.IsNullOrWhiteSpace(s)));
-                        var notes = g.Select(x => x.ConversionNote)
-                            .Where(n => !string.IsNullOrWhiteSpace(n))
-                            .Distinct()
-                            .ToList();
-                        merged.ConversionNote = notes.Count > 0 ? string.Join("; ", notes) : null;
+                        case MeasureDimension.Volume:
+                            totalVolumeBase += UnitConverter.ToBase(item.Quantity, unit) ?? 0;
+                            hasVolume = true;
+                            break;
+                        case MeasureDimension.Weight:
+                            totalWeightBase += UnitConverter.ToBase(item.Quantity, unit) ?? 0;
+                            hasWeight = true;
+                            break;
+                        default:
+                            totalCount += item.Quantity;
+                            hasCount = true;
+                            break;
                     }
-                    return merged;
-                })
-                .ToList();
+                }
+
+                var originalIngredient = string.Join(" + ", originalParts.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+                _logger.LogInformation(
+                    "Converting UPC {upc} ({name}): volumeBase={vol}tsp weightBase={wt}g count={ct} → Kroger '{krogerName}' (size={size}, soldBy={soldBy}, dim={dim})",
+                    upc, itemName, totalVolumeBase, totalWeightBase, totalCount,
+                    krogerProduct.name, krogerProduct.size, pack.SoldByEffective, pack.Dimension);
+
+                // At most one row per dimension bucket per UPC -- rare in practice (most
+                // ingredients only ever need one dimension across all their sources), but
+                // mirrors the same split DinnerController already does when a single
+                // ingredient's uses can't be summed into one unit.
+                void AddRow(decimal baseQuantity, string bucketMeasurement)
+                {
+                    // A synthetic CartItemVM already expressed in the dimension's base unit
+                    // (teaspoons/grams/count) lets this reuse the exact same per-branch
+                    // conversion logic as a single ingredient would use -- ToBase on the
+                    // base unit itself is an identity conversion, so no double-conversion.
+                    var bucketItem = new CartItemVM { Upc = upc, Name = itemName, Quantity = baseQuantity, Measurement = bucketMeasurement, Include = true };
+                    var (quantity, note) = ComputeCartQuantity(bucketItem, krogerProduct, pack);
+
+                    var cartItem = krogerProduct.ToDetailedCartItem();
+                    cartItem.Quantity = quantity;
+                    cartItem.OriginalIngredient = originalIngredient;
+                    cartItem.KrogerPackSize = krogerProduct.size;
+                    cartItem.ConversionNote = note;
+                    cartItems.Add(cartItem);
+
+                    _logger.LogInformation("Result: {qty}x '{name}' {note}", quantity, cartItem.Name, note ?? "OK");
+                }
+
+                if (hasVolume) AddRow(totalVolumeBase, "Teaspoons");
+                if (hasWeight) AddRow(totalWeightBase, "Grams");
+                if (hasCount) AddRow(totalCount, "Unit");
+            }
+
+            return cartItems;
+        }
+
+        // Extracted from the old per-item loop in ConvertIngredientsToCartItems so both a
+        // single ingredient's amount and a per-UPC combined bucket amount (see AddRow
+        // above) can run through the exact same branch selection.
+        private (int Quantity, string? Note) ComputeCartQuantity(CartItemVM item, KrogerProductDto krogerProduct, KrogerPackInfo pack)
+        {
+            var ingredientUnit = UnitConverter.Parse(item.Measurement);
+            var ingredientDim = UnitConverter.GetDimension(ingredientUnit);
+            string? conversionNote = null;
+            int quantity;
+
+            // If product size couldn't be parsed, fall back to raw quantity -- but only
+            // when that quantity is actually a count (e.g. "3" cloves), where treating it
+            // as roughly the pack count is a reasonable guess. For Volume/Weight, `item`
+            // here may be a per-UPC bucket already expressed in base units (teaspoons/
+            // grams, see AddRow above) rather than the ingredient's original display
+            // unit -- ceiling that raw number would wildly overstate the pack count (e.g.
+            // "1.5 Cups" becomes 72 base teaspoons, producing a bogus Qty 72 instead of a
+            // small number). There's no way to size a pack without a parseable size, so
+            // default to 1 and flag it for a human to check instead of guessing a number
+            // that looks precise but isn't.
+            if (!pack.ParsedOk)
+            {
+                quantity = ingredientDim == MeasureDimension.Count
+                    ? Math.Max(1, (int)Math.Ceiling(item.Quantity))
+                    : 1;
+                conversionNote = QuantityNeedsReviewNote;
+                _logger.LogWarning("Could not parse size '{size}' for UPC {upc} -- quantity defaulted to 1", krogerProduct.size, item.Upc);
+            }
+            // BRANCH 1: Weight-sold items (produce/deli priced per-lb)
+            // Kroger expects quantity in the unit they price by (usually lb)
+            else if (pack.SoldByEffective.Equals("WEIGHT", StringComparison.OrdinalIgnoreCase))
+            {
+                quantity = ConvertForWeightSoldItem(item, ingredientUnit, ingredientDim, krogerProduct.name, out conversionNote);
+            }
+            // BRANCH 2: Both ingredient and product are count-based. pack.IsComposite
+            // (not pack.Dimension == Composite -- that value no longer exists here,
+            // see KrogerSizeParser) covers packs like "8 ct / 22 oz": the count
+            // ingredient compares against the pack's CountEach regardless of what
+            // dimension its primary (weight/volume) measurement is in.
+            else if (ingredientDim == MeasureDimension.Count &&
+                     (pack.Dimension == PackDimension.Unit || pack.IsComposite))
+            {
+                var packCount = pack.CountEach ?? pack.PrimaryQty ?? 1;
+                quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity / packCount));
+            }
+            // BRANCH 3: Ingredient is count-based but product is weight/volume
+            else if (ingredientDim == MeasureDimension.Count)
+            {
+                quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
+                conversionNote = QuantityNeedsReviewNote;
+                _logger.LogInformation("Ingredient is counted but product for UPC {upc} is sold by {dim} -- using raw count", item.Upc, pack.Dimension);
+            }
+            // BRANCH 4: Same dimension (both volume or both weight)
+            else if (AreSameDimension(ingredientDim, pack.Dimension))
+            {
+                quantity = ConvertSameDimension(item, ingredientUnit, pack, out conversionNote);
+            }
+            // BRANCH 5: Cross-dimension (volume ↔ weight)
+            else if (IsCrossDimension(ingredientDim, pack.Dimension))
+            {
+                quantity = ConvertCrossDimension(item, ingredientUnit, ingredientDim, pack, krogerProduct.name, out conversionNote);
+            }
+            // BRANCH 6: Fallback -- only reachable for Volume/Weight ingredients (Count
+            // is always caught by BRANCH 2/3 above), where `item.Quantity` is a base-unit
+            // amount, not a pack-count-like number (see the !pack.ParsedOk comment above
+            // for why ceiling-ing it directly would be wildly wrong). Default to 1.
+            else
+            {
+                quantity = 1;
+                conversionNote = QuantityNeedsReviewNote;
+                _logger.LogWarning("Could not determine a conversion method for UPC {upc} -- quantity defaulted to 1", item.Upc);
+            }
+
+            return (quantity, conversionNote);
         }
 
         private int ConvertForWeightSoldItem(CartItemVM item, MeasureUnit ingredientUnit,
@@ -478,17 +577,21 @@ namespace RecipeHelper.Services
                     var pounds = grams / 453.592m;
 
                     if (density == null)
-                        conversionNote = "Weight-sold item: used default density (water) for volume→weight";
+                    {
+                        conversionNote = QuantityNeedsReviewNote;
+                        _logger.LogInformation("Weight-sold item for UPC {upc}: no density found for '{name}', used default (water) for volume->weight", item.Upc, productName);
+                    }
 
                     return Math.Max(1, (int)Math.Ceiling(pounds));
                 }
             }
 
-            conversionNote = "Weight-sold item: could not convert, using raw quantity";
+            conversionNote = QuantityNeedsReviewNote;
+            _logger.LogWarning("Weight-sold item for UPC {upc}: could not convert, using raw quantity", item.Upc);
             return Math.Max(1, (int)Math.Ceiling(item.Quantity));
         }
 
-        private static int ConvertSameDimension(CartItemVM item, MeasureUnit ingredientUnit,
+        private int ConvertSameDimension(CartItemVM item, MeasureUnit ingredientUnit,
             KrogerPackInfo pack, out string? conversionNote)
         {
             conversionNote = null;
@@ -503,7 +606,8 @@ namespace RecipeHelper.Services
                 return Math.Max(1, (int)Math.Ceiling(ratio));
             }
 
-            conversionNote = "Same dimension but could not compute ratio";
+            conversionNote = QuantityNeedsReviewNote;
+            _logger.LogWarning("Same-dimension conversion for UPC {upc} could not compute a ratio", item.Upc);
             return Math.Max(1, (int)Math.Ceiling(item.Quantity));
         }
 
@@ -518,7 +622,10 @@ namespace RecipeHelper.Services
             var effectiveDensity = density ?? 1.0m;
 
             if (density == null)
-                conversionNote = "Cross-dimension: used default density (water) — review quantity";
+            {
+                conversionNote = QuantityNeedsReviewNote;
+                _logger.LogInformation("Cross-dimension conversion for UPC {upc}: no density found for '{name}', used default (water)", item.Upc, productName);
+            }
 
             decimal ingredientGrams;
             decimal krogerGrams;
@@ -544,19 +651,24 @@ namespace RecipeHelper.Services
                 return Math.Max(1, (int)Math.Ceiling(ratio));
             }
 
-            conversionNote = "Cross-dimension: could not compute ratio";
+            conversionNote = QuantityNeedsReviewNote;
+            _logger.LogWarning("Cross-dimension conversion for UPC {upc} could not compute a ratio", item.Upc);
             return Math.Max(1, (int)Math.Ceiling(item.Quantity));
         }
 
-        private static bool AreSameDimension(MeasureDimension ingredientDim, PackDimension packDim)
+        // internal (not private) so RecipeHelper.Tests can exercise these directly --
+        // see InternalsVisibleTo in RecipeHelper.csproj.
+        internal static bool AreSameDimension(MeasureDimension ingredientDim, PackDimension packDim)
         {
-            return (ingredientDim == MeasureDimension.Volume &&
-                    (packDim == PackDimension.Volume || packDim == PackDimension.Composite)) ||
-                   (ingredientDim == MeasureDimension.Weight &&
-                    (packDim == PackDimension.Weight || packDim == PackDimension.Composite));
+            // packDim is never PackDimension.Composite -- KrogerSizeParser now reports a
+            // composite pack's real primary dimension (Weight/Volume/Unit) here, so a
+            // composite pack only matches the dimension its primary measurement actually
+            // is, instead of matching both volume and weight ingredients unconditionally.
+            return (ingredientDim == MeasureDimension.Volume && packDim == PackDimension.Volume) ||
+                   (ingredientDim == MeasureDimension.Weight && packDim == PackDimension.Weight);
         }
 
-        private static bool IsCrossDimension(MeasureDimension ingredientDim, PackDimension packDim)
+        internal static bool IsCrossDimension(MeasureDimension ingredientDim, PackDimension packDim)
         {
             return (ingredientDim == MeasureDimension.Volume &&
                     (packDim == PackDimension.Weight)) ||

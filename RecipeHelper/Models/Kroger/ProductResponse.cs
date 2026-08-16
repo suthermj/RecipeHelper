@@ -13,6 +13,16 @@ namespace RecipeHelper.Models.Kroger
         public string soldBy { get; set; }
         public string size { get; set; }
         public string? unitOfMeasure { get; set; }
+
+        // Kroger's nutrition-panel serving data, when present -- servingSizeQty *
+        // servingsPerPackage gives the exact total pack content in servingSizeUnit
+        // (e.g. 1 tsp x 45 servings = 45 tsp), which KrogerPackInfo prefers over parsing
+        // the free-text size string (e.g. "8 oz", ambiguous between fluid vs weight
+        // ounces) since it's manufacturer-reported rather than an estimate.
+        public decimal? servingSizeQty { get; set; }
+        public string? servingSizeUnitAbbreviation { get; set; }
+        public decimal? servingsPerPackage { get; set; }
+
         public float regularPrice { get; set; }
         public float promoPrice { get; set; }
         public string stockLevel { get; set; }
@@ -127,6 +137,7 @@ namespace RecipeHelper.Models.Kroger
     public class NutritionInformation
     {
         public ServingSize servingSize { get; set; }
+        public ServingsPerPackage? servingsPerPackage { get; set; }
     }
 
     public class ServingSize
@@ -135,8 +146,15 @@ namespace RecipeHelper.Models.Kroger
         public UnitOfMeasure unitOfMeasure { get; set; }
     }
 
+    public class ServingsPerPackage
+    {
+        public string? description { get; set; }
+        public decimal value { get; set; }
+    }
+
     public class UnitOfMeasure
     {
+        public string? abbreviation { get; set; }
         public string code { get; set; }
         public string name { get; set; }
     }

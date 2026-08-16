@@ -55,7 +55,7 @@
                             {
                                 <div class="flex items-center gap-3 py-1.5">
                                     <div class="w-14 h-10 rounded-lg overflow-hidden shrink-0" style="background: var(--ios-fill);">
-                                        <img src="@(entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
+                                        <img src="@(entry.Recipe?.ThumbnailUri is { Length: > 0 } tu ? tu : entry.Recipe?.ImageUri is { Length: > 0 } u ? u : DefaultImg)"
                                              alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
                                     </div>
                                     <p class="flex-1 text-[14px] font-medium truncate" style="color: var(--ios-label);">

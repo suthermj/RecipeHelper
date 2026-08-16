@@ -51,6 +51,7 @@ namespace RecipeHelper.Models
         public string Title { get; set; }
         public string? DinnerCategory { get; set; }
         public string? ImageUri { get; set; }
+        public string? ThumbnailUri { get; set; }
         public IFormFile? ImageFile { get; set; }
         public List<EditRecipeIngredientVM> Ingredients { get; set; } = new();
         public List<string> Instructions { get; set; } = new();

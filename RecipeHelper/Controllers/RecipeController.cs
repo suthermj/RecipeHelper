@@ -110,6 +110,7 @@ namespace RecipeHelper.Controllers
                     r.Id,
                     r.Name,
                     r.ImageUri,
+                    r.ThumbnailUri,
                     r.Instructions,
                     r.DinnerCategory,
                     Ingredients = r.Ingredients.OrderBy(rp => rp.SortOrder).Select(rp => new
@@ -132,6 +133,7 @@ namespace RecipeHelper.Controllers
                     Title = data.Name,
                     DinnerCategory = data.DinnerCategory,
                     ImageUri = data.ImageUri,
+                    ThumbnailUri = data.ThumbnailUri,
                     Ingredients = data.Ingredients.Select(rp => new EditRecipeIngredientVM
                     {
                         Id = rp.Id,

@@ -60,7 +60,12 @@ namespace RecipeHelper.Utility
                 size = source.items?.FirstOrDefault()?.size ?? "N/A",
                 unitOfMeasure = nutrition?.servingSize?.unitOfMeasure?.name ?? null,
                 servingSizeQty = nutrition?.servingSize?.quantity,
-                servingSizeUnitAbbreviation = nutrition?.servingSize?.unitOfMeasure?.abbreviation,
+                // Kroger doesn't always populate `abbreviation` (e.g. unit code "G21",
+                // "Cup US", comes back with only `name` set) -- fall back to the full
+                // name rather than silently losing perfectly good serving data and
+                // falling back to the ambiguous size string instead.
+                servingSizeUnitAbbreviation = nutrition?.servingSize?.unitOfMeasure?.abbreviation
+                    ?? nutrition?.servingSize?.unitOfMeasure?.name,
                 servingsPerPackage = nutrition?.servingsPerPackage?.value,
             };
         }

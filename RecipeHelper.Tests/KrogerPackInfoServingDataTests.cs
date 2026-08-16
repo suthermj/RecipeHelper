@@ -88,6 +88,31 @@ namespace RecipeHelper.Tests
         }
 
         [Fact]
+        public void ServingData_UnitOfMeasure_MissingAbbreviation_FallsBackToName()
+        {
+            // Real response shape for UPC 0007639700207 ("La Costena® Green Pickled
+            // Sliced Jalapeno Peppers", 7 oz): Kroger's unitOfMeasure came back as
+            // {"code":"G21","name":"Cup US"} -- no "abbreviation" key at all. Confirmed
+            // live: MappingExtensions used to only read .abbreviation, so this fell
+            // through to the ambiguous "7 oz" size string (weight) against a Volume
+            // ingredient, forcing a density guess, even though exact serving data
+            // (0.25 Cup US x 3 = 0.75 cup) was sitting right there under .name.
+            var product = new KrogerProductDto
+            {
+                upc = "0007639700207", name = "La Costena® Green Pickled Sliced Jalapeno Peppers",
+                brand = "La Costena", size = "7 oz", soldBy = "UNIT",
+                categories = new List<string>(), stockLevel = "HIGH",
+                servingSizeQty = 0.25m, servingSizeUnitAbbreviation = "Cup US", servingsPerPackage = 3,
+            };
+
+            var pack = KrogerPackInfo.BuildPackInfo(product);
+
+            Assert.True(pack.FromServingData);
+            Assert.Equal(0.75m, pack.PrimaryQty); // 0.25 Cup US x 3 servings
+            Assert.Equal(PackDimension.Volume, pack.Dimension);
+        }
+
+        [Fact]
         public void ServingData_WithUnrecognizedUnit_FallsBackToSizeStringParsing()
         {
             var product = new KrogerProductDto

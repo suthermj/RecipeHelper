@@ -27,7 +27,12 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo("/var/lib/recipehelper/keys"))
     .SetApplicationName("RecipeHelper");
 builder.Services.AddScoped<KrogerService, KrogerService>();  // Registering your Kroger service
-builder.Services.AddScoped<StorageService, StorageService>();
+// Singleton (not Scoped): StorageService builds a ClientSecretCredential + BlobServiceClient
+// in its constructor. All fields are set once there and never mutated, and the Azure SDK
+// clients are documented thread-safe/immutable, so this is safe to share across requests --
+// and lets Azure.Identity's in-memory AAD token cache actually persist between requests
+// instead of being rebuilt (and its cache thrown away) on every single upload.
+builder.Services.AddSingleton<StorageService, StorageService>();
 builder.Services.AddScoped<SpoonacularService, SpoonacularService>();
 builder.Services.AddScoped<RecipeService, RecipeService>();
 builder.Services.AddScoped<ProductService, ProductService>();

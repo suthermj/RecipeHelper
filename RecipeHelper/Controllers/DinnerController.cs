@@ -165,6 +165,7 @@ namespace RecipeHelper.Controllers
                 Id = r.Id,
                 RecipeName = r.Name,
                 ImageUri = r.ImageUri,
+                ThumbnailUri = r.ThumbnailUri,
                 Ingredients = r.Ingredients.Select(rp => new IngredientVM
                 {
                     Id = rp.IngredientId,
@@ -188,6 +189,7 @@ namespace RecipeHelper.Controllers
             {
                 RecipeName = row.RecipeName,
                 ImageUri = row.ImageUri,
+                ThumbnailUri = row.ThumbnailUri,
                 Occurrences = idCounts[row.Id],
                 Ingredients = row.Ingredients
                     .Select(ing => new IngredientVM

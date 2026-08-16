@@ -28,6 +28,7 @@
     {
         public string RecipeName { get; set; }
         public string ImageUri { get; set; }
+        public string? ThumbnailUri { get; set; }
         public int Occurrences { get; set; } // recipe on 2 days => 2
         public List<IngredientVM> Ingredients { get; set; } = new();
     }

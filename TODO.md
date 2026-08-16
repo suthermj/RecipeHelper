@@ -15,9 +15,9 @@
 ## Shopping List
 
 - [ ] **Meal-plan → Kroger cart pipeline redesign** — tracked in [#89](https://github.com/suthermj/RecipeHelper/issues/89), staged, one PR per stage:
-  - [ ] Stage 0 — fix confirmed conversion bugs (no schema changes). PR [#88](https://github.com/suthermj/RecipeHelper/pull/88)
+  - [x] Stage 0 — fix confirmed conversion bugs (no schema changes); grew to include a same-UPC over-order fix and preferring Kroger's serving-size data over density guessing. PR [#88](https://github.com/suthermj/RecipeHelper/pull/88) (merged)
   - [ ] Stage 1 — persist the ingredient review (`ShoppingPlan`/`ShoppingPlanItem` keyed to `MealPlanId`); removes the session dependency that loses the review on every deploy
-  - [ ] Stage 2 — pack size as data on `KrogerProduct` instead of re-parsed/re-inferred on every checkout
+  - [ ] Stage 2 — narrowed after Stage 0: now mainly caching the serving-derived pack data on `KrogerProduct` (still re-fetched from Kroger on every preview) plus a manual-override UI for the no-serving-data cases, rather than an accuracy fix
   - [ ] Stage 3 — carry exact base-unit amounts end to end instead of rounded display values; root-causes #48
 - [ ] Shopping list integration with Kroger
   - [x] Select the Kroger store you're shopping at via Kroger API

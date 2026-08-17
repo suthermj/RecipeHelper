@@ -228,7 +228,7 @@
                                     @ingredient.DisplayQuantity @ingredient.DisplayMeasurement
                                 </span>
                                 <span class="text-[15px] flex-1" style="color:var(--ios-label-2);">
-                                    @ingredient.Name
+                                    <span class="js-ingr-name" data-ingr-name="@ingredient.Name">@ingredient.Name</span>
                                 </span>
                             </div>
                         }
@@ -288,33 +288,76 @@
                 return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             }
 
-            // Build the set of terms to look for in step text: each ingredient's full
-            // name, plus its last word as a fallback (so "all-purpose flour" also
-            // matches a step that just says "flour"). Sorted longest-first so a
-            // multi-word ingredient name wins over a shorter fallback word.
-            var ingredientTerms = [];
-            ingredientNames.forEach(function (name) {
+            // Prep/quantity/descriptor words that show up in ingredient names but never
+            // in the way a step actually refers to the ingredient (e.g. "Carrots Sliced
+            // 1/4-Inch Thick" is referred to as just "carrots" in step text). Filtering
+            // these out — rather than only ever keeping an ingredient name's *last* word —
+            // is what lets the real food word be found regardless of where in the name it
+            // falls ("Onion, (Diced)" leads with it, "All-Purpose Flour" ends with it).
+            var STOP_WORDS = {
+                'and': 1, 'or': 1, 'to': 1, 'of': 1, 'for': 1, 'the': 1, 'a': 1, 'an': 1,
+                'with': 1, 'taste': 1, 'divided': 1, 'optional': 1,
+                'sliced': 1, 'diced': 1, 'minced': 1, 'chopped': 1, 'shredded': 1,
+                'grated': 1, 'crushed': 1, 'cubed': 1, 'peeled': 1, 'julienned': 1,
+                'ground': 1, 'fresh': 1, 'dried': 1, 'frozen': 1, 'canned': 1,
+                'cooked': 1, 'uncooked': 1, 'raw': 1,
+                'large': 1, 'small': 1, 'medium': 1, 'thick': 1, 'thin': 1,
+                'inch': 1, 'inches': 1, 'boneless': 1, 'skinless': 1, 'lean': 1,
+                'extra': 1, 'low': 1, 'sodium': 1
+            };
+
+            // Build the set of terms to look for in an ingredient's name: the full name
+            // (for an exact-phrase match), plus each individual "significant" word —
+            // punctuation, parentheticals, quantities/fractions, and prep/descriptor
+            // words stripped out.
+            function extractTerms(name) {
+                var terms = [];
                 var trimmed = (name || '').trim();
-                if (!trimmed) return;
-                ingredientTerms.push(trimmed);
-                var words = trimmed.split(/\s+/);
-                var lastWord = words[words.length - 1];
-                if (words.length > 1 && lastWord.length > 2) ingredientTerms.push(lastWord);
-            });
-            ingredientTerms = ingredientTerms
-                .filter(function (term, i) { return ingredientTerms.indexOf(term) === i; })
-                .sort(function (a, b) { return b.length - a.length; });
+                if (!trimmed) return terms;
+                terms.push(trimmed);
+
+                var cleaned = trimmed
+                    .replace(/\([^)]*\)/g, ' ')            // drop parenthetical asides
+                    .replace(/[0-9]+(\/[0-9]+)?-?/g, ' ')   // drop quantities/fractions
+                    .replace(/[,;]/g, ' ');
+                cleaned.split(/\s+/).forEach(function (word) {
+                    if (word.length > 2 && !STOP_WORDS[word.toLowerCase()]) terms.push(word);
+                });
+                return terms;
+            }
 
             // Match plural forms too (onion/onions, tomato/tomatoes) without a full
             // stemming library — good enough for common ingredient names.
-            var highlightRegex = ingredientTerms.length
-                ? new RegExp('\\b(' + ingredientTerms.map(escapeRegex).join('|') + ')(e?s)?\\b', 'gi')
-                : null;
+            function buildHighlightRegex(terms) {
+                var unique = terms.filter(function (term, i) { return terms.indexOf(term) === i; })
+                    .sort(function (a, b) { return b.length - a.length; });
+                return unique.length
+                    ? new RegExp('\\b(' + unique.map(escapeRegex).join('|') + ')(e?s)?\\b', 'gi')
+                    : null;
+            }
+
+            var allTerms = [];
+            var regexByName = {};
+            ingredientNames.forEach(function (name) {
+                var terms = extractTerms(name);
+                allTerms = allTerms.concat(terms);
+                regexByName[name] = buildHighlightRegex(terms);
+            });
+            var highlightRegex = buildHighlightRegex(allTerms);
 
             function highlightIngredients(text) {
                 var escaped = escapeHtml(text || '');
                 if (!highlightRegex) return escaped;
                 return escaped.replace(highlightRegex, '<span class="cook-ingredient-highlight">$&</span>');
+            }
+
+            // Does the given step text reference this ingredient (by name lookup into
+            // regexByName)? Used to highlight matching rows in the ingredient sheet.
+            function stepUsesIngredient(name, stepRawText) {
+                var re = regexByName[name];
+                if (!re) return false;
+                re.lastIndex = 0;
+                return re.test(stepRawText || '');
             }
 
             var cookStep = 0;
@@ -333,13 +376,23 @@
             var ingrCard   = document.getElementById('cookIngrCard');
             var showIngrBtn  = document.getElementById('cookShowIngredients');
             var ingrCloseBtn = document.getElementById('cookIngrClose');
+            var ingrNameEls  = ingrCard ? Array.prototype.slice.call(ingrCard.querySelectorAll('.js-ingr-name')) : [];
+
+            function updateIngrSheetHighlights(stepRawText) {
+                ingrNameEls.forEach(function (el) {
+                    var used = stepUsesIngredient(el.getAttribute('data-ingr-name') || '', stepRawText);
+                    el.classList.toggle('cook-ingredient-highlight', used);
+                });
+            }
 
             function renderStep() {
-                stepText.innerHTML  = highlightIngredients(steps[cookStep]);
+                var rawText = steps[cookStep];
+                stepText.innerHTML  = highlightIngredients(rawText);
                 counter.textContent  = 'Step ' + (cookStep + 1) + ' of ' + steps.length;
                 prevBtn.disabled     = cookStep === 0;
                 prevBtn.style.opacity = cookStep === 0 ? '0.4' : '';
                 nextBtn.textContent  = cookStep === steps.length - 1 ? 'Done ✓' : 'Next →';
+                updateIngrSheetHighlights(rawText);
             }
 
             function openCookMode() {

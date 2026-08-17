@@ -8,8 +8,13 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Fixed
+
+- Cook Mode's ingredient highlighting in step text only ever considered an ingredient's full name or its *last* word as a match candidate, so ingredients whose name leads with the food word and trails with prep descriptors (e.g. "Carrots Sliced 1/4-Inch Thick", "Onion, (Diced)") never highlighted even when the step text named them plainly ("add onions, carrots and celery"). Term extraction now strips parentheticals, quantities/fractions, and punctuation, then keeps every remaining significant word (filtering common prep/descriptor terms like "sliced", "diced", "minced", "uncooked") — so the food word is found regardless of where it falls in the name.
+
 ### Added
 
+- Cook Mode's ingredient sheet (View Ingredients) now highlights the name of any ingredient used in the currently-displayed step, matching the highlighting already shown in the step text — updates live as you step through the recipe.
 - Successful Kroger cart adds now show a "View Cart in Kroger" link on the success toast (`https://www.kroger.com/cart`), giving a direct path into the Kroger app/site to check out instead of leaving the user to find their own way there. The toast stays up longer (8s instead of 3.5s) when it carries this action so there's time to tap it. (#97)
 - `deploy.yml`'s `paths-ignore` now also skips non-source paths beyond `**.md` — `.gitattributes`/`.gitignore`, `.github/**`, `deploy/**`, `RecipeHelper.Tests/**`, and `RecipeHelper/tests/**` — none of which are part of what `dotnet publish` ships, so a push touching only those no longer triggers a pointless prod redeploy. A push mixing one of these with an actual source change still deploys as before.
 - `deploy.yml`'s same-repo guard now also excludes Dependabot PRs from triggering an automatic production deploy (Dependabot branches live in this repo, so the existing fork check didn't catch them) — an unreviewed dependency bump can still get a Build/CodeQL check on its PR, but won't reach prod until manually merged or deployed.

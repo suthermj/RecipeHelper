@@ -1,0 +1,41 @@
+name: Build
+
+# Fast, secret-free "does it compile" check for every PR. This is deliberately
+# separate from deploy.yml: that workflow also builds the app, but only as a
+# step on the way to shipping to prod over Tailscale/SSH with prod secrets,
+# and (for security) only runs for same-repo PRs. This workflow needs no
+# secrets, so it runs for every PR (forks included) and gives a fast signal
+# without touching production.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install npm dependencies
+        working-directory: RecipeHelper
+        run: npm ci
+
+      - name: Build CSS
+        working-directory: RecipeHelper
+        run: npm run css:build
+
+      - name: Restore & build
+        working-directory: RecipeHelper
+        run: dotnet build -c Release

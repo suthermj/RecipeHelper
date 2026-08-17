@@ -23,7 +23,7 @@ jobs:
       # Check out the exact commit that was just deployed, so the test file
       # matches what's actually live.
       - name: Checkout deployed commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 

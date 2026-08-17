@@ -43,7 +43,7 @@ jobs:
       DEPLOY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout ${{ env.DEPLOY_SHA }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
 

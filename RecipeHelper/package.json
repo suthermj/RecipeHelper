@@ -34,7 +34,7 @@
     "function-bind": "^1.1.2",
     "glob": "^10.4.5",
     "glob-parent": "^6.0.2",
-    "hasown": "^2.0.2",
+    "hasown": "^2.0.4",
     "is-binary-path": "^2.1.0",
     "is-core-module": "^2.16.1",
     "is-extglob": "^2.1.1",

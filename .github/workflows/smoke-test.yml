@@ -16,6 +16,9 @@ jobs:
   smoke:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       # Check out the exact commit that was just deployed, so the test file
       # matches what's actually live.
@@ -54,6 +57,7 @@ jobs:
           exit 1
 
       - name: Run smoke tests against production
+        id: run_tests
         working-directory: RecipeHelper
         run: npx playwright test
 
@@ -64,3 +68,34 @@ jobs:
           name: playwright-report
           path: RecipeHelper/playwright-report/
           retention-days: 7
+
+      # This workflow runs via workflow_run, so it doesn't attach as a native
+      # PR check the way build.yml/codeql.yml do — post a result comment
+      # instead so it's visible on the PR at all. Only fires when the deployed
+      # commit belongs to an open PR (workflow_run.pull_requests is empty for
+      # a direct/merged push to main). Edits the same comment on every run
+      # (matched via the hidden marker) instead of posting a new one each
+      # time, so repeated pushes to a PR don't pile up duplicate comments.
+      - name: Find existing smoke test comment
+        if: always() && github.event.workflow_run.pull_requests[0]
+        id: find_comment
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.workflow_run.pull_requests[0].number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '<!-- smoke-test-results -->'
+
+      - name: Post or update smoke test comment
+        if: always() && github.event.workflow_run.pull_requests[0]
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find_comment.outputs.comment-id }}
+          issue-number: ${{ github.event.workflow_run.pull_requests[0].number }}
+          edit-mode: replace
+          body: |
+            <!-- smoke-test-results -->
+            ### 🧪 Smoke test — ${{ steps.run_tests.outcome == 'success' && '✅ passed' || '❌ failed' }}
+
+            Ran against production (`sutherlinsrecipes.duckdns.org`) after deploy of `${{ github.event.workflow_run.head_sha }}`.
+
+            [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

@@ -593,7 +593,7 @@
                 if (e.target.closest('.clear-btn')) return;
                 // A drag in progress prevents the synthetic click that follows
                 // touchend, so a click reaching here is always a genuine tap.
-                window.location.href = `${viewRecipeUrl}/${recipeId}`;
+                window.location.href = `${viewRecipeUrl}/${recipeId}?from=mealplan`;
             });
         });
     }

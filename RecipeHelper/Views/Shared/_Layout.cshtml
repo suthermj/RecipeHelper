@@ -83,19 +83,37 @@
         var toastSuccess = TempData["SuccessMessage"] as string;
         var toastError   = TempData["ErrorMessage"]   as string;
         var toastMessage = toastSuccess ?? toastError;
+        var toastActionUrl   = TempData["SuccessActionUrl"]   as string;
+        var toastActionLabel = TempData["SuccessActionLabel"] as string;
+        var toastHasAction = toastSuccess != null && !string.IsNullOrEmpty(toastActionUrl);
     }
     @if (toastMessage != null)
     {
         <div id="toast"
              class="fixed left-1/2 -translate-x-1/2 z-[300] max-w-sm w-[calc(100%-2rem)]
-                    rounded-2xl shadow-lg px-4 py-3 text-[15px] font-medium pointer-events-none
-                    transition-all duration-300 opacity-0 -translate-y-2 text-white"
+                    rounded-2xl shadow-lg px-4 py-3 text-[15px] font-medium
+                    transition-all duration-300 opacity-0 -translate-y-2 text-white
+                    @(toastHasAction ? "" : "pointer-events-none")"
              style="top: calc(env(safe-area-inset-top) + 52px);
                     background: rgba(28, 28, 30, 0.92);
                     backdrop-filter: blur(20px);
                     -webkit-backdrop-filter: blur(20px);"
              data-toast>
-            @toastMessage
+            @if (toastHasAction)
+            {
+                <div class="flex items-center justify-between gap-3">
+                    <span>@toastMessage</span>
+                    <a href="@toastActionUrl"
+                       class="shrink-0 rounded-full px-3 text-[14px] font-semibold text-white"
+                       style="background: rgba(255,255,255,0.18); min-height: 44px; display: inline-flex; align-items: center; text-decoration: none;">
+                        @(toastActionLabel ?? "View")
+                    </a>
+                </div>
+            }
+            else
+            {
+                @toastMessage
+            }
         </div>
         <script>
             (function () {
@@ -107,7 +125,7 @@
                 setTimeout(function () {
                     t.classList.add('opacity-0', '-translate-y-2');
                     setTimeout(function () { t.remove(); }, 300);
-                }, 3500);
+                }, @(toastHasAction ? 8000 : 3500));
             })();
         </script>
     }

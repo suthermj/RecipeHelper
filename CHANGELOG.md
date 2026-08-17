@@ -20,6 +20,7 @@ by date rather than by release version.
 
 ### Changed
 
+- Import Recipe (URL tab) no longer shows a large decorative "Paste a recipe URL" empty-state card above the URL input — it just restated what the input's placeholder and the clipboard-paste banner already say, and ate most of the screen for no functional purpose. (#94)
 - Kroger cart preview (`Cart/PreviewAddToCart`) ingredient cards no longer show brand, stock level, or the product's own size/pack measurement — reduced clutter, keeping name, price, needed amount, and quantity. The per-row warning text (shown for "Needs review" items) no longer explains the internal reasoning for a fallback/estimate (which dimension mismatched, whether a density was assumed, etc.) — every case now shows the same short "Estimated — please verify quantity" instead of up to 7 different technical messages. The full mechanism-specific detail is still logged server-side for debugging.
 
 ### Added

@@ -62,7 +62,7 @@
     "path-parse": "^1.0.7",
     "path-scurry": "^1.11.1",
     "picocolors": "^1.1.1",
-    "picomatch": "^2.3.1",
+    "picomatch": "^4.0.5",
     "pify": "^2.3.0",
     "pirates": "^4.0.6",
     "postcss": "^8.5.1",

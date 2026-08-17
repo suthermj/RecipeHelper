@@ -190,6 +190,8 @@ namespace RecipeHelper.Controllers
 
                 _logger.LogInformation("CompleteAddToCart succeeded. ItemCount={ItemCount}", itemCount);
                 TempData["SuccessMessage"] = $"{itemCount} item{(itemCount == 1 ? "" : "s")} were added to your Kroger cart. " + "You can review or edit them in the Kroger app.";
+                TempData["SuccessActionUrl"] = "https://www.kroger.com/cart";
+                TempData["SuccessActionLabel"] = "View Cart in Kroger";
                 return RedirectToAction("Recipe", "Recipe");
             }
             catch (Exception ex)

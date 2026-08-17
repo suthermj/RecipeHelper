@@ -87,7 +87,7 @@ jobs:
 
       - name: Post or update smoke test comment
         if: always() && github.event.workflow_run.pull_requests[0]
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@v5
         with:
           comment-id: ${{ steps.find_comment.outputs.comment-id }}
           issue-number: ${{ github.event.workflow_run.pull_requests[0].number }}

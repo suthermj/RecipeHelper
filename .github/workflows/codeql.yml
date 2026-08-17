@@ -39,6 +39,20 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      # RecipeHelper.csproj runs `npm run css:build` as an MSBuild target
+      # (BeforeTargets="Build"), so `dotnet build` fails without node_modules
+      # in place first.
+      - name: Setup Node
+        if: matrix.language == 'csharp'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install npm dependencies
+        if: matrix.language == 'csharp'
+        working-directory: RecipeHelper
+        run: npm ci
+
       - name: Build C#
         if: matrix.language == 'csharp'
         working-directory: RecipeHelper

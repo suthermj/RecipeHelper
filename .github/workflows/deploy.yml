@@ -30,9 +30,12 @@ env:
 jobs:
   deploy:
     # Guards against a forked PR ever triggering a deploy with this repo's
-    # secrets. workflow_dispatch is always same-repo by definition, so this
-    # only meaningfully restricts the pull_request trigger.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # secrets, and against Dependabot PRs deploying an unreviewed dependency
+    # bump straight to prod (Dependabot branches are same-repo, so the fork
+    # check alone doesn't catch them). workflow_dispatch is always same-repo
+    # and never dependabot by definition, so this only meaningfully
+    # restricts the pull_request trigger.
+    if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     runs-on: ubuntu-latest
     environment: production
     permissions:

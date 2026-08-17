@@ -1,21 +1,30 @@
 name: Deploy to Production
 
 # Deploys automatically whenever a PR (targeting main) is opened or pushed to
-# with a source-code change (docs-only commits are skipped — see paths-ignore
-# below), so a branch's latest commit is live for on-device testing without a
-# manual step. Also runnable manually anytime from the Actions tab (works fine
-# from the GitHub mobile app) — deploys whichever branch is picked in the "Use
-# workflow from" selector, e.g. to redeploy main itself or a branch with no
-# open PR.
+# with a source-code change (non-source changes are skipped — see
+# paths-ignore below), so a branch's latest commit is live for on-device
+# testing without a manual step. Also runnable manually anytime from the
+# Actions tab (works fine from the GitHub mobile app) — deploys whichever
+# branch is picked in the "Use workflow from" selector, e.g. to redeploy
+# main itself or a branch with no open PR.
 on:
   workflow_dispatch:
   pull_request:
     types: [opened, synchronize]
     branches: [main]
-    # Skip commits that only touch docs -- a CHANGELOG/CLAUDE.md-only push
-    # shouldn't redeploy production.
+    # Skip a push that only touches non-source paths -- none of these are
+    # part of what dotnet publish actually ships, so redeploying prod for
+    # one is pure waste. (This only skips the run when *every* changed file
+    # matches one of these -- a push mixing e.g. app code with a doc update
+    # still deploys.)
     paths-ignore:
       - '**.md'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.github/**'
+      - 'deploy/**'
+      - 'RecipeHelper.Tests/**'
+      - 'RecipeHelper/tests/**'
 
 concurrency:
   group: deploy-production

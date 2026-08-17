@@ -3,8 +3,8 @@
 @{
     ViewData["Title"]    = Model.RecipeName;
     ViewData["NavTitle"] = Model.RecipeName;
-    ViewData["BackLink"]  = Url.Action("Recipe", "Recipe");
-    ViewData["BackLabel"] = "Recipes";
+    // ViewData["BackLink"]/["BackLabel"] are set by RecipeController.ViewRecipe based on
+    // the "from" query param, so the back button can return to Meal Plan when opened from there.
     var hasImage        = !string.IsNullOrWhiteSpace(Model?.ImageUri);
     var hasIngredients  = Model.Ingredients != null && Model.Ingredients.Any();
     var hasInstructions = Model.Instructions != null && Model.Instructions.Any();

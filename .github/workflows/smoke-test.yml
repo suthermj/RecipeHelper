@@ -38,7 +38,11 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: RecipeHelper
-        run: npx playwright install --with-deps chromium
+        # The "iPhone 14" project (playwright.config.ts) uses devices['iPhone 14'],
+        # whose defaultBrowserType is webkit, not chromium — installing chromium
+        # here left the suite unable to launch a browser at all
+        # ("Executable doesn't exist at .../ms-playwright/webkit-.../pw_run.sh").
+        run: npx playwright install --with-deps webkit
 
       # The deploy's last step restarts the systemd service; give it a few
       # seconds to come back up before hammering it with the suite so a slow

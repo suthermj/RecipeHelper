@@ -167,7 +167,7 @@
     </div>
 
     <!-- Footer -->
-    <div style="flex-shrink:0; padding:12px 16px; padding-bottom:calc(env(safe-area-inset-bottom) + 16px); background:rgba(249,249,249,0.94); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-top:0.5px solid var(--ios-separator);">
+    <div id="cookFooter" style="flex-shrink:0; padding:12px 16px; padding-bottom:calc(env(safe-area-inset-bottom) + 16px); background:rgba(249,249,249,0.94); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-top:0.5px solid var(--ios-separator);">
         <div style="display:flex; gap:12px; margin-bottom:10px;">
             <button type="button" id="cookPrev" class="btn-secondary" style="flex:1;">← Prev</button>
             <button type="button" id="cookNext" class="btn-primary" style="flex:1;">Next →</button>
@@ -187,22 +187,25 @@
              style="position:absolute; inset:0; z-index:1; background-color:transparent; pointer-events:none; transition:background-color 0.25s ease; display:flex; align-items:flex-end;">
             <div id="cookIngrCard"
                  style="width:100%; background:var(--ios-surface); border-radius:20px 20px 0 0; max-height:80svh; display:flex; flex-direction:column; transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.32,0.72,0,1); will-change:transform; padding-bottom:env(safe-area-inset-bottom);">
-                <!-- Drag pill -->
-                <div style="display:flex; justify-content:center; padding:10px 0 4px;">
-                    <div style="width:36px; height:4px; border-radius:2px; background:var(--ios-separator);"></div>
-                </div>
-                <!-- Sheet header -->
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 16px 12px; border-bottom:0.5px solid var(--ios-separator);">
-                    <span style="font-size:17px; font-weight:600; color:var(--ios-label);">
-                        Ingredients
-                        <span class="ios-badge ios-badge-gray" style="margin-left:4px;">@Model.Ingredients.Count</span>
-                    </span>
-                    <button type="button" id="cookIngrClose"
-                            style="width:32px; height:32px; border-radius:50%; background:var(--ios-fill); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;">
-                        <svg style="width:16px;height:16px;color:var(--ios-label-2);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" pointer-events="none">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
+                <!-- Drag handle: swipe down anywhere here to close (tap X still works too) -->
+                <div id="cookIngrHandle" style="touch-action:none;">
+                    <!-- Drag pill -->
+                    <div style="display:flex; justify-content:center; padding:10px 0 4px;">
+                        <div style="width:36px; height:4px; border-radius:2px; background:var(--ios-separator);"></div>
+                    </div>
+                    <!-- Sheet header -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 16px 12px; border-bottom:0.5px solid var(--ios-separator);">
+                        <span style="font-size:17px; font-weight:600; color:var(--ios-label);">
+                            Ingredients
+                            <span class="ios-badge ios-badge-gray" style="margin-left:4px;">@Model.Ingredients.Count</span>
+                        </span>
+                        <button type="button" id="cookIngrClose"
+                                style="width:32px; height:32px; border-radius:50%; background:var(--ios-fill); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;">
+                            <svg style="width:16px;height:16px;color:var(--ios-label-2);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" pointer-events="none">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <!-- Ingredient list -->
                 <div style="overflow-y:auto; -webkit-overflow-scrolling:touch; flex:1;">
@@ -228,7 +231,7 @@
                                     @ingredient.DisplayQuantity @ingredient.DisplayMeasurement
                                 </span>
                                 <span class="text-[15px] flex-1" style="color:var(--ios-label-2);">
-                                    @ingredient.Name
+                                    <span class="js-ingr-name" data-ingr-name="@ingredient.Name">@ingredient.Name</span>
                                 </span>
                             </div>
                         }
@@ -288,33 +291,76 @@
                 return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             }
 
-            // Build the set of terms to look for in step text: each ingredient's full
-            // name, plus its last word as a fallback (so "all-purpose flour" also
-            // matches a step that just says "flour"). Sorted longest-first so a
-            // multi-word ingredient name wins over a shorter fallback word.
-            var ingredientTerms = [];
-            ingredientNames.forEach(function (name) {
+            // Prep/quantity/descriptor words that show up in ingredient names but never
+            // in the way a step actually refers to the ingredient (e.g. "Carrots Sliced
+            // 1/4-Inch Thick" is referred to as just "carrots" in step text). Filtering
+            // these out — rather than only ever keeping an ingredient name's *last* word —
+            // is what lets the real food word be found regardless of where in the name it
+            // falls ("Onion, (Diced)" leads with it, "All-Purpose Flour" ends with it).
+            var STOP_WORDS = {
+                'and': 1, 'or': 1, 'to': 1, 'of': 1, 'for': 1, 'the': 1, 'a': 1, 'an': 1,
+                'with': 1, 'taste': 1, 'divided': 1, 'optional': 1,
+                'sliced': 1, 'diced': 1, 'minced': 1, 'chopped': 1, 'shredded': 1,
+                'grated': 1, 'crushed': 1, 'cubed': 1, 'peeled': 1, 'julienned': 1,
+                'ground': 1, 'fresh': 1, 'dried': 1, 'frozen': 1, 'canned': 1,
+                'cooked': 1, 'uncooked': 1, 'raw': 1,
+                'large': 1, 'small': 1, 'medium': 1, 'thick': 1, 'thin': 1,
+                'inch': 1, 'inches': 1, 'boneless': 1, 'skinless': 1, 'lean': 1,
+                'extra': 1, 'low': 1, 'sodium': 1
+            };
+
+            // Build the set of terms to look for in an ingredient's name: the full name
+            // (for an exact-phrase match), plus each individual "significant" word —
+            // punctuation, parentheticals, quantities/fractions, and prep/descriptor
+            // words stripped out.
+            function extractTerms(name) {
+                var terms = [];
                 var trimmed = (name || '').trim();
-                if (!trimmed) return;
-                ingredientTerms.push(trimmed);
-                var words = trimmed.split(/\s+/);
-                var lastWord = words[words.length - 1];
-                if (words.length > 1 && lastWord.length > 2) ingredientTerms.push(lastWord);
-            });
-            ingredientTerms = ingredientTerms
-                .filter(function (term, i) { return ingredientTerms.indexOf(term) === i; })
-                .sort(function (a, b) { return b.length - a.length; });
+                if (!trimmed) return terms;
+                terms.push(trimmed);
+
+                var cleaned = trimmed
+                    .replace(/\([^)]*\)/g, ' ')            // drop parenthetical asides
+                    .replace(/[0-9]+(\/[0-9]+)?-?/g, ' ')   // drop quantities/fractions
+                    .replace(/[,;]/g, ' ');
+                cleaned.split(/\s+/).forEach(function (word) {
+                    if (word.length > 2 && !STOP_WORDS[word.toLowerCase()]) terms.push(word);
+                });
+                return terms;
+            }
 
             // Match plural forms too (onion/onions, tomato/tomatoes) without a full
             // stemming library — good enough for common ingredient names.
-            var highlightRegex = ingredientTerms.length
-                ? new RegExp('\\b(' + ingredientTerms.map(escapeRegex).join('|') + ')(e?s)?\\b', 'gi')
-                : null;
+            function buildHighlightRegex(terms) {
+                var unique = terms.filter(function (term, i) { return terms.indexOf(term) === i; })
+                    .sort(function (a, b) { return b.length - a.length; });
+                return unique.length
+                    ? new RegExp('\\b(' + unique.map(escapeRegex).join('|') + ')(e?s)?\\b', 'gi')
+                    : null;
+            }
+
+            var allTerms = [];
+            var regexByName = {};
+            ingredientNames.forEach(function (name) {
+                var terms = extractTerms(name);
+                allTerms = allTerms.concat(terms);
+                regexByName[name] = buildHighlightRegex(terms);
+            });
+            var highlightRegex = buildHighlightRegex(allTerms);
 
             function highlightIngredients(text) {
                 var escaped = escapeHtml(text || '');
                 if (!highlightRegex) return escaped;
                 return escaped.replace(highlightRegex, '<span class="cook-ingredient-highlight">$&</span>');
+            }
+
+            // Does the given step text reference this ingredient (by name lookup into
+            // regexByName)? Used to highlight matching rows in the ingredient sheet.
+            function stepUsesIngredient(name, stepRawText) {
+                var re = regexByName[name];
+                if (!re) return false;
+                re.lastIndex = 0;
+                return re.test(stepRawText || '');
             }
 
             var cookStep = 0;
@@ -331,15 +377,27 @@
             var cookBody   = document.getElementById('cookBody');
             var ingrSheet  = document.getElementById('cookIngrSheet');
             var ingrCard   = document.getElementById('cookIngrCard');
+            var ingrHandle = document.getElementById('cookIngrHandle');
+            var footerEl   = document.getElementById('cookFooter');
             var showIngrBtn  = document.getElementById('cookShowIngredients');
             var ingrCloseBtn = document.getElementById('cookIngrClose');
+            var ingrNameEls  = ingrCard ? Array.prototype.slice.call(ingrCard.querySelectorAll('.js-ingr-name')) : [];
+
+            function updateIngrSheetHighlights(stepRawText) {
+                ingrNameEls.forEach(function (el) {
+                    var used = stepUsesIngredient(el.getAttribute('data-ingr-name') || '', stepRawText);
+                    el.classList.toggle('cook-ingredient-highlight', used);
+                });
+            }
 
             function renderStep() {
-                stepText.innerHTML  = highlightIngredients(steps[cookStep]);
+                var rawText = steps[cookStep];
+                stepText.innerHTML  = highlightIngredients(rawText);
                 counter.textContent  = 'Step ' + (cookStep + 1) + ' of ' + steps.length;
                 prevBtn.disabled     = cookStep === 0;
                 prevBtn.style.opacity = cookStep === 0 ? '0.4' : '';
                 nextBtn.textContent  = cookStep === steps.length - 1 ? 'Done ✓' : 'Next →';
+                updateIngrSheetHighlights(rawText);
             }
 
             function openCookMode() {
@@ -406,6 +464,53 @@
                     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
                         if (dx < 0) goNext(); else goPrev();
                     }
+                }, { passive: true });
+            }
+
+            // Swipe up on the footer to open the ingredient sheet (in addition to
+            // tapping "View Ingredients"). A tap has negligible movement so it never
+            // trips this — only a real vertical swipe does.
+            if (footerEl && ingrSheet) {
+                var footStartX = 0, footStartY = 0;
+                footerEl.addEventListener('touchstart', function (e) {
+                    footStartX = e.touches[0].clientX;
+                    footStartY = e.touches[0].clientY;
+                }, { passive: true });
+                footerEl.addEventListener('touchend', function (e) {
+                    var dx = e.changedTouches[0].clientX - footStartX;
+                    var dy = e.changedTouches[0].clientY - footStartY;
+                    if (dy < -40 && Math.abs(dy) > Math.abs(dx)) openIngrSheet();
+                }, { passive: true });
+            }
+
+            // Swipe down on the sheet's drag handle to close it (in addition to
+            // tapping the X or the backdrop). Follows the finger live, then either
+            // completes the close or snaps back open, like a native iOS sheet.
+            if (ingrHandle && ingrCard) {
+                var ingrDragStartY = 0, ingrDragging = false, ingrDragDy = 0;
+                var ingrCardTransition = ingrCard.style.transition;
+
+                ingrHandle.addEventListener('touchstart', function (e) {
+                    ingrDragStartY = e.touches[0].clientY;
+                    ingrDragging = true;
+                    ingrDragDy = 0;
+                    ingrCard.style.transition = 'none';
+                }, { passive: true });
+
+                ingrHandle.addEventListener('touchmove', function (e) {
+                    if (!ingrDragging) return;
+                    e.preventDefault();
+                    ingrDragDy = Math.max(0, e.touches[0].clientY - ingrDragStartY);
+                    ingrCard.style.transform = 'translateY(' + ingrDragDy + 'px)';
+                }, { passive: false });
+
+                ingrHandle.addEventListener('touchend', function () {
+                    if (!ingrDragging) return;
+                    ingrDragging = false;
+                    ingrCard.style.transition = ingrCardTransition;
+                    if (ingrDragDy > 90) closeIngrSheet();
+                    else ingrCard.style.transform = 'translateY(0)';
+                    ingrDragDy = 0;
                 }, { passive: true });
             }
 

@@ -8,8 +8,22 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Changed
+
+- App-wide `touch-action: manipulation` on `html` to disable double-tap-to-zoom — this is a mobile-only app and the zoom gesture only got in the way of fast repeated taps (step list, day cards, etc.). Pinch-zoom and normal scrolling/panning are unaffected.
+
 ### Added
 
+- Cook Mode's ingredient sheet now opens/closes by swipe as well as tap: swiping up on the footer opens it (alongside the existing "View Ingredients" tap), and swiping down on the sheet's drag handle closes it (alongside the existing X button and backdrop tap). The drag follows your finger live and either completes the close or snaps back open, like a native iOS sheet.
+
+### Fixed
+
+- Cook Mode's ingredient highlighting in step text only ever considered an ingredient's full name or its *last* word as a match candidate, so ingredients whose name leads with the food word and trails with prep descriptors (e.g. "Carrots Sliced 1/4-Inch Thick", "Onion, (Diced)") never highlighted even when the step text named them plainly ("add onions, carrots and celery"). Term extraction now strips parentheticals, quantities/fractions, and punctuation, then keeps every remaining significant word (filtering common prep/descriptor terms like "sliced", "diced", "minced", "uncooked") — so the food word is found regardless of where it falls in the name.
+
+### Added
+
+- Cook Mode's ingredient sheet (View Ingredients) now highlights the name of any ingredient used in the currently-displayed step, matching the highlighting already shown in the step text — updates live as you step through the recipe.
+- Successful Kroger cart adds now show a "View Cart in Kroger" link on the success toast (`https://www.kroger.com/cart`), giving a direct path into the Kroger app/site to check out instead of leaving the user to find their own way there. The toast stays up longer (8s instead of 3.5s) when it carries this action so there's time to tap it. (#97)
 - `deploy.yml`'s `paths-ignore` now also skips non-source paths beyond `**.md` — `.gitattributes`/`.gitignore`, `.github/**`, `deploy/**`, `RecipeHelper.Tests/**`, and `RecipeHelper/tests/**` — none of which are part of what `dotnet publish` ships, so a push touching only those no longer triggers a pointless prod redeploy. A push mixing one of these with an actual source change still deploys as before.
 - `deploy.yml`'s same-repo guard now also excludes Dependabot PRs from triggering an automatic production deploy (Dependabot branches live in this repo, so the existing fork check didn't catch them) — an unreviewed dependency bump can still get a Build/CodeQL check on its PR, but won't reach prod until manually merged or deployed.
 - Four new GitHub Actions workflows, filling gaps around the existing deploy-on-PR pipeline: `build.yml` runs a secret-free `dotnet build` + `npm run css:build` on every PR (including forks) as a fast compile check independent of production deploy; `smoke-test.yml` runs the existing (previously unwired) Playwright suite (`tests/playwright/ui.spec.ts`) against production right after `deploy.yml` succeeds, catching rendering/layout regressions automatically instead of finding out on-device; `codeql.yml` adds CodeQL security scanning for the C# backend and JS/TS frontend; and `.github/dependabot.yml` opens weekly update PRs for NuGet, npm, and GitHub Actions dependencies. `smoke-test.yml` also posts its pass/fail result as a PR comment (the only one of the three that doesn't otherwise show up as a native PR check, since it runs via `workflow_run` rather than `pull_request`) — the comment is edited in place on each run rather than reposted, so repeated pushes to a PR don't leave duplicate comments behind.
@@ -20,6 +34,7 @@ by date rather than by release version.
 
 ### Changed
 
+- Settings page: "Change Store" is no longer a separate always-visible section — it's now a tappable row inside the existing "Kroger Store" card, below the current store name/ID, that expands in place (animated `max-height` transition, not an instant snap) to reveal the same ZIP search + "Use my location" controls. Settings now defaults to a compact two-section page (Catalog, Kroger Store) instead of the store-change controls always eating most of the screen. (#93)
 - Import Recipe (URL tab) no longer shows a large decorative "Paste a recipe URL" empty-state card above the URL input — it just restated what the input's placeholder and the clipboard-paste banner already say, and ate most of the screen for no functional purpose. (#94)
 - Kroger cart preview (`Cart/PreviewAddToCart`) ingredient cards no longer show brand, stock level, or the product's own size/pack measurement — reduced clutter, keeping name, price, needed amount, and quantity. The per-row warning text (shown for "Needs review" items) no longer explains the internal reasoning for a fallback/estimate (which dimension mismatched, whether a density was assumed, etc.) — every case now shows the same short "Estimated — please verify quantity" instead of up to 7 different technical messages. The full mechanism-specific detail is still logged server-side for debugging.
 

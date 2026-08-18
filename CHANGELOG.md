@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Changed
+
+- App-wide `touch-action: manipulation` on `html` to disable double-tap-to-zoom — this is a mobile-only app and the zoom gesture only got in the way of fast repeated taps (step list, day cards, etc.). Pinch-zoom and normal scrolling/panning are unaffected.
+
 ### Fixed
 
 - Cook Mode's ingredient highlighting in step text only ever considered an ingredient's full name or its *last* word as a match candidate, so ingredients whose name leads with the food word and trails with prep descriptors (e.g. "Carrots Sliced 1/4-Inch Thick", "Onion, (Diced)") never highlighted even when the step text named them plainly ("add onions, carrots and celery"). Term extraction now strips parentheticals, quantities/fractions, and punctuation, then keeps every remaining significant word (filtering common prep/descriptor terms like "sliced", "diced", "minced", "uncooked") — so the food word is found regardless of where it falls in the name.

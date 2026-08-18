@@ -22,6 +22,12 @@ html {
   font-size: 16px;
   position: relative;
   min-height: 100%;
+  /* Disable double-tap-to-zoom (mobile-only app, no benefit from it and it
+     makes fast repeated taps — e.g. the step list, day cards — feel laggy
+     while Safari waits to see if a second tap is coming). Pinch-zoom and
+     panning still work since "manipulation" only drops the double-tap
+     zoom gesture, not zooming/scrolling generally. */
+  touch-action: manipulation;
 }
 
 /* ─── Safe Area (iOS PWA) ─── */

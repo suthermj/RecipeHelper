@@ -8,8 +8,21 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Changed
+
+- App-wide `touch-action: manipulation` on `html` to disable double-tap-to-zoom — this is a mobile-only app and the zoom gesture only got in the way of fast repeated taps (step list, day cards, etc.). Pinch-zoom and normal scrolling/panning are unaffected.
+
 ### Added
 
+- Cook Mode's ingredient sheet now opens/closes by swipe as well as tap: swiping up on the footer opens it (alongside the existing "View Ingredients" tap), and swiping down on the sheet's drag handle closes it (alongside the existing X button and backdrop tap). The drag follows your finger live and either completes the close or snaps back open, like a native iOS sheet.
+
+### Fixed
+
+- Cook Mode's ingredient highlighting in step text only ever considered an ingredient's full name or its *last* word as a match candidate, so ingredients whose name leads with the food word and trails with prep descriptors (e.g. "Carrots Sliced 1/4-Inch Thick", "Onion, (Diced)") never highlighted even when the step text named them plainly ("add onions, carrots and celery"). Term extraction now strips parentheticals, quantities/fractions, and punctuation, then keeps every remaining significant word (filtering common prep/descriptor terms like "sliced", "diced", "minced", "uncooked") — so the food word is found regardless of where it falls in the name.
+
+### Added
+
+- Cook Mode's ingredient sheet (View Ingredients) now highlights the name of any ingredient used in the currently-displayed step, matching the highlighting already shown in the step text — updates live as you step through the recipe.
 - Successful Kroger cart adds now show a "View Cart in Kroger" link on the success toast (`https://www.kroger.com/cart`), giving a direct path into the Kroger app/site to check out instead of leaving the user to find their own way there. The toast stays up longer (8s instead of 3.5s) when it carries this action so there's time to tap it. (#97)
 - `deploy.yml`'s `paths-ignore` now also skips non-source paths beyond `**.md` — `.gitattributes`/`.gitignore`, `.github/**`, `deploy/**`, `RecipeHelper.Tests/**`, and `RecipeHelper/tests/**` — none of which are part of what `dotnet publish` ships, so a push touching only those no longer triggers a pointless prod redeploy. A push mixing one of these with an actual source change still deploys as before.
 - `deploy.yml`'s same-repo guard now also excludes Dependabot PRs from triggering an automatic production deploy (Dependabot branches live in this repo, so the existing fork check didn't catch them) — an unreviewed dependency bump can still get a Build/CodeQL check on its PR, but won't reach prod until manually merged or deployed.

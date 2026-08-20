@@ -96,7 +96,7 @@
     "which": "^2.0.2",
     "wrap-ansi": "^8.1.0",
     "wrap-ansi-cjs": "^7.0.0",
-    "yaml": "^2.7.0"
+    "yaml": "^2.9.0"
   },
   "scripts": {
     "css:build": "npx tailwind -i ./wwwroot/css/site.css -o ./wwwroot/css/output.css"

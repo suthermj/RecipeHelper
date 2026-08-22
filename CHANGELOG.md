@@ -10,8 +10,7 @@ by date rather than by release version.
 
 ### Added
 
-- Mobile-friendly production log viewer at `/Admin/Logs` — tails `journalctl -u recipehelper` right from a phone browser (auto-refreshing, filterable, copyable) instead of needing SSH or Grafana. Gated by a shared-secret token (`AdminSettings:LogsToken`) rather than a login page, since the app has no user/identity system; the token lives in a long-lived cookie after the first visit so the plain URL can be bookmarked/home-screened. **Requires one-time VM setup** (add the token to prod config, grant the service user journal read access) — see the "Mobile log viewer" note under Observability in `CLAUDE.md`.
-- Settings page now has a "System Logs" row (under a new System section) linking to `/Admin/Logs`, so it's reachable without needing the bookmarked link. Only shown once `AdminSettings:LogsToken` is actually configured, so it doesn't appear (or lead to a 404) before the one-time VM setup above is done. The row itself carries no token — it relies on the cookie set by the first token-authenticated visit, same as the bookmark flow.
+- Mobile-friendly production log viewer at `/Admin/Logs` — tails `journalctl -u recipehelper` right from a phone browser (auto-refreshing, filterable, copyable) instead of needing SSH or Grafana. Also reachable from a new "System Logs" row on the Settings page. Left unauthenticated for now, at the user's request. **Requires one-time VM setup** (grant the service user journal read access) — see the "Mobile log viewer" note under Observability in `CLAUDE.md`.
 
 ### Fixed
 

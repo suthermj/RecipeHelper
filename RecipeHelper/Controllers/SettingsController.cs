@@ -30,8 +30,7 @@ namespace RecipeHelper.Controllers
             var vm = new SettingsVM
             {
                 CurrentLocationId = currentLocationId,
-                CurrentStoreName = currentStoreName,
-                LogsAvailable = !string.IsNullOrEmpty(_configuration["AdminSettings:LogsToken"])
+                CurrentStoreName = currentStoreName
             };
 
             return View(vm);

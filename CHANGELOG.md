@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Fixed
+
+- Recipe Edit's "Link Product" flow prefilled the Kroger product search with the ingredient's full raw text (quantity + unit + name, e.g. "2 Tablespoons Cilantro"), which almost never matches a product and forced manually deleting the quantity/unit before searching. The search prefill is now stripped of leading quantity/unit (via `stripQuantityAndUnit`, matching the same logic already used on Recipe Create) so it searches on the ingredient name alone.
+
 ### Changed
 
 - App-wide `touch-action: manipulation` on `html` to disable double-tap-to-zoom — this is a mobile-only app and the zoom gesture only got in the way of fast repeated taps (step list, day cards, etc.). Pinch-zoom and normal scrolling/panning are unaffected.

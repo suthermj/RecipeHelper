@@ -123,6 +123,42 @@ namespace RecipeHelper.Controllers
                 : null);
         }
 
+        // GET: Dinner/SelectIngredientRecipes — intermediate step between the meal plan
+        // and ingredient review, letting the user exclude recipes they don't need
+        // groceries for this round (e.g. a recipe carried over unchanged from last week
+        // that they already bought ingredients for). All recipes default to selected.
+        public async Task<ActionResult> SelectIngredientRecipes(DateTime weekStart)
+        {
+            var week = MealPlanService.GetWeekStart(weekStart);
+            var plan = await _mealPlanService.GetByWeekAsync(week);
+
+            var recipeEntries = plan?.Entries.Where(e => e.RecipeId.HasValue).ToList() ?? new List<MealPlanEntry>();
+            if (recipeEntries.Count == 0)
+                return RedirectToAction(nameof(Index), new { weekStart = week.ToString("yyyy-MM-dd") });
+
+            string[] dayAbbrev = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+
+            var vm = new SelectIngredientRecipesVM
+            {
+                WeekStart = week,
+                Recipes = recipeEntries
+                    .GroupBy(e => e.RecipeId!.Value)
+                    .Select(g => new IngredientRecipeSelectionVM
+                    {
+                        RecipeId = g.Key,
+                        RecipeName = g.First().Recipe?.Name ?? "",
+                        ImageUri = g.First().Recipe?.ImageUri,
+                        ThumbnailUri = g.First().Recipe?.ThumbnailUri,
+                        Occurrences = g.Count(),
+                        Days = g.OrderBy(e => e.DayOfWeek).Select(e => dayAbbrev[e.DayOfWeek]).ToList()
+                    })
+                    .OrderBy(r => r.RecipeName)
+                    .ToList()
+            };
+
+            return View(vm);
+        }
+
         // GET: Dinner/SelectWeeklyRecipes — kept for ingredient review flow
         public async Task<ActionResult> SelectWeeklyRecipes()
         {

@@ -14,6 +14,8 @@ by date rather than by release version.
 
 ### Fixed
 
+- `playwright.config.ts` only configured the `list` reporter, so `smoke-test.yml`'s "Upload Playwright report" step has been running on every CI failure and finding nothing to upload (`playwright-report/` is only written by the `html` reporter) — every past smoke-test flake, including the intermittent "tapping + opens the action sheet" failure on `/Recipe`, has been diagnosed blind with no screenshot or trace. Added the `html` reporter alongside `list`, plus `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`, and `video: 'retain-on-failure'`, so the next failure actually leaves evidence to inspect.
+
 - Recipe Edit's "Link Product" flow prefilled the Kroger product search with the ingredient's full raw text (quantity + unit + name, e.g. "2 Tablespoons Cilantro"), which almost never matches a product and forced manually deleting the quantity/unit before searching. The search prefill is now stripped of leading quantity/unit (via `stripQuantityAndUnit`, matching the same logic already used on Recipe Create) so it searches on the ingredient name alone.
 
 ### Changed

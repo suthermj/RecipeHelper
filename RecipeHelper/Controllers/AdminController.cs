@@ -1,31 +1,42 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 
 namespace RecipeHelper.Controllers
 {
     // Mobile-friendly viewer for `journalctl -u recipehelper` so prod logs can be
-    // checked from a phone without SSH (the primary device for this app).
-    //
-    // NOTE: left open (no auth) for now, at the user's request -- this app has no
-    // user/identity system anywhere else, and the route isn't linked from anywhere
-    // public. If that changes, gate this the way /Admin/Logs was originally built
-    // (see git history around the AdminSettings:LogsToken shared-secret + cookie
-    // approach) before relying on obscurity alone.
+    // checked from a phone without SSH (the primary device for this app). There's
+    // no user/identity system anywhere else in the app, so this is gated by a
+    // single shared-secret token (AdminSettings:LogsToken in
+    // appsettings.Production.json) rather than a login page -- visit once with
+    // ?token=..., a long-lived cookie carries it after that so the plain URL can
+    // be bookmarked / added to the home screen.
     public class AdminController : Controller
     {
+        private const string TokenCookieName = "rh_admin_token";
         private const int DefaultLines = 300;
         private const int MaxLines = 2000;
 
+        private readonly IConfiguration _config;
         private readonly ILogger<AdminController> _logger;
 
-        public AdminController(ILogger<AdminController> logger)
+        public AdminController(IConfiguration config, ILogger<AdminController> logger)
         {
+            _config = config;
             _logger = logger;
         }
 
         [HttpGet]
-        public IActionResult Logs()
+        public IActionResult Logs(string? token)
         {
+            if (!TryAuthorize(token, out var configuredToken))
+                return NotFound();
+
+            // Renew on every successful visit so the cookie never expires from
+            // under a phone that's opened every so often.
+            SetTokenCookie(configuredToken!);
+
             return View();
         }
 
@@ -34,8 +45,11 @@ namespace RecipeHelper.Controllers
         // sw.js caches page navigations (stale-while-revalidate), but a same-origin
         // fetch() call isn't a navigation, so it always hits the network fresh.
         [HttpGet]
-        public async Task<IActionResult> LogsData(int lines = DefaultLines, string? grep = null)
+        public async Task<IActionResult> LogsData(string? token, int lines = DefaultLines, string? grep = null)
         {
+            if (!TryAuthorize(token, out _))
+                return NotFound();
+
             lines = Math.Clamp(lines, 1, MaxLines);
 
             var psi = new ProcessStartInfo("journalctl")
@@ -88,6 +102,39 @@ namespace RecipeHelper.Controllers
             }
 
             return Content(string.IsNullOrEmpty(stdout) ? "(no log lines)" : stdout, "text/plain");
+        }
+
+        private bool TryAuthorize(string? tokenFromQuery, out string? configuredToken)
+        {
+            configuredToken = _config["AdminSettings:LogsToken"];
+            if (string.IsNullOrEmpty(configuredToken))
+                return false; // fail closed until a token is actually configured
+
+            var candidate = tokenFromQuery;
+            if (string.IsNullOrEmpty(candidate))
+                Request.Cookies.TryGetValue(TokenCookieName, out candidate);
+
+            return ConstantTimeEquals(candidate, configuredToken);
+        }
+
+        private void SetTokenCookie(string token)
+        {
+            Response.Cookies.Append(TokenCookieName, token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddYears(1),
+            });
+        }
+
+        private static bool ConstantTimeEquals(string? a, string? b)
+        {
+            if (a == null || b == null) return false;
+            var aBytes = Encoding.UTF8.GetBytes(a);
+            var bBytes = Encoding.UTF8.GetBytes(b);
+            if (aBytes.Length != bBytes.Length) return false;
+            return CryptographicOperations.FixedTimeEquals(aBytes, bBytes);
         }
     }
 }

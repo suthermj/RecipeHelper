@@ -168,7 +168,7 @@
                     if (res.status === 404) {
                         stopped = true;
                         stopAuto();
-                        showStatus('Unexpected 404 from /Admin/LogsData — try reloading the page.');
+                        showStatus('Session expired or no token configured — reopen this page with your ?token=… link.');
                         return;
                     }
                     const text = await res.text();

@@ -1,0 +1,155 @@
+@using RecipeHelper.Models.Dinner
+@model SelectIngredientRecipesVM
+
+@{
+    ViewData["Title"]     = "Select Recipes";
+    ViewData["NavTitle"]  = "Select Recipes";
+    ViewData["BackLink"]  = Url.Action("Index", "Dinner", new { weekStart = Model.WeekStart.ToString("yyyy-MM-dd") });
+    ViewData["BackLabel"] = "Meal Plan";
+
+    string DefaultImg = "https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp";
+}
+
+<div class="pt-2 pb-36">
+
+    <div class="px-4 pb-3">
+        <p class="text-[13px]" style="color: var(--ios-label-2);">
+            Choose which recipes to gather ingredients for. Uncheck anything you've
+            already bought or don't need groceries for this time.
+        </p>
+    </div>
+
+    <div class="px-4 pb-3 flex gap-2">
+        <button type="button" id="selectAllBtn" class="ios-pill">Select all</button>
+        <button type="button" id="clearAllBtn" class="ios-pill">Clear all</button>
+    </div>
+
+    <form asp-action="SubmitDinnerSelections" asp-controller="Dinner" method="post"
+          id="selectIngredientRecipesForm" class="loading-form" data-loading-text="Gathering ingredients…">
+        @Html.AntiForgeryToken()
+
+        <!-- Populated on submit -- expands each checked recipe into one hidden input
+             per occurrence, so a recipe kept on multiple days still multiplies its
+             ingredient quantities downstream (same convention Dinner/Index used to
+             build its selectedRecipes inputs before this page existed). -->
+        <div id="expandedInputs"></div>
+
+        <div class="ios-group">
+            @foreach (var recipe in Model.Recipes)
+            {
+                var img = recipe.ThumbnailUri is { Length: > 0 } tu
+                    ? tu
+                    : (recipe.ImageUri is { Length: > 0 } u ? u : DefaultImg);
+                <div class="recipe-select-row ios-cell cursor-pointer select-none transition-opacity"
+                     data-recipe-id="@recipe.RecipeId">
+                    <div class="check-circle h-6 w-6 rounded-full shrink-0 flex items-center justify-center transition-colors"
+                         style="background: #34C759; border: 2px solid #34C759;">
+                        <svg class="check-icon h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <div class="h-11 w-14 rounded-lg overflow-hidden shrink-0" style="background: var(--ios-fill);">
+                        <img src="@img" alt="" loading="lazy" decoding="async" class="h-full w-full object-cover" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="recipe-name text-[15px] font-medium truncate" style="color: var(--ios-label);">
+                            @recipe.RecipeName
+                        </p>
+                        @if (recipe.Occurrences > 1)
+                        {
+                            <p class="text-[12px]" style="color: var(--ios-label-2);">
+                                @string.Join(", ", recipe.Days) &middot; &times;@recipe.Occurrences
+                            </p>
+                        }
+                    </div>
+                    <input type="checkbox" class="recipe-checkbox hidden" data-occurrences="@recipe.Occurrences" value="@recipe.RecipeId" checked />
+                </div>
+            }
+        </div>
+    </form>
+</div>
+
+<!-- Sticky bottom action bar -->
+<div class="fixed inset-x-0 z-30 px-4 py-3"
+     style="bottom: calc(49px + env(safe-area-inset-bottom));
+            background: rgba(249,249,249,0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 0.5px solid var(--ios-separator);">
+    <button type="submit" form="selectIngredientRecipesForm" id="reviewIngredientsButton" class="btn-primary w-full">
+        <span id="reviewButtonLabel">Review ingredients</span>
+    </button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var form         = document.getElementById('selectIngredientRecipesForm');
+        var expanded      = document.getElementById('expandedInputs');
+        var reviewButton  = document.getElementById('reviewIngredientsButton');
+        var reviewLabel   = document.getElementById('reviewButtonLabel');
+
+        function styleRow(row, checked) {
+            var circle = row.querySelector('.check-circle');
+            var icon   = row.querySelector('.check-icon');
+            var name   = row.querySelector('.recipe-name');
+
+            if (checked) {
+                row.style.opacity = '';
+                if (circle) { circle.style.background = '#34C759'; circle.style.borderColor = '#34C759'; }
+                if (icon)   icon.classList.remove('hidden');
+                if (name)   { name.style.textDecoration = ''; name.style.color = ''; }
+            } else {
+                row.style.opacity = '0.5';
+                if (circle) { circle.style.background = 'var(--ios-fill)'; circle.style.borderColor = 'var(--ios-separator)'; }
+                if (icon)   icon.classList.add('hidden');
+                if (name)   { name.style.textDecoration = 'line-through'; name.style.color = 'var(--ios-label-2)'; }
+            }
+        }
+
+        function updateButton() {
+            var count = document.querySelectorAll('.recipe-checkbox:checked').length;
+            reviewButton.disabled = count === 0;
+            reviewButton.style.opacity = count === 0 ? '0.5' : '';
+            reviewLabel.textContent = count === 0
+                ? 'Select at least one recipe'
+                : 'Review ingredients for ' + count + (count === 1 ? ' recipe' : ' recipes');
+        }
+
+        function setRowChecked(row, checked) {
+            var cb = row.querySelector('.recipe-checkbox');
+            cb.checked = checked;
+            styleRow(row, checked);
+            updateButton();
+        }
+
+        document.querySelectorAll('.recipe-select-row').forEach(function (row) {
+            row.addEventListener('click', function () {
+                var cb = row.querySelector('.recipe-checkbox');
+                setRowChecked(row, !cb.checked);
+            });
+        });
+
+        document.getElementById('selectAllBtn').addEventListener('click', function () {
+            document.querySelectorAll('.recipe-select-row').forEach(function (row) { setRowChecked(row, true); });
+        });
+        document.getElementById('clearAllBtn').addEventListener('click', function () {
+            document.querySelectorAll('.recipe-select-row').forEach(function (row) { setRowChecked(row, false); });
+        });
+
+        form.addEventListener('submit', function () {
+            expanded.innerHTML = '';
+            document.querySelectorAll('.recipe-checkbox:checked').forEach(function (cb) {
+                var occurrences = parseInt(cb.dataset.occurrences, 10) || 1;
+                for (var i = 0; i < occurrences; i++) {
+                    var input = document.createElement('input');
+                    input.type  = 'hidden';
+                    input.name  = 'selectedRecipes';
+                    input.value = cb.value;
+                    expanded.appendChild(input);
+                }
+            });
+        });
+
+        updateButton();
+    });
+</script>

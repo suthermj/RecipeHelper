@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- "Review ingredients" on the meal plan (`Dinner/Index`) now opens a new intermediate screen (`Dinner/SelectIngredientRecipes`) listing every recipe in the week's plan, each pre-checked, before generating the ingredient list. Uncheck a recipe (e.g. one carried over from last week that you already bought groceries for) to leave it out of this round's aggregation entirely. A recipe scheduled on multiple days shows its day list and `×N` count, and stays weighted by that count if left checked, matching the existing multi-day aggregation behavior in `SubmitDinnerSelections`.
+
 ### Fixed
 
 - Recipe Edit's "Link Product" flow prefilled the Kroger product search with the ingredient's full raw text (quantity + unit + name, e.g. "2 Tablespoons Cilantro"), which almost never matches a product and forced manually deleting the quantity/unit before searching. The search prefill is now stripped of leading quantity/unit (via `stripQuantityAndUnit`, matching the same logic already used on Recipe Create) so it searches on the ingredient name alone.

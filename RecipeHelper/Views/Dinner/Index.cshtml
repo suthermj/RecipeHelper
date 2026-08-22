@@ -142,21 +142,14 @@
 
     <!-- Actions (visible when ≥1 day filled) -->
     <div id="planActions" class="px-4 pt-4 space-y-3 @(hasEntries ? "" : "hidden")">
-        <form asp-action="SubmitDinnerSelections" method="post">
-            @Html.AntiForgeryToken()
-            <div id="reviewHiddenInputs">
-                @foreach (var entry in allEntries.Where(e => e.RecipeId.HasValue))
-                {
-                    <input type="hidden" name="selectedRecipes" value="@entry.RecipeId" />
-                }
-            </div>
-            <button type="submit" class="btn-primary w-full gap-2">
-                Review ingredients
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                </svg>
-            </button>
-        </form>
+        <a asp-action="SelectIngredientRecipes" asp-route-weekStart="@weekStart.ToString("yyyy-MM-dd")"
+           id="reviewIngredientsLink"
+           class="btn-primary w-full gap-2 @(allEntries.Any(e => e.RecipeId.HasValue) ? "" : "hidden")">
+            Review ingredients
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+        </a>
 
         <button type="button" id="shareBtn" class="btn-secondary w-full gap-2">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -370,7 +363,7 @@
     const addFreeTextOption = document.getElementById('addFreeTextOption');
     const addFreeTextTerm   = document.getElementById('addFreeTextTerm');
     const planActions  = document.getElementById('planActions');
-    const reviewHiddenInputs = document.getElementById('reviewHiddenInputs');
+    const reviewIngredientsLink = document.getElementById('reviewIngredientsLink');
     const deletePlanIdInput  = document.getElementById('deletePlanId');
     const weekStart          = '@weekStart.ToString("yyyy-MM-dd")';
     const defaultImg         = '@DefaultImg';
@@ -564,15 +557,7 @@
         bindMoveGestures();
         updateRecipeAvailability();
 
-        reviewHiddenInputs.innerHTML = '';
-        (data.entries || []).forEach(e => {
-            if (e.recipeId == null) return;
-            const input = document.createElement('input');
-            input.type  = 'hidden';
-            input.name  = 'selectedRecipes';
-            input.value = e.recipeId;
-            reviewHiddenInputs.appendChild(input);
-        });
+        reviewIngredientsLink.classList.toggle('hidden', !(data.entries || []).some(e => e.recipeId != null));
 
         deletePlanIdInput.value = data.planId || 0;
         planActions.classList.toggle('hidden', (data.entries || []).length === 0);

@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- Mobile-friendly production log viewer at `/Admin/Logs` — tails `journalctl -u recipehelper` right from a phone browser (auto-refreshing, filterable, copyable) instead of needing SSH or Grafana. Gated by a shared-secret token (`AdminSettings:LogsToken`) rather than a login page, since the app has no user/identity system; the token lives in a long-lived cookie after the first visit so the plain URL can be bookmarked/home-screened. **Requires one-time VM setup** (add the token to prod config, grant the service user journal read access) — see the "Mobile log viewer" note under Observability in `CLAUDE.md`.
+
 ### Fixed
 
 - Recipe Edit's "Link Product" flow prefilled the Kroger product search with the ingredient's full raw text (quantity + unit + name, e.g. "2 Tablespoons Cilantro"), which almost never matches a product and forced manually deleting the quantity/unit before searching. The search prefill is now stripped of leading quantity/unit (via `stripQuantityAndUnit`, matching the same logic already used on Recipe Create) so it searches on the ingredient name alone.

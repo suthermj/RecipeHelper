@@ -69,7 +69,7 @@
     "postcss-import": "^15.1.0",
     "postcss-js": "^4.0.1",
     "postcss-load-config": "^4.0.2",
-    "postcss-nested": "^6.2.0",
+    "postcss-nested": "^8.0.1",
     "postcss-selector-parser": "^6.1.2",
     "postcss-value-parser": "^4.2.0",
     "queue-microtask": "^1.2.3",

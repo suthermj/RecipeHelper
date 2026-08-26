@@ -30,7 +30,7 @@
     "fast-glob": "^3.3.3",
     "fastq": "^1.18.0",
     "fill-range": "^7.1.1",
-    "foreground-child": "^3.3.0",
+    "foreground-child": "^4.0.3",
     "function-bind": "^1.1.2",
     "glob": "^10.4.5",
     "glob-parent": "^6.0.2",

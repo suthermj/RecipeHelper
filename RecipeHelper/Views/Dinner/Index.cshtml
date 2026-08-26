@@ -383,6 +383,17 @@
         return document.querySelector('input[name="__RequestVerificationToken"]').value;
     }
 
+    // Recovers from a failed mutation by reloading the page. A POST here can fail
+    // with a 400 if the embedded antiforgery token has gone stale mid-session (the
+    // token in the DOM never changes until the page reloads, so retrying with
+    // getToken() just resends the same rejected value and fails again forever).
+    // Reloading fetches a fresh page with a fresh token -- same recovery pattern
+    // already used on ShoppingList/ViewList and Product/ViewProduct.
+    function recoverFromMutationFailure(err) {
+        if (err?.name === 'AbortError') return;
+        location.reload();
+    }
+
     function openPicker(day) {
         if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
         activeDay = day;
@@ -743,7 +754,7 @@
             if (!resp.ok) throw new Error('Add failed: ' + resp.status);
             renderAll(await resp.json());
         } catch (err) {
-            alert('Could not add recipe. Please try again.');
+            recoverFromMutationFailure(err);
         } finally {
             undimCard(card);
         }
@@ -765,7 +776,7 @@
             if (!resp.ok) throw new Error('Add failed: ' + resp.status);
             renderAll(await resp.json());
         } catch (err) {
-            alert('Could not add placeholder. Please try again.');
+            recoverFromMutationFailure(err);
         } finally {
             undimCard(card);
         }
@@ -786,7 +797,7 @@
             if (!resp.ok) throw new Error('Remove failed: ' + resp.status);
             renderAll(await resp.json());
         } catch (err) {
-            alert('Could not remove recipe. Please try again.');
+            recoverFromMutationFailure(err);
         } finally {
             undimCard(card);
         }
@@ -814,9 +825,7 @@
                 alert('Link copied to clipboard!');
             }
         } catch (err) {
-            if (err?.name !== 'AbortError') {
-                alert('Could not create share link. Please try again.');
-            }
+            recoverFromMutationFailure(err);
         }
     });
 
@@ -836,7 +845,7 @@
             if (!resp.ok) throw new Error('Move failed: ' + resp.status);
             renderAll(await resp.json());
         } catch (err) {
-            alert('Could not move recipe. Please try again.');
+            recoverFromMutationFailure(err);
         } finally {
             undimCard(card);
         }

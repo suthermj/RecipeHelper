@@ -12,7 +12,47 @@ const STATIC_EXTENSIONS = ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico
 // Tracks the last time any mutation (POST/PUT/DELETE) was observed.
 // staleWhileRevalidate checks this so pages cached before a mutation are
 // re-fetched on the next navigation rather than served stale.
+//
+// This can't live only in the `let` below: iOS terminates an idle service
+// worker aggressively (e.g. during the tens of seconds a user spends on an
+// external OAuth login page, like Kroger's), and a fresh worker instance
+// re-runs this script from scratch, resetting the variable to 0 -- silently
+// disabling the staleness check at the exact moment it matters (right after
+// a mutation, on the navigation that follows it back into the app). Cache
+// Storage, unlike this module-level variable, survives a worker restart, so
+// the timestamp is mirrored there and rehydrated on first use per instance.
 let lastMutationTime = 0;
+let lastMutationTimeLoaded = false;
+const META_CACHE = STATIC_CACHE;
+const LAST_MUTATION_URL = new URL('/__sw-last-mutation-time', self.location.origin).toString();
+
+async function recordMutation() {
+    lastMutationTime = Date.now();
+    lastMutationTimeLoaded = true;
+    try {
+        const cache = await caches.open(META_CACHE);
+        await cache.put(LAST_MUTATION_URL, new Response(String(lastMutationTime)));
+    } catch {
+        // Cache Storage unavailable (e.g. private mode) -- the in-memory
+        // value set above still covers this worker instance's own lifetime.
+    }
+}
+
+async function getLastMutationTime() {
+    if (lastMutationTimeLoaded) return lastMutationTime;
+    lastMutationTimeLoaded = true;
+    try {
+        const cache = await caches.open(META_CACHE);
+        const stored = await cache.match(LAST_MUTATION_URL);
+        if (stored) {
+            lastMutationTime = parseInt(await stored.text(), 10) || 0;
+        }
+    } catch {
+        // Fall through with whatever lastMutationTime already was (0 if this
+        // is a genuinely fresh install).
+    }
+    return lastMutationTime;
+}
 
 function isStaticAsset(url) {
     return STATIC_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
@@ -63,9 +103,10 @@ async function staleWhileRevalidate(request, cacheName) {
     const cached = await cache.match(request);
 
     // If the cached response predates the last mutation, bypass it and fetch fresh.
-    if (cached && lastMutationTime > 0) {
+    const mutationTime = await getLastMutationTime();
+    if (cached && mutationTime > 0) {
         const cachedDate = new Date(cached.headers.get('date') || 0).getTime();
-        if (cachedDate < lastMutationTime) {
+        if (cachedDate < mutationTime) {
             const response = await fetch(request);
             if (response.ok) cache.put(request, response.clone());
             return response;
@@ -95,9 +136,12 @@ async function networkFirst(request, cacheName) {
 self.addEventListener('fetch', event => {
     const { request } = event;
 
-    // Record mutation time synchronously so the next navigate sees it.
+    // Record mutation time so the next navigate sees it -- set in-memory
+    // synchronously (covers this worker instance immediately) and persisted
+    // to Cache Storage via waitUntil so it also survives a worker restart
+    // before the follow-up navigation lands (see recordMutation above).
     if (request.method !== 'GET') {
-        lastMutationTime = Date.now();
+        event.waitUntil(recordMutation());
         return;
     }
 

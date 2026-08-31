@@ -44,7 +44,7 @@
 	  <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
 	  <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.9.0" />
 	  <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.9.0-beta.1" />
-	  <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
+	  <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.18.0" />
   </ItemGroup>
 	<ItemGroup>
 		<UpToDateCheckBuilt Include="wwwroot/css/site.css" Set="Css" />

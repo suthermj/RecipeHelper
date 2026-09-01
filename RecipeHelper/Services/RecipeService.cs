@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
 using RecipeHelper.Models.IngredientModels;
 using RecipeHelper.Models.Kroger;
+using RecipeHelper.Utility;
 
 namespace RecipeHelper.Services
 {
@@ -219,6 +220,29 @@ namespace RecipeHelper.Services
             await _context.SaveChangesAsync();
             _logger.LogInformation("[UpdateRecipe] Recipe {RecipeId} saved successfully", recipe.Id);
             return recipe;
+        }
+
+        // Returns the recipe's existing share token, generating and persisting one on first call.
+        public async Task<string?> GetOrCreateShareTokenAsync(int recipeId)
+        {
+            var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == recipeId);
+            if (recipe == null) return null;
+
+            if (string.IsNullOrEmpty(recipe.ShareToken))
+            {
+                recipe.ShareToken = ShareTokenGenerator.Generate();
+                await _context.SaveChangesAsync();
+            }
+
+            return recipe.ShareToken;
+        }
+
+        public async Task<Recipe?> GetByShareTokenAsync(string token)
+        {
+            return await _context.Recipes
+                .Include(r => r.Ingredients)
+                    .ThenInclude(i => i.Measurement)
+                .FirstOrDefaultAsync(r => r.ShareToken == token);
         }
     }
 }

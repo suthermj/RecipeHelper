@@ -11,8 +11,15 @@
 }
 
 @section NavRight {
-    <a asp-controller="Recipe" asp-action="CreateEditRecipe" asp-route-id="@Model.Id"
-       class="ios-btn-text" style="font-size:17px;">Edit</a>
+    <div class="flex items-center">
+        <button type="button" id="shareRecipeBtn" class="ios-btn-text flex items-center justify-center min-w-[44px] min-h-[44px]" aria-label="Share recipe">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+            </svg>
+        </button>
+        <a asp-controller="Recipe" asp-action="CreateEditRecipe" asp-route-id="@Model.Id"
+           class="ios-btn-text flex items-center min-h-[44px]" style="font-size:17px;">Edit</a>
+    </div>
 }
 
 <!-- Hero image — full bleed -->
@@ -245,6 +252,42 @@
 
 @section Scripts {
     <script>
+        // ── Share recipe ──────────────────────────────────────────────────
+        (function () {
+            const shareBtn = document.getElementById('shareRecipeBtn');
+            if (!shareBtn) return;
+
+            const getShareLinkUrl = '@Url.Action("GetShareLink", "Recipe")';
+            const recipeId = @Model.Id;
+            const recipeName = @Json.Serialize(Model.RecipeName);
+
+            shareBtn.addEventListener('click', async () => {
+                const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                if (!tokenInput) return;
+
+                const body = new URLSearchParams();
+                body.append('recipeId', String(recipeId));
+                try {
+                    const resp = await fetch(getShareLinkUrl, {
+                        method: 'POST',
+                        headers: { 'RequestVerificationToken': tokenInput.value, 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                        body: body.toString()
+                    });
+                    if (!resp.ok) throw new Error('Share link failed: ' + resp.status);
+                    const data = await resp.json();
+
+                    if (navigator.share) {
+                        await navigator.share({ title: recipeName, text: 'Check out this recipe', url: data.url });
+                    } else {
+                        await navigator.clipboard.writeText(data.url);
+                        alert('Link copied to clipboard!');
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            });
+        })();
+
         (function () {
             const ol = document.getElementById('stepsOl');
             if (!ol) return;

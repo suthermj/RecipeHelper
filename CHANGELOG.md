@@ -122,6 +122,10 @@ by date rather than by release version.
 - Deploy workflow originally took a `ref` text input that duplicated the branch you'd already picked in the "Use workflow from" selector, plus the SSH key rotation, nologin-shell, and .NET repo-pinning fixes needed to get it working end-to-end (see `deploy/remote/README.md` for details).
 - Kroger cart preview still showed duplicate rows for the same product when two ingredients with different names or units (e.g. "garlic" by teaspoon in one recipe, by count in another) both mapped to the same Kroger UPC — the row-merge above only dedupes by ingredient name/unit *before* Kroger mapping, so cases that only collide after mapping to the same product fell through. `KrogerService.ConvertIngredientsToCartItems` now groups its output by UPC after conversion and sums pack quantities into a single row, combining the "Needed" text and any conversion notes from each source ingredient.
 
+### Added
+
+- Recipes can now be shared via a public, read-only link, mirroring the existing meal plan share feature: a "Share" icon next to "Edit" on `Recipe/ViewRecipe` gets or creates a `Recipe.ShareToken`, then hands the link to `navigator.share()` (native iOS share sheet) or copies it to the clipboard. The public `Share/Recipe/{token}` page shows the recipe's name, image, ingredients, and instructions only — no edit/delete/import affordances and no Kroger/pricing data. Token generation (`ShareTokenGenerator`) is now shared between `MealPlanService` and `RecipeService` instead of being duplicated per entity. (#91)
+
 ## 2026-07-25
 
 ### Added

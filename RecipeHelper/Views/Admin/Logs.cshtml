@@ -1,0 +1,213 @@
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Logs - RecipeHelper</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: #0b0e14;
+            color: #d7dde5;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Arial, sans-serif;
+        }
+        body { display: flex; flex-direction: column; }
+
+        header {
+            flex: 0 0 auto;
+            padding: calc(env(safe-area-inset-top) + 10px) 12px 10px;
+            background: #11151d;
+            border-bottom: 1px solid #232936;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        header h1 {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 0;
+            flex: 1;
+            color: #f2f4f7;
+        }
+        header #updated {
+            font-size: 11px;
+            color: #7b8494;
+        }
+
+        button.icon-btn {
+            min-width: 44px;
+            min-height: 44px;
+            border: 1px solid #2b3242;
+            background: #171c27;
+            color: #d7dde5;
+            border-radius: 8px;
+            font-size: 13px;
+            padding: 0 12px;
+        }
+        button.icon-btn:active { background: #232936; }
+
+        .controls {
+            flex: 0 0 auto;
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #0f1319;
+            border-bottom: 1px solid #232936;
+            flex-wrap: wrap;
+        }
+        .controls select, .controls input[type="search"] {
+            min-height: 40px;
+            background: #171c27;
+            color: #d7dde5;
+            border: 1px solid #2b3242;
+            border-radius: 8px;
+            padding: 0 10px;
+            font-size: 14px;
+        }
+        .controls select { flex: 0 0 auto; }
+        .controls input[type="search"] { flex: 1 1 140px; min-width: 0; }
+
+        label.switch {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #aab2c0;
+            min-height: 44px;
+        }
+
+        #log {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 0;
+            padding: 10px 12px calc(env(safe-area-inset-bottom) + 16px);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            color: #c3cad6;
+        }
+        #log .err { color: #ff8080; }
+        #log .warn { color: #f5c451; }
+
+        #status {
+            flex: 0 0 auto;
+            padding: 6px 12px calc(env(safe-area-inset-bottom) + 6px);
+            font-size: 12px;
+            color: #f5c451;
+            background: #171208;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>recipehelper logs</h1>
+        <span id="updated"></span>
+        <button type="button" class="icon-btn" id="copy-btn">Copy</button>
+        <button type="button" class="icon-btn" id="refresh-btn">↻</button>
+    </header>
+
+    <div class="controls">
+        <select id="lines-select">
+            <option value="100">100</option>
+            <option value="300" selected>300</option>
+            <option value="1000">1000</option>
+            <option value="2000">2000</option>
+        </select>
+        <input type="search" id="grep-input" placeholder="filter (e.g. Exception)" enterkeyhint="search" />
+        <label class="switch">
+            <input type="checkbox" id="auto-toggle" checked />
+            Auto
+        </label>
+    </div>
+
+    <pre id="log">Loading…</pre>
+    <div id="status"></div>
+
+    <script>
+        (function () {
+            const logEl = document.getElementById('log');
+            const statusEl = document.getElementById('status');
+            const updatedEl = document.getElementById('updated');
+            const linesSelect = document.getElementById('lines-select');
+            const grepInput = document.getElementById('grep-input');
+            const autoToggle = document.getElementById('auto-toggle');
+            const refreshBtn = document.getElementById('refresh-btn');
+            const copyBtn = document.getElementById('copy-btn');
+
+            const AUTO_REFRESH_MS = 5000;
+            let intervalId = null;
+            let stopped = false; // set true once auth fails so we don't hammer a dead endpoint
+
+            function buildUrl() {
+                const params = new URLSearchParams({ lines: linesSelect.value });
+                const grep = grepInput.value.trim();
+                if (grep) params.set('grep', grep);
+                return '/Admin/LogsData?' + params.toString();
+            }
+
+            function showStatus(msg) {
+                statusEl.textContent = msg;
+                statusEl.style.display = msg ? 'block' : 'none';
+            }
+
+            async function loadLogs() {
+                if (stopped) return;
+                const wasAtBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 24;
+                try {
+                    const res = await fetch(buildUrl(), { cache: 'no-store' });
+                    if (res.status === 404) {
+                        stopped = true;
+                        stopAuto();
+                        showStatus('Session expired or no token configured — reopen this page with your ?token=… link.');
+                        return;
+                    }
+                    const text = await res.text();
+                    logEl.textContent = text;
+                    updatedEl.textContent = new Date().toLocaleTimeString();
+                    showStatus('');
+                    if (wasAtBottom) logEl.scrollTop = logEl.scrollHeight;
+                } catch (e) {
+                    showStatus('Fetch failed — will retry.');
+                }
+            }
+
+            function startAuto() {
+                stopAuto();
+                intervalId = setInterval(loadLogs, AUTO_REFRESH_MS);
+            }
+            function stopAuto() {
+                if (intervalId) clearInterval(intervalId);
+                intervalId = null;
+            }
+
+            refreshBtn.addEventListener('click', loadLogs);
+            linesSelect.addEventListener('change', loadLogs);
+            grepInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadLogs(); } });
+            autoToggle.addEventListener('change', () => {
+                if (autoToggle.checked) startAuto(); else stopAuto();
+            });
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(logEl.textContent);
+                    const orig = copyBtn.textContent;
+                    copyBtn.textContent = 'Copied';
+                    setTimeout(() => { copyBtn.textContent = orig; }, 1200);
+                } catch (e) { /* clipboard API unavailable — ignore */ }
+            });
+
+            loadLogs();
+            if (autoToggle.checked) startAuto();
+        })();
+    </script>
+</body>
+</html>

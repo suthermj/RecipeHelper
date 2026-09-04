@@ -10,6 +10,7 @@ by date rather than by release version.
 
 ### Added
 
+- Recipes can now be shared via a public, read-only link, mirroring the existing meal plan share feature — a "Share recipe" button on `Recipe/ViewRecipe` gets or creates a `Recipe.ShareToken` and opens the native share sheet (or copies the link) with a URL to `Share/Recipe/{token}`, which renders the recipe's name, image, ingredients, and instructions with no edit/delete/cart affordances. (#91)
 - "Review ingredients" on the meal plan (`Dinner/Index`) now opens a new intermediate screen (`Dinner/SelectIngredientRecipes`) listing every recipe in the week's plan, each pre-checked, before generating the ingredient list. Uncheck a recipe (e.g. one carried over from last week that you already bought groceries for) to leave it out of this round's aggregation entirely. A recipe scheduled on multiple days shows its day list and `×N` count, and stays weighted by that count if left checked, matching the existing multi-day aggregation behavior in `SubmitDinnerSelections`.
 
 ### Fixed

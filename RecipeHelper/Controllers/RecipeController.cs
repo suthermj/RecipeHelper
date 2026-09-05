@@ -131,6 +131,7 @@ namespace RecipeHelper.Controllers
                         rp.Quantity,
                         MeasurementName = rp.Measurement.Name,
                         rp.SelectedKrogerUpc,
+                        SelectedKrogerName = rp.SelectedKrogerProduct != null ? rp.SelectedKrogerProduct.Name : null,
                         rp.IngredientId,
                         rp.Section
                     }).ToList(),
@@ -150,6 +151,7 @@ namespace RecipeHelper.Controllers
                         Id = rp.Id,
                         RawText = FormatIngredientText(rp.Quantity, rp.MeasurementName, rp.DisplayName),
                         SelectedKrogerUpc = rp.SelectedKrogerUpc,
+                        SelectedKrogerName = rp.SelectedKrogerName,
                         IngredientId = rp.IngredientId,
                         Section = rp.Section
                     }).ToList(),

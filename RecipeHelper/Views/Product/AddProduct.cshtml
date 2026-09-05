@@ -49,6 +49,7 @@
     @if (Model.ProductSearchResults != null && Model.ProductSearchResults.Any())
     {
         <form asp-action="AddSelectedProducts" asp-controller="Product" method="post" id="resultsForm">
+            @Html.AntiForgeryToken()
             <div class="flex items-center justify-between px-4 pb-2">
                 <p class="text-[13px]" style="color: var(--ios-label-2);">
                     @Model.ProductSearchResults.Count() result@(Model.ProductSearchResults.Count() == 1 ? "" : "s")

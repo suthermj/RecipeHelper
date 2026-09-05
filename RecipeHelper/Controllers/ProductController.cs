@@ -122,6 +122,36 @@ namespace RecipeHelper.Controllers
             return Ok(result);
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddSelectedProducts(List<string> selectedProducts, Dictionary<string, string> productNames)
+        {
+            selectedProducts ??= new List<string>();
+            var productsToAdd = selectedProducts
+                .Where(upc => !string.IsNullOrWhiteSpace(upc))
+                .Select(upc => new KrogerDatabaseProduct
+                {
+                    Upc = upc,
+                    Name = (productNames != null && productNames.TryGetValue(upc, out var name) && !string.IsNullOrWhiteSpace(name))
+                        ? name
+                        : upc
+                })
+                .ToList();
+
+            _logger.LogInformation("AddSelectedProducts started. RequestedCount={RequestedCount}", productsToAdd.Count);
+            var success = await _productService.AddProducts(productsToAdd);
+            _logger.LogInformation("AddSelectedProducts completed. RequestedCount={RequestedCount}, Success={Success}", productsToAdd.Count, success);
+
+            TempData["SuccessMessage"] = success
+                ? (productsToAdd.Count == 1 ? "Added 1 product." : $"Added {productsToAdd.Count} products.")
+                : null;
+            TempData["ErrorMessage"] = success
+                ? null
+                : "Could not add the selected products.";
+
+            return RedirectToAction("Products", "Product");
+        }
+
         [HttpGet]
         public async Task<IActionResult> SearchDb(string term)
         {

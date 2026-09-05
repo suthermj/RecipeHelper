@@ -11,6 +11,7 @@ by date rather than by release version.
 ### Added
 
 - "Review ingredients" on the meal plan (`Dinner/Index`) now opens a new intermediate screen (`Dinner/SelectIngredientRecipes`) listing every recipe in the week's plan, each pre-checked, before generating the ingredient list. Uncheck a recipe (e.g. one carried over from last week that you already bought groceries for) to leave it out of this round's aggregation entirely. A recipe scheduled on multiple days shows its day list and `×N` count, and stays weighted by that count if left checked, matching the existing multi-day aggregation behavior in `SubmitDinnerSelections`.
+- Recipe Edit ingredient rows linked to a Kroger product now show the linked product's name and a small thumbnail directly on the row (mobile pill badge and desktop status row alike), instead of just a generic "Linked" badge — so you can tell what a row is actually linked to without reopening the picker. The name updates immediately when picking a new product from the modal, matching the display convention already used on the import mapping page.
 
 ### Fixed
 

@@ -3,10 +3,14 @@ name: Deploy to Production
 # Deploys automatically whenever a PR (targeting main) is opened or pushed to
 # with a source-code change (non-source changes are skipped — see
 # paths-ignore below), so a branch's latest commit is live for on-device
-# testing without a manual step. Also runnable manually anytime from the
-# Actions tab (works fine from the GitHub mobile app) — deploys whichever
-# branch is picked in the "Use workflow from" selector, e.g. to redeploy
-# main itself or a branch with no open PR.
+# testing without a manual step. A PR-triggered run pauses for a manual
+# approval (the `production-pr-approval` environment, configured with
+# required reviewers in repo Settings → Environments) before it deploys —
+# see the require-approval job below. Also runnable manually anytime from
+# the Actions tab (works fine from the GitHub mobile app) — deploys
+# whichever branch is picked in the "Use workflow from" selector, e.g. to
+# redeploy main itself or a branch with no open PR; workflow_dispatch runs
+# skip the approval gate entirely.
 on:
   workflow_dispatch:
   pull_request:
@@ -37,14 +41,37 @@ env:
   DEPLOY_USER: deploy
 
 jobs:
+  # Manual approval gate for PR-triggered deploys only. workflow_dispatch
+  # runs (manual redeploys, e.g. of main after a merge) never touch this
+  # job — it simply doesn't run for them — so a merge to main never waits
+  # on a reviewer. The `production-pr-approval` environment holds no
+  # secrets; it exists purely to carry a "required reviewers" protection
+  # rule (repo Settings → Environments → production-pr-approval), which is
+  # what pauses the run until approved.
+  require-approval:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    environment: production-pr-approval
+    steps:
+      - run: echo "Approved — proceeding to deploy."
+
   deploy:
+    needs: require-approval
     # Guards against a forked PR ever triggering a deploy with this repo's
     # secrets, and against Dependabot PRs deploying an unreviewed dependency
     # bump straight to prod (Dependabot branches are same-repo, so the fork
     # check alone doesn't catch them). workflow_dispatch is always same-repo
     # and never dependabot by definition, so this only meaningfully
     # restricts the pull_request trigger.
-    if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+    #
+    # needs.require-approval.result is 'skipped' (not 'success') on a
+    # workflow_dispatch run, since that job's own `if` never lets it run —
+    # always() plus the explicit result check is what lets this job proceed
+    # in that case instead of being skipped along with it.
+    if: |
+      always() &&
+      (needs.require-approval.result == 'success' || needs.require-approval.result == 'skipped') &&
+      (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'))
     runs-on: ubuntu-latest
     environment: production
     permissions:

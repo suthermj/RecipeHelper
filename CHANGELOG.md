@@ -8,6 +8,11 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Fixed
+
+- Recipe Edit: linking a previously-unlinked ingredient to a Kroger product found via "Search Kroger" (as opposed to one already in the local product DB) failed to save. `UpdateRecipeAsync`'s existing-ingredient branch assigned `SelectedKrogerUpc` directly without first ensuring a matching `KrogerProduct` row existed, so `SaveChangesAsync` threw a foreign-key violation — unlike the new-ingredient path, which already did this via `ResolveIngredientAsync`. Extracted the ensure-exists step into a shared `EnsureKrogerProductExistsAsync` helper used by both paths.
+- Products page: "Add selected" (bulk-adding searched Kroger products to the local DB) 404'd — the results form posted to `AddSelectedProducts`, an action that didn't exist. Added the action, wired to the existing `ProductService.AddProducts`, with a matching antiforgery token on the form.
+
 ### Added
 
 - "Review ingredients" on the meal plan (`Dinner/Index`) now opens a new intermediate screen (`Dinner/SelectIngredientRecipes`) listing every recipe in the week's plan, each pre-checked, before generating the ingredient list. Uncheck a recipe (e.g. one carried over from last week that you already bought groceries for) to leave it out of this round's aggregation entirely. A recipe scheduled on multiple days shows its day list and `×N` count, and stays weighted by that count if left checked, matching the existing multi-day aggregation behavior in `SubmitDinnerSelections`.

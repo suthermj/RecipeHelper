@@ -127,6 +127,8 @@
                                        placeholder="e.g., 2 cups flour" />
                                 <input type="hidden" name="Ingredients[@eIdx].SelectedKrogerUpc"
                                        value="@ing.SelectedKrogerUpc" class="selected-upc" />
+                                <input type="hidden" name="Ingredients[@eIdx].SelectedKrogerName"
+                                       value="@ing.SelectedKrogerName" class="selected-name" />
                                 <input type="hidden" name="Ingredients[@eIdx].Section"
                                        value="@ing.Section" class="ingredient-section" />
                                 <span class="product-badge text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 whitespace-nowrap sm:hidden @(string.IsNullOrEmpty(ing.SelectedKrogerUpc) ? "hidden" : "")">Linked</span>
@@ -139,18 +141,27 @@
                                     <button type="button"
                                             class="choose-product-btn text-xs text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline whitespace-nowrap"
                                             disabled>Link</button>
-                                    <span class="product-status text-xs text-gray-400 hidden"></span>
+                                    <span class="product-status hidden items-center gap-1.5 min-w-0 max-w-[180px]">
+                                        <img class="product-status-img h-6 w-6 rounded object-cover border border-gray-200 bg-white flex-shrink-0" src="" alt="" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
+                                        <span class="product-status-name text-xs text-gray-700 font-medium truncate"></span>
+                                    </span>
                                     <button type="button"
                                             class="clear-product-btn text-gray-500 hover:text-gray-700 text-sm hidden">&times;</button>
                                 </div>
                             </div>
                             <div class="detail-panel sm:hidden">
-                                <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
-                                    <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
-                                    <div class="flex items-center gap-3">
-                                        <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
-                                        <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
-                                        <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                <div class="mt-2 pt-2 border-t border-gray-100">
+                                    <div class="linked-product-row hidden items-center gap-2 pb-2">
+                                        <img class="linked-product-img h-8 w-8 rounded object-cover border border-gray-200 bg-white flex-shrink-0" src="" alt="" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
+                                        <span class="linked-product-name min-w-0 flex-1 truncate text-sm font-medium text-gray-700"></span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
+                                        <div class="flex items-center gap-3">
+                                            <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
+                                            <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
+                                            <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -325,32 +336,50 @@
 
             function updateProductStatus(row) {
                 const upc = row.querySelector('.selected-upc')?.value ?? "";
+                const name = row.querySelector('.selected-name')?.value ?? "";
                 const btn = row.querySelector('.choose-product-btn');
                 const status = row.querySelector('.product-status');
+                const statusImg = row.querySelector('.product-status-img');
+                const statusName = row.querySelector('.product-status-name');
                 const clearBtn = row.querySelector('.clear-product-btn');
                 const badge = row.querySelector('.product-badge');
+                const linkedRow = row.querySelector('.linked-product-row');
+                const linkedImg = row.querySelector('.linked-product-img');
+                const linkedName = row.querySelector('.linked-product-name');
                 const mobileBtn = row.querySelector('.choose-product-btn-mobile');
                 const mobileClearBtn = row.querySelector('.clear-product-btn-mobile');
 
                 if (!upc) {
                     if (btn) { btn.classList.remove("hidden"); btn.textContent = "Link"; }
-                    if (status) { status.classList.add("hidden"); status.textContent = ""; }
+                    if (status) { status.classList.add("hidden"); status.classList.remove("flex"); }
                     if (clearBtn) clearBtn.classList.add("hidden");
                     if (badge) badge.classList.add("hidden");
+                    if (linkedRow) { linkedRow.classList.add("hidden"); linkedRow.classList.remove("flex"); }
                     if (mobileBtn) mobileBtn.textContent = "Link Product";
                     if (mobileClearBtn) mobileClearBtn.classList.add("hidden");
                 } else {
+                    // Badge on the collapsed row stays a plain "Linked" pill (no
+                    // name/image) so it can't crowd out the ingredient text next
+                    // to it — the actual product name/image only appears in the
+                    // detail panel below, once expanded.
+                    const displayName = name || "Linked";
+                    const img = productImageUrl(upc);
                     if (btn) btn.classList.add("hidden");
-                    if (status) { status.classList.remove("hidden"); status.textContent = "Linked"; status.className = "product-status text-xs text-green-700 font-medium"; }
+                    if (status) { status.classList.remove("hidden"); status.classList.add("flex"); }
+                    if (statusImg) statusImg.src = img;
+                    if (statusName) statusName.textContent = displayName;
                     if (clearBtn) clearBtn.classList.remove("hidden");
                     if (badge) badge.classList.remove("hidden");
+                    if (linkedRow) { linkedRow.classList.remove("hidden"); linkedRow.classList.add("flex"); }
+                    if (linkedImg) linkedImg.src = img;
+                    if (linkedName) linkedName.textContent = displayName;
                     if (mobileBtn) mobileBtn.textContent = "Change Link";
                     if (mobileClearBtn) mobileClearBtn.classList.remove("hidden");
                 }
             }
 
             // --- Templates ---
-            function entryRowHtml(type, index, text, upc, id, ingredientId) {
+            function entryRowHtml(type, index, text, upc, id, ingredientId, name) {
                 const isHeader = type === 'header';
                 const hasUpc = upc && upc.length > 0;
 
@@ -399,6 +428,7 @@
                                    class="entry-text flex-1 min-w-0 border-0 bg-transparent p-0 text-base sm:border sm:border-gray-300 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm focus:outline-none focus:ring-0 sm:focus:ring"
                                    placeholder="e.g., 2 cups flour" />
                             <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="${escapeAttr(upc)}" class="selected-upc" />
+                            <input type="hidden" name="Ingredients[${index}].SelectedKrogerName" value="${escapeAttr(name)}" class="selected-name" />
                             <input type="hidden" name="Ingredients[${index}].Section" value="" class="ingredient-section" />
                             <span class="product-badge text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 whitespace-nowrap sm:hidden ${hasUpc ? '' : 'hidden'}">Linked</span>
                             <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
@@ -408,17 +438,26 @@
                             </button>
                             <div class="hidden sm:flex items-center gap-2">
                                 <button type="button" class="choose-product-btn text-xs text-red-800 font-medium hover:underline disabled:text-gray-400 disabled:no-underline whitespace-nowrap" disabled>Link</button>
-                                <span class="product-status text-xs text-gray-400 hidden"></span>
+                                <span class="product-status hidden items-center gap-1.5 min-w-0 max-w-[180px]">
+                                    <img class="product-status-img h-6 w-6 rounded object-cover border border-gray-200 bg-white flex-shrink-0" src="" alt="" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
+                                    <span class="product-status-name text-xs text-gray-700 font-medium truncate"></span>
+                                </span>
                                 <button type="button" class="clear-product-btn text-gray-500 hover:text-gray-700 text-sm hidden">&times;</button>
                             </div>
                         </div>
                         <div class="detail-panel sm:hidden">
-                            <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
-                                <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
-                                <div class="flex items-center gap-3">
-                                    <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
-                                    <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
-                                    <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                            <div class="mt-2 pt-2 border-t border-gray-100">
+                                <div class="linked-product-row hidden items-center gap-2 pb-2">
+                                    <img class="linked-product-img h-8 w-8 rounded object-cover border border-gray-200 bg-white flex-shrink-0" src="" alt="" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
+                                    <span class="linked-product-name min-w-0 flex-1 truncate text-sm font-medium text-gray-700"></span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
+                                        <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
+                                        <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -445,7 +484,7 @@
                 const lastType = last?.getAttribute('data-type');
                 if (!last || lastText !== '' || lastType === 'header') {
                     const idx = container.querySelectorAll('.entry-row[data-type="ingredient"]').length;
-                    container.insertAdjacentHTML('beforeend', entryRowHtml('ingredient', idx, '', '', 0, 0));
+                    container.insertAdjacentHTML('beforeend', entryRowHtml('ingredient', idx, '', '', 0, 0, ''));
                 }
             }
 
@@ -453,9 +492,10 @@
             function handleTypeChange(row, newType) {
                 const currentText = row.querySelector('.entry-text')?.value ?? '';
                 const currentUpc = row.querySelector('.selected-upc')?.value ?? '';
+                const currentName = row.querySelector('.selected-name')?.value ?? '';
                 const id = row.querySelector('.ingredient-id')?.value ?? 0;
                 const ingredientId = row.querySelector('.ingredient-fk')?.value ?? 0;
-                const newHtml = entryRowHtml(newType, 0, currentText, currentUpc, id, ingredientId);
+                const newHtml = entryRowHtml(newType, 0, currentText, currentUpc, id, ingredientId, currentName);
                 row.insertAdjacentHTML('afterend', newHtml);
                 const newRow = row.nextElementSibling;
                 row.remove();
@@ -525,6 +565,8 @@
 
                 if (e.target.classList.contains('clear-product-btn') || e.target.classList.contains('clear-product-btn-mobile')) {
                     row.querySelector('.selected-upc').value = '';
+                    const nameInput = row.querySelector('.selected-name');
+                    if (nameInput) nameInput.value = '';
                     updateProductStatus(row);
                     return;
                 }
@@ -769,7 +811,10 @@
                 const btn = e.target.closest('.product-result-item');
                 if (!btn || !activeRowForProduct) return;
                 const upc = btn.getAttribute('data-upc') ?? '';
+                const name = btn.getAttribute('data-name') ?? '';
                 activeRowForProduct.querySelector('.selected-upc').value = upc;
+                const nameInput = activeRowForProduct.querySelector('.selected-name');
+                if (nameInput) nameInput.value = name;
                 updateProductStatus(activeRowForProduct);
                 closeModal();
             });

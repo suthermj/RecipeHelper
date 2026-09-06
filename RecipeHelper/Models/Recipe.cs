@@ -69,6 +69,7 @@ namespace RecipeHelper.Models
         public int Id { get; set; }                        // RecipeIngredient PK (0 = new)
         public string RawText { get; set; } = "";          // e.g. "2 cups flour"
         public string? SelectedKrogerUpc { get; set; }     // optional Kroger link
+        public string? SelectedKrogerName { get; set; }    // display hint only, not persisted
         public int IngredientId { get; set; }              // FK (re-resolved on save)
         public string? Section { get; set; }
         public bool IsModified { get; set; }

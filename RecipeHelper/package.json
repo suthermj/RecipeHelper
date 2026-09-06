@@ -79,7 +79,7 @@
     "reusify": "^1.0.4",
     "run-parallel": "^1.2.0",
     "shebang-command": "^2.0.0",
-    "shebang-regex": "^3.0.0",
+    "shebang-regex": "^4.0.0",
     "signal-exit": "^4.1.0",
     "source-map-js": "^1.2.1",
     "string-width": "^5.1.2",

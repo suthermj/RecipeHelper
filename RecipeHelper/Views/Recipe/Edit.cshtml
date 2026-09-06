@@ -131,10 +131,7 @@
                                        value="@ing.SelectedKrogerName" class="selected-name" />
                                 <input type="hidden" name="Ingredients[@eIdx].Section"
                                        value="@ing.Section" class="ingredient-section" />
-                                <span class="product-badge inline-flex items-center gap-1 max-w-[110px] text-xs bg-green-50 text-green-700 rounded-full pl-1 pr-2 py-0.5 sm:hidden @(string.IsNullOrEmpty(ing.SelectedKrogerUpc) ? "hidden" : "")">
-                                    <img class="product-badge-img h-4 w-4 rounded-full object-cover bg-white flex-shrink-0" src="" alt="" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
-                                    <span class="product-badge-name truncate"></span>
-                                </span>
+                                <span class="product-badge text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 whitespace-nowrap sm:hidden @(string.IsNullOrEmpty(ing.SelectedKrogerUpc) ? "hidden" : "")">Linked</span>
                                 <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
                                     <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -153,12 +150,18 @@
                                 </div>
                             </div>
                             <div class="detail-panel sm:hidden">
-                                <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
-                                    <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
-                                    <div class="flex items-center gap-3">
-                                        <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
-                                        <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
-                                        <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                <div class="mt-2 pt-2 border-t border-gray-100">
+                                    <div class="linked-product-row hidden items-center gap-2 pb-2">
+                                        <img class="linked-product-img h-8 w-8 rounded object-cover border border-gray-200 bg-white flex-shrink-0" src="" alt="" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
+                                        <span class="linked-product-name min-w-0 flex-1 truncate text-sm font-medium text-gray-700"></span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
+                                        <div class="flex items-center gap-3">
+                                            <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
+                                            <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
+                                            <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -340,8 +343,9 @@
                 const statusName = row.querySelector('.product-status-name');
                 const clearBtn = row.querySelector('.clear-product-btn');
                 const badge = row.querySelector('.product-badge');
-                const badgeImg = row.querySelector('.product-badge-img');
-                const badgeName = row.querySelector('.product-badge-name');
+                const linkedRow = row.querySelector('.linked-product-row');
+                const linkedImg = row.querySelector('.linked-product-img');
+                const linkedName = row.querySelector('.linked-product-name');
                 const mobileBtn = row.querySelector('.choose-product-btn-mobile');
                 const mobileClearBtn = row.querySelector('.clear-product-btn-mobile');
 
@@ -350,9 +354,14 @@
                     if (status) { status.classList.add("hidden"); status.classList.remove("flex"); }
                     if (clearBtn) clearBtn.classList.add("hidden");
                     if (badge) badge.classList.add("hidden");
+                    if (linkedRow) { linkedRow.classList.add("hidden"); linkedRow.classList.remove("flex"); }
                     if (mobileBtn) mobileBtn.textContent = "Link Product";
                     if (mobileClearBtn) mobileClearBtn.classList.add("hidden");
                 } else {
+                    // Badge on the collapsed row stays a plain "Linked" pill (no
+                    // name/image) so it can't crowd out the ingredient text next
+                    // to it — the actual product name/image only appears in the
+                    // detail panel below, once expanded.
                     const displayName = name || "Linked";
                     const img = productImageUrl(upc);
                     if (btn) btn.classList.add("hidden");
@@ -361,8 +370,9 @@
                     if (statusName) statusName.textContent = displayName;
                     if (clearBtn) clearBtn.classList.remove("hidden");
                     if (badge) badge.classList.remove("hidden");
-                    if (badgeImg) badgeImg.src = img;
-                    if (badgeName) badgeName.textContent = displayName;
+                    if (linkedRow) { linkedRow.classList.remove("hidden"); linkedRow.classList.add("flex"); }
+                    if (linkedImg) linkedImg.src = img;
+                    if (linkedName) linkedName.textContent = displayName;
                     if (mobileBtn) mobileBtn.textContent = "Change Link";
                     if (mobileClearBtn) mobileClearBtn.classList.remove("hidden");
                 }
@@ -420,10 +430,7 @@
                             <input type="hidden" name="Ingredients[${index}].SelectedKrogerUpc" value="${escapeAttr(upc)}" class="selected-upc" />
                             <input type="hidden" name="Ingredients[${index}].SelectedKrogerName" value="${escapeAttr(name)}" class="selected-name" />
                             <input type="hidden" name="Ingredients[${index}].Section" value="" class="ingredient-section" />
-                            <span class="product-badge inline-flex items-center gap-1 max-w-[110px] text-xs bg-green-50 text-green-700 rounded-full pl-1 pr-2 py-0.5 sm:hidden ${hasUpc ? '' : 'hidden'}">
-                                <img class="product-badge-img h-4 w-4 rounded-full object-cover bg-white flex-shrink-0" src="" alt="" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
-                                <span class="product-badge-name truncate"></span>
-                            </span>
+                            <span class="product-badge text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 whitespace-nowrap sm:hidden ${hasUpc ? '' : 'hidden'}">Linked</span>
                             <button type="button" class="expand-btn text-gray-400 p-1 sm:hidden">
                                 <svg class="expand-chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -439,12 +446,18 @@
                             </div>
                         </div>
                         <div class="detail-panel sm:hidden">
-                            <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
-                                <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
-                                <div class="flex items-center gap-3">
-                                    <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
-                                    <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
-                                    <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                            <div class="mt-2 pt-2 border-t border-gray-100">
+                                <div class="linked-product-row hidden items-center gap-2 pb-2">
+                                    <img class="linked-product-img h-8 w-8 rounded object-cover border border-gray-200 bg-white flex-shrink-0" src="" alt="" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f3f4f6%22/></svg>';" />
+                                    <span class="linked-product-name min-w-0 flex-1 truncate text-sm font-medium text-gray-700"></span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <button type="button" class="type-toggle-mobile text-sm text-gray-500 underline">Change to Section</button>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" class="choose-product-btn-mobile text-sm text-red-800 font-medium disabled:text-gray-400">Link Product</button>
+                                        <button type="button" class="clear-product-btn-mobile text-sm text-gray-500 hidden">Clear</button>
+                                        <button type="button" class="remove-entry text-sm text-red-600">Delete</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -53,8 +53,11 @@
         </div>
     </div>
 
-    <!-- Delete action -->
-    <div class="px-4 pb-4">
+    <!-- Share / Delete actions -->
+    <div class="px-4 pb-4 flex items-center justify-between">
+        <button type="button" id="shareRecipeBtn" class="ios-btn-text-sm">
+            Share recipe
+        </button>
         <form asp-controller="Recipe" asp-action="DeleteRecipe" asp-route-id="@Model.Id" method="post" class="inline">
             @Html.AntiForgeryToken()
             <button type="submit" class="ios-btn-text-destructive text-[13px]"
@@ -245,6 +248,40 @@
 
 @section Scripts {
     <script>
+        // ── Share recipe ───────────────────────────────────────────────────
+        (function () {
+            var shareBtn = document.getElementById('shareRecipeBtn');
+            if (!shareBtn) return;
+
+            function getToken() {
+                return document.querySelector('input[name="__RequestVerificationToken"]').value;
+            }
+
+            shareBtn.addEventListener('click', async function () {
+                var body = new URLSearchParams();
+                body.append('recipeId', '@Model.Id');
+                try {
+                    var resp = await fetch('@Url.Action("GetShareLink", "Recipe")', {
+                        method: 'POST',
+                        headers: { 'RequestVerificationToken': getToken(), 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                        body: body.toString()
+                    });
+                    if (!resp.ok) throw new Error('Share link failed: ' + resp.status);
+                    var data = await resp.json();
+
+                    if (navigator.share) {
+                        await navigator.share({ title: @Json.Serialize(Model.RecipeName), url: data.url });
+                    } else {
+                        await navigator.clipboard.writeText(data.url);
+                        alert('Link copied to clipboard!');
+                    }
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return;
+                    alert('Could not create share link. Please try again.');
+                }
+            });
+        })();
+
         (function () {
             const ol = document.getElementById('stepsOl');
             if (!ol) return;

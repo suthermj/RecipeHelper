@@ -65,6 +65,26 @@
         <div id="statusMsg" class="hidden mt-2 text-[13px]"></div>
     </div>
 
+    <!-- Add to cart -->
+    <div class="px-4 pb-4">
+        <form asp-action="PreviewProductsToCart" asp-controller="Cart" method="post"
+              class="loading-form" data-loading-text="Building Kroger cart preview…">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="upcs" value="@Model.upc" />
+            <div class="flex items-center gap-3">
+                <div class="flex items-center rounded-xl overflow-hidden" style="background: var(--ios-fill);">
+                    <button type="button" id="qtyMinus"
+                            style="width:44px; height:44px; font-size:18px; color: var(--ios-label);">−</button>
+                    <input type="number" id="qtyInput" name="quantity" value="1" min="1"
+                           class="text-center" style="width:44px; height:44px; background:transparent; border:none; font-size:16px; color: var(--ios-label);" />
+                    <button type="button" id="qtyPlus"
+                            style="width:44px; height:44px; font-size:18px; color: var(--ios-label);">+</button>
+                </div>
+                <button type="submit" class="btn-primary flex-1">Add to Cart</button>
+            </div>
+        </form>
+    </div>
+
     <!-- Details -->
     <p class="ios-section-hdr">Details</p>
     <div class="ios-group">
@@ -197,6 +217,14 @@
 
         document.getElementById('deleteForm')?.addEventListener('submit', (e) => {
             if (!confirm('Delete this product?')) e.preventDefault();
+        });
+
+        var qtyInput = document.getElementById('qtyInput');
+        document.getElementById('qtyMinus')?.addEventListener('click', function () {
+            qtyInput.value = Math.max(1, (parseInt(qtyInput.value, 10) || 1) - 1);
+        });
+        document.getElementById('qtyPlus')?.addEventListener('click', function () {
+            qtyInput.value = (parseInt(qtyInput.value, 10) || 1) + 1;
         });
     })();
 </script>

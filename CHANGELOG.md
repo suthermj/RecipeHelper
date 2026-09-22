@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- Products page: a "Select" mode lets you pick multiple saved products and add them to the Kroger cart in one go, via a bottom "Add to Cart" bar (mirrors the existing "Add selected" search-results pattern). The product detail page also has an "Add to Cart" action with a quantity stepper (defaults to 1). Both feed the existing Kroger cart preview → auth → add flow through a new `CartController.PreviewProductsToCart` entry point that builds preview items directly from Kroger product details (no unit conversion, since a saved product's quantity is already a pack count, not an ingredient amount). Success and error states return to Products, tracked via a new `Origin` field carried through the cart flow (defaults to the existing meal-plan/recipe behavior otherwise unchanged).
+
 ### Fixed
 
 - Recipe Edit: linking a previously-unlinked ingredient to a Kroger product found via "Search Kroger" (as opposed to one already in the local product DB) failed to save. `UpdateRecipeAsync`'s existing-ingredient branch assigned `SelectedKrogerUpc` directly without first ensuring a matching `KrogerProduct` row existed, so `SaveChangesAsync` threw a foreign-key violation — unlike the new-ingredient path, which already did this via `ResolveIngredientAsync`. Extracted the ensure-exists step into a shared `EnsureKrogerProductExistsAsync` helper used by both paths.

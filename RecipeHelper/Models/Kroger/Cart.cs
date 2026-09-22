@@ -4,9 +4,23 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace RecipeHelper.Models.Kroger
 {
 
+    // Where an add-to-cart flow started -- carried through PreviewAddToCart's hidden
+    // form field and the BeginAddToCart/CompleteAddToCart session round-trip (Cart.cs
+    // "PendingCart" JSON) so CartController knows where to send the user back to on
+    // success or failure. Defaults to MealPlan since that's the original, longest-
+    // standing flow (Dinner/ReviewDinnerSelections and, since #165, a single recipe's
+    // "Add to Cart" both post into it the same way); Products (#166) is the only other
+    // flow that needs a different return destination today.
+    public static class CartOrigin
+    {
+        public const string MealPlan = "MealPlan";
+        public const string Products = "Products";
+    }
+
     public class AddToCartVM
     {
         public List<CartItemVM> Items { get; set; } = new List<CartItemVM>();
+        public string Origin { get; set; } = CartOrigin.MealPlan;
 
     }
 
@@ -97,6 +111,7 @@ namespace RecipeHelper.Models.Kroger
     {
         public List<AddToCartPreviewItemVM> Items { get; set; } = new();
         public List<SkippedCartItem> Skipped { get; set; } = new();
+        public string Origin { get; set; } = CartOrigin.MealPlan;
     }
 
     // An ingredient ConvertIngredientsToCartItems couldn't turn into a cart line --

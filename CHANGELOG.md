@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- Recipe view now has an "Add to Cart" button in the Ingredients section header that sends just that recipe's ingredients through the existing meal-plan-to-cart flow (`Dinner/SubmitDinnerSelections` → `ReviewDinnerSelections` → Kroger cart preview/auth/add), unchanged otherwise. A recipe with no ingredients shows the review page's existing empty-state message instead of a blank cart.
+
 ### Fixed
 
 - Recipe Edit: linking a previously-unlinked ingredient to a Kroger product found via "Search Kroger" (as opposed to one already in the local product DB) failed to save. `UpdateRecipeAsync`'s existing-ingredient branch assigned `SelectedKrogerUpc` directly without first ensuring a matching `KrogerProduct` row existed, so `SaveChangesAsync` threw a foreign-key violation — unlike the new-ingredient path, which already did this via `ResolveIngredientAsync`. Extracted the ensure-exists step into a shared `EnsureKrogerProductExistsAsync` helper used by both paths.

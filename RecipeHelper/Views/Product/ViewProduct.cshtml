@@ -106,19 +106,34 @@
         }
         <div class="ios-cell justify-between">
             <span class="text-[15px]" style="color: var(--ios-label-2);">Price</span>
-            @if (Model.onSale)
+            @{
+                var regular = (decimal)Model.regularPrice;
+                var sale = (decimal)Model.promoPrice;
+                var isKrogerBrand = RecipeHelper.Utility.KrogerBrandDiscount.IsKrogerBrand(Model.brand);
+                var estimated = RecipeHelper.Utility.KrogerBrandDiscount.EstimatedPrice(Model.brand, regular, sale);
+            }
+            @if (estimated < regular)
             {
                 <div class="text-right">
                     <div>
-                        <span class="text-[17px] font-bold" style="color: #34C759;">$@Model.promoPrice.ToString("0.00")</span>
-                        <span class="text-[13px] line-through ml-1" style="color: var(--ios-label-2);">$@Model.regularPrice.ToString("0.00")</span>
+                        <span class="text-[17px] font-bold" style="color: #34C759;">$@estimated.ToString("0.00")</span>
+                        <span class="text-[13px] line-through ml-1" style="color: var(--ios-label-2);">$@regular.ToString("0.00")</span>
                     </div>
-                    <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale · Save $@((Model.regularPrice - Model.promoPrice).ToString("0.00"))</span>
+                    <div class="flex flex-wrap justify-end gap-1 mt-1">
+                        @if (Model.onSale)
+                        {
+                            <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale · Save $@((regular - sale).ToString("0.00"))</span>
+                        }
+                        @if (isKrogerBrand)
+                        {
+                            <span class="ios-badge" style="background: #E8F8ED; color: #1F9D55;">-10% Kroger brand</span>
+                        }
+                    </div>
                 </div>
             }
             else
             {
-                <span class="text-[17px] font-bold" style="color: var(--ios-label);">$@Model.regularPrice.ToString("0.00")</span>
+                <span class="text-[17px] font-bold" style="color: var(--ios-label);">$@regular.ToString("0.00")</span>
             }
         </div>
     </div>

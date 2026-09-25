@@ -67,10 +67,19 @@
     <!-- Ingredients -->
     @if (hasIngredients)
     {
-        <p class="ios-section-hdr">
-            Ingredients
-            <span class="ios-badge ios-badge-gray ml-1">@Model.Ingredients.Count</span>
-        </p>
+        <div class="ios-section-hdr" style="display:flex; align-items:center; justify-content:space-between; padding-right:16px;">
+            <span>
+                Ingredients
+                <span class="ios-badge ios-badge-gray ml-1">@Model.Ingredients.Count</span>
+            </span>
+            <form asp-controller="Dinner" asp-action="SubmitDinnerSelections" method="post"
+                  class="loading-form" data-loading-text="Building ingredient list…">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="selectedRecipes" value="@Model.Id" />
+                <button type="submit" class="ios-btn-text-sm"
+                        style="display:inline-flex; align-items:center; min-height:44px; padding:0 4px;">Add to Cart</button>
+            </form>
+        </div>
         <div class="ios-group">
             @{
                 string? lastSection = null;

@@ -69,7 +69,7 @@
     {
         <div class="px-4 py-14 text-center">
             <p class="text-[15px]" style="color: var(--ios-label-2);">
-                No ingredients to display. Make sure you've selected at least one recipe.
+                No ingredients to display for the selected recipe@(Model.SelectedRecipes.Count == 1 ? "" : "s").
             </p>
         </div>
     }

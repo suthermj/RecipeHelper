@@ -86,6 +86,18 @@
         var toastActionUrl   = TempData["SuccessActionUrl"]   as string;
         var toastActionLabel = TempData["SuccessActionLabel"] as string;
         var toastHasAction = toastSuccess != null && !string.IsNullOrEmpty(toastActionUrl);
+
+        // A toast is one-shot (TempData), so a page carrying one must never be reused:
+        // sw.js won't cache a response with this header. Without it, the service
+        // worker's stale-while-revalidate page cache replays the toast the next time
+        // the user navigates back to this URL (e.g. "added to your Kroger cart" on
+        // ViewProduct). A dedicated header rather than Cache-Control: no-store, since
+        // antiforgery already stamps no-store on every page with a form token and
+        // honoring that would turn off page caching almost everywhere.
+        if (toastMessage != null)
+        {
+            Context.Response.Headers["X-SW-No-Cache"] = "1";
+        }
     }
     @if (toastMessage != null)
     {

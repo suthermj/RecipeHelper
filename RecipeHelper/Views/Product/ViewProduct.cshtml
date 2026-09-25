@@ -27,16 +27,6 @@
         </div>
     }
 
-    @if (TempData["ErrorMessage"] is string err && !string.IsNullOrWhiteSpace(err))
-    {
-        <div id="errorMessage" class="mx-4 mb-3 rounded-2xl px-4 py-3 text-[14px]"
-             style="background: #FFF0F0; color: var(--ios-red); position: relative;">
-            @err
-            <button type="button" class="absolute top-2 right-3 text-lg"
-                    onclick="document.getElementById('errorMessage').style.display='none';">&times;</button>
-        </div>
-    }
-
     <!-- Product image -->
     <div class="flex justify-center px-4 pb-4">
         <div class="rounded-2xl overflow-hidden" style="background: var(--ios-surface); box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
@@ -119,8 +109,11 @@
             @if (Model.onSale)
             {
                 <div class="text-right">
-                    <span class="text-[17px] font-bold" style="color: #34C759;">$@Model.promoPrice.ToString("0.00")</span>
-                    <span class="text-[13px] line-through ml-1" style="color: var(--ios-label-2);">$@Model.regularPrice.ToString("0.00")</span>
+                    <div>
+                        <span class="text-[17px] font-bold" style="color: #34C759;">$@Model.promoPrice.ToString("0.00")</span>
+                        <span class="text-[13px] line-through ml-1" style="color: var(--ios-label-2);">$@Model.regularPrice.ToString("0.00")</span>
+                    </div>
+                    <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale · Save $@((Model.regularPrice - Model.promoPrice).ToString("0.00"))</span>
                 </div>
             }
             else

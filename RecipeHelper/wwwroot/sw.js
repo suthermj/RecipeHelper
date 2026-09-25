@@ -54,6 +54,13 @@ async function getLastMutationTime() {
     return lastMutationTime;
 }
 
+// Pages the server marks X-SW-No-Cache (a page carrying a one-shot TempData toast
+// -- see _Layout.cshtml) must not be written to the cache, or the next navigation
+// to that URL would replay the toast.
+function isCacheable(response) {
+    return response.ok && !response.headers.has('X-SW-No-Cache');
+}
+
 function isStaticAsset(url) {
     return STATIC_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
 }
@@ -91,7 +98,7 @@ async function cacheFirst(request, cacheName) {
     const cached = await caches.match(request);
     if (cached) return cached;
     const response = await fetch(request);
-    if (response.ok) {
+    if (isCacheable(response)) {
         const cache = await caches.open(cacheName);
         cache.put(request, response.clone());
     }
@@ -108,13 +115,13 @@ async function staleWhileRevalidate(request, cacheName) {
         const cachedDate = new Date(cached.headers.get('date') || 0).getTime();
         if (cachedDate < mutationTime) {
             const response = await fetch(request);
-            if (response.ok) cache.put(request, response.clone());
+            if (isCacheable(response)) cache.put(request, response.clone());
             return response;
         }
     }
 
     const networkPromise = fetch(request).then(response => {
-        if (response.ok) cache.put(request, response.clone());
+        if (isCacheable(response)) cache.put(request, response.clone());
         return response;
     });
     return cached || networkPromise;
@@ -124,7 +131,7 @@ async function networkFirst(request, cacheName) {
     const cache = await caches.open(cacheName);
     try {
         const response = await fetch(request);
-        if (response.ok) cache.put(request, response.clone());
+        if (isCacheable(response)) cache.put(request, response.clone());
         return response;
     } catch {
         const cached = await cache.match(request);

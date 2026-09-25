@@ -104,7 +104,7 @@ builder.Services.AddOpenTelemetry()
         .AddSource("RecipeHelper.*")
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
-        .AddSqlClientInstrumentation(o => o.SetDbStatementForText = true)
+        .AddSqlClientInstrumentation()
         .AddOtlpExporter(o => ConfigureOtlp(o, "v1/traces")))
     .WithMetrics(m => m
         .AddMeter("RecipeHelper.*")

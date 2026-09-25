@@ -22,10 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="1.7.2" />
+    <PackageReference Include="AngleSharp" Version="1.8.1" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.16.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.19" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.20" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.19">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -42,7 +42,7 @@
 	  <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
 	  <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
 	  <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
-	  <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.9.0" />
+	  <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
 	  <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.18.0" />
 	  <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.18.0" />
   </ItemGroup>

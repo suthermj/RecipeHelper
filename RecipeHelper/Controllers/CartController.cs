@@ -170,6 +170,20 @@ namespace RecipeHelper.Controllers
             return View(previewVm); // Views/Cart/PreviewAddToCart.cshtml
         }
 
+        // Where to send the user when an add-to-cart flow ends (success or failure).
+        // Products-origin flows go back to the product they came from (a direct add
+        // from ViewProduct) or to the Products list (multi-select); anything else
+        // uses the meal-plan/recipe fallback the caller passes in.
+        private IActionResult RedirectToOrigin(AddToCartVM? vm, IActionResult mealPlanFallback)
+        {
+            if (vm?.Origin != CartOrigin.Products)
+                return mealPlanFallback;
+
+            return string.IsNullOrWhiteSpace(vm.ReturnProductId)
+                ? RedirectToAction("Products", "Product")
+                : RedirectToAction("ViewProduct", "Product", new { productId = vm.ReturnProductId });
+        }
+
         // Called when user clicks "Add all items to cart"
         [HttpPost]
         public async Task<IActionResult> BeginAddToCart(AddToCartVM vm)
@@ -180,9 +194,7 @@ namespace RecipeHelper.Controllers
             {
                 _logger.LogWarning("BeginAddToCart: no items to add, redirecting back to review.");
                 TempData["ErrorMessage"] = "No valid items were found to add to your Kroger cart.";
-                return vm.Origin == CartOrigin.Products
-                    ? RedirectToAction("Products", "Product")
-                    : RedirectToAction("ReviewDinnerSelections", "Dinner");
+                return RedirectToOrigin(vm, RedirectToAction("ReviewDinnerSelections", "Dinner"));
             }
 
             vm.Items = vm.Items.Where(i => i.Include).ToList();
@@ -213,7 +225,6 @@ namespace RecipeHelper.Controllers
             // Products instead of the meal-plan review page.
             var pendingCartJson = HttpContext.Session.GetString("PendingCart");
             var vm = string.IsNullOrEmpty(pendingCartJson) ? null : JsonSerializer.Deserialize<AddToCartVM>(pendingCartJson);
-            var origin = vm?.Origin ?? CartOrigin.MealPlan;
 
             var token = await _krogerAuthService.GetKrogerAccessTokenAsync();
             if (string.IsNullOrEmpty(token))
@@ -222,9 +233,7 @@ namespace RecipeHelper.Controllers
                 // or back to the review page with an error message.
                 _logger.LogWarning("CompleteAddToCart: no valid Kroger access token, redirecting back to review.");
                 TempData["ErrorMessage"] = "Your Kroger session expired. Please try adding items again.";
-                return origin == CartOrigin.Products
-                    ? RedirectToAction("Products", "Product")
-                    : RedirectToAction("ReviewDinnerSelections", "Dinner");
+                return RedirectToOrigin(vm, RedirectToAction("ReviewDinnerSelections", "Dinner"));
             }
 
             if (vm == null)
@@ -254,9 +263,7 @@ namespace RecipeHelper.Controllers
                     // successful cart add.
                     _logger.LogWarning("CompleteAddToCart: AddToCartAsync reported failure. ItemCount={ItemCount}", itemCount);
                     TempData["ErrorMessage"] = "There was a problem adding items to your Kroger cart. Please try again.";
-                    return origin == CartOrigin.Products
-                        ? RedirectToAction("Products", "Product")
-                        : RedirectToAction("SelectWeeklyRecipes", "Dinner");
+                    return RedirectToOrigin(vm, RedirectToAction("SelectWeeklyRecipes", "Dinner"));
                 }
 
                 // Optional: clear it after use
@@ -266,9 +273,7 @@ namespace RecipeHelper.Controllers
                 TempData["SuccessMessage"] = $"{itemCount} item{(itemCount == 1 ? "" : "s")} were added to your Kroger cart. " + "You can review or edit them in the Kroger app.";
                 TempData["SuccessActionUrl"] = "https://www.kroger.com/cart";
                 TempData["SuccessActionLabel"] = "View Cart in Kroger";
-                return origin == CartOrigin.Products
-                    ? RedirectToAction("Products", "Product")
-                    : RedirectToAction("Recipe", "Recipe");
+                return RedirectToOrigin(vm, RedirectToAction("Recipe", "Recipe"));
             }
             catch (Exception ex)
             {
@@ -278,9 +283,7 @@ namespace RecipeHelper.Controllers
                 _logger.LogError(ex, "CompleteAddToCart failed. ItemCount={ItemCount}, ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
                     vm.Items.Count, ex.GetType().FullName, ex.Message);
                 TempData["ErrorMessage"] = "There was a problem adding items to your Kroger cart. Please try again.";
-                return origin == CartOrigin.Products
-                    ? RedirectToAction("Products", "Product")
-                    : RedirectToAction("SelectWeeklyRecipes", "Dinner");
+                return RedirectToOrigin(vm, RedirectToAction("SelectWeeklyRecipes", "Dinner"));
 
             }
         }

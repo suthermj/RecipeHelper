@@ -21,6 +21,9 @@ namespace RecipeHelper.Models.Kroger
     {
         public List<CartItemVM> Items { get; set; } = new List<CartItemVM>();
         public string Origin { get; set; } = CartOrigin.MealPlan;
+        // Set by ViewProduct's direct "Add to Cart" (which skips the preview screen) so
+        // the flow returns to that product page instead of the Products list.
+        public string? ReturnProductId { get; set; }
 
     }
 

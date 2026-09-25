@@ -67,15 +67,22 @@
 
     <!-- Add to cart -->
     <div class="px-4 pb-4">
-        <form asp-action="PreviewProductsToCart" asp-controller="Cart" method="post"
-              class="loading-form" data-loading-text="Building Kroger cart preview…">
+        @* Posts straight to BeginAddToCart (Kroger auth → add), skipping the preview
+           screen: a saved product is already a specific UPC and the quantity is a pack
+           count, so there's nothing to review or map. *@
+        <form asp-action="BeginAddToCart" asp-controller="Cart" method="post"
+              class="loading-form" data-loading-text="Adding to Kroger cart…">
             @Html.AntiForgeryToken()
-            <input type="hidden" name="upcs" value="@Model.upc" />
+            <input type="hidden" name="Origin" value="@RecipeHelper.Models.Kroger.CartOrigin.Products" />
+            <input type="hidden" name="ReturnProductId" value="@Model.upc" />
+            <input type="hidden" name="Items[0].Upc" value="@Model.upc" />
+            <input type="hidden" name="Items[0].Name" value="@Model.name" />
+            <input type="hidden" name="Items[0].Include" value="true" />
             <div class="flex items-center gap-3">
                 <div class="flex items-center rounded-xl overflow-hidden" style="background: var(--ios-fill);">
                     <button type="button" id="qtyMinus"
                             style="width:44px; height:44px; font-size:18px; color: var(--ios-label);">−</button>
-                    <input type="number" id="qtyInput" name="quantity" value="1" min="1"
+                    <input type="number" id="qtyInput" name="Items[0].Quantity" value="1" min="1" step="1" inputmode="numeric" required
                            class="text-center" style="width:44px; height:44px; background:transparent; border:none; font-size:16px; color: var(--ios-label);" />
                     <button type="button" id="qtyPlus"
                             style="width:44px; height:44px; font-size:18px; color: var(--ios-label);">+</button>

@@ -10,7 +10,7 @@
     <a href="@Url.Action("AddProduct", "Product")" class="ios-btn-text inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-[28px] leading-none font-light">+</a>
 }
 
-<div class="pt-2 pb-4">
+<div class="pt-2 pb-32">
 
     <!-- Large title + search bar -->
     <div class="px-4 pb-3">
@@ -30,9 +30,16 @@
                 <option value="name-desc">Z → A</option>
             </select>
         </div>
-        <p class="text-[13px] mt-2" style="color: var(--ios-label-2);">
-            @Model.Count product@(Model.Count == 1 ? "" : "s")
-        </p>
+        <div class="flex items-center justify-between mt-2">
+            <p class="text-[13px]" style="color: var(--ios-label-2);">
+                @Model.Count product@(Model.Count == 1 ? "" : "s")
+            </p>
+            @if (Model != null && Model.Count > 0)
+            {
+                <button type="button" id="selectModeBtn" class="ios-btn-text-sm"
+                        style="display:inline-flex; align-items:center; min-height:44px; padding:0 4px;">Select</button>
+            }
+        </div>
     </div>
 
     @if (Model == null || Model.Count == 0)
@@ -46,34 +53,61 @@
     }
     else
     {
-        <div id="productsGrid" class="px-4 space-y-2">
-            @foreach (var product in Model)
-            {
-                <a href="@Url.Action("ViewProduct", "Product", new { productId = product.Upc })"
-                   class="product-card ios-card flex items-center gap-3 p-3 active:opacity-75 transition-opacity"
-                   style="text-decoration:none;"
-                   data-name="@product.Name">
-                    <div class="h-14 w-14 rounded-xl overflow-hidden shrink-0" style="background: var(--ios-fill);">
-                        <img src="@(imgBase + product.Upc)"
-                             alt="@product.Name"
-                             class="h-full w-full object-cover"
-                             loading="lazy"
-                             onerror="this.onerror=null; this.src='@Url.Content("~/images/default-product.png")';" />
-                    </div>
-                    <p class="flex-1 text-[15px] font-medium leading-snug line-clamp-2" style="color: var(--ios-label);">
-                        @product.Name
-                    </p>
-                    <svg class="h-4 w-4 shrink-0 ios-disclosure" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                    </svg>
-                </a>
-            }
-        </div>
+        <form id="productsCartForm" asp-action="PreviewProductsToCart" asp-controller="Cart" method="post"
+              class="loading-form" data-loading-text="Building Kroger cart preview…">
+            @Html.AntiForgeryToken()
+            <div id="productsGrid" class="px-4 space-y-2">
+                @foreach (var product in Model)
+                {
+                    <a href="@Url.Action("ViewProduct", "Product", new { productId = product.Upc })"
+                       class="product-card ios-card flex items-center gap-3 p-3 active:opacity-75 transition-opacity"
+                       style="text-decoration:none;"
+                       data-name="@product.Name"
+                       data-upc="@product.Upc">
+                        <div class="select-indicator h-6 w-6 rounded-full shrink-0 items-center justify-center transition-colors"
+                             style="display:none; background: var(--ios-fill); border: 2px solid var(--ios-separator);">
+                            <svg class="select-check h-3.5 w-3.5 text-white" style="display:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <div class="h-14 w-14 rounded-xl overflow-hidden shrink-0" style="background: var(--ios-fill);">
+                            <img src="@(imgBase + product.Upc)"
+                                 alt="@product.Name"
+                                 class="h-full w-full object-cover"
+                                 loading="lazy"
+                                 onerror="this.onerror=null; this.src='@Url.Content("~/images/default-product.png")';" />
+                        </div>
+                        <p class="flex-1 text-[15px] font-medium leading-snug line-clamp-2" style="color: var(--ios-label);">
+                            @product.Name
+                        </p>
+                        <svg class="h-4 w-4 shrink-0 ios-disclosure" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                        </svg>
+                        <input type="hidden" name="upcs" value="@product.Upc" class="upc-input" disabled />
+                    </a>
+                }
+            </div>
+        </form>
 
         <div id="noResults" class="hidden text-center py-14">
             <p class="text-[15px]" style="color: var(--ios-label-2);">No products match your search.</p>
         </div>
     }
+</div>
+
+<!-- Sticky select-mode action bar -->
+<div id="selectActionBar" class="hidden fixed inset-x-0 z-30 px-4 py-3"
+     style="bottom: calc(49px + env(safe-area-inset-bottom));
+            background: rgba(249,249,249,0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 0.5px solid var(--ios-separator);">
+    <div class="flex items-center gap-3">
+        <span class="text-[14px]" style="color: var(--ios-label-2);"><span id="selectedProductCount">0</span> selected</span>
+        <button type="submit" form="productsCartForm" id="addProductsToCartBtn" class="btn-primary flex-1" disabled style="opacity:0.5;">
+            Add to Cart
+        </button>
+    </div>
 </div>
 
 <script>
@@ -110,5 +144,64 @@
         sortSel?.addEventListener('change', applyFilterAndSort);
 
         applyFilterAndSort();
+
+        // Select mode -- lets the user pick several saved products to add to the
+        // Kroger cart in one go (#166), without changing the normal tap-to-view
+        // behavior when select mode isn't active.
+        const selectModeBtn  = document.getElementById('selectModeBtn');
+        const actionBar      = document.getElementById('selectActionBar');
+        const countEl        = document.getElementById('selectedProductCount');
+        const addToCartBtn   = document.getElementById('addProductsToCartBtn');
+        let selectMode = false;
+        const selected = new Set();
+
+        function setCardSelected(card, isSelected) {
+            const indicator = card.querySelector('.select-indicator');
+            const check     = card.querySelector('.select-check');
+            const input     = card.querySelector('.upc-input');
+            if (indicator) indicator.style.background = isSelected ? '#34C759' : 'var(--ios-fill)';
+            if (indicator) indicator.style.borderColor = isSelected ? '#34C759' : 'var(--ios-separator)';
+            if (check) check.style.display = isSelected ? '' : 'none';
+            if (input) input.disabled = !isSelected;
+        }
+
+        function updateActionBar() {
+            if (countEl) countEl.textContent = String(selected.size);
+            if (actionBar) actionBar.classList.toggle('hidden', !selectMode);
+            if (addToCartBtn) {
+                addToCartBtn.disabled = selected.size === 0;
+                addToCartBtn.style.opacity = selected.size === 0 ? '0.5' : '';
+            }
+        }
+
+        function setSelectMode(on) {
+            selectMode = on;
+            if (!on) {
+                selected.clear();
+                cards.forEach(c => setCardSelected(c, false));
+            }
+            cards.forEach(c => {
+                const indicator = c.querySelector('.select-indicator');
+                const disclosure = c.querySelector('.ios-disclosure');
+                if (indicator) indicator.style.display = on ? 'flex' : 'none';
+                if (disclosure) disclosure.style.display = on ? 'none' : '';
+            });
+            if (selectModeBtn) selectModeBtn.textContent = on ? 'Cancel' : 'Select';
+            updateActionBar();
+        }
+
+        selectModeBtn?.addEventListener('click', () => setSelectMode(!selectMode));
+
+        cards.forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (!selectMode) return;
+                e.preventDefault();
+                const upc = card.dataset.upc;
+                const isSelected = !selected.has(upc);
+                if (isSelected) selected.add(upc); else selected.delete(upc);
+                setCardSelected(card, isSelected);
+                updateActionBar();
+            });
+        });
     })();
 </script>

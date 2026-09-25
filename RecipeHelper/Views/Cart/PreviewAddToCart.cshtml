@@ -4,8 +4,11 @@
 @{
     ViewData["Title"]    = "Add to Cart";
     ViewData["NavTitle"] = "Add to Cart";
-    ViewData["BackLink"] = Url.Action("ReviewDinnerSelections", "Dinner");
-    ViewData["BackLabel"] = "Ingredients";
+    var isProductsOrigin = Model.Origin == CartOrigin.Products;
+    ViewData["BackLink"] = isProductsOrigin
+        ? Url.Action("Products", "Product")
+        : Url.Action("ReviewDinnerSelections", "Dinner");
+    ViewData["BackLabel"] = isProductsOrigin ? "Products" : "Ingredients";
     var totalItems = Model.Items.Sum(i => i.QuantityToAdd);
 
     var krogerBrands = new[] { "kroger", "simple truth", "private selection", "hemisfares" };
@@ -106,7 +109,9 @@
     @if (!Model.Items.Any())
     {
         <div class="mx-4 ios-card p-6 text-center">
-            <p class="text-[15px]" style="color: var(--ios-label-2);">No items to add. Go back and select your recipes.</p>
+            <p class="text-[15px]" style="color: var(--ios-label-2);">
+                No items to add. Go back and select @(isProductsOrigin ? "some products" : "your recipes").
+            </p>
         </div>
     }
     else
@@ -114,6 +119,7 @@
         <form asp-action="BeginAddToCart" asp-controller="Cart" method="post" id="cartForm"
               class="loading-form" data-loading-text="Adding items to Kroger cart...">
             @Html.AntiForgeryToken()
+            <input type="hidden" name="Origin" value="@Model.Origin" />
 
             <!-- Select all -->
             <div class="ios-group mx-4 mb-4">

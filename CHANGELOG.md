@@ -8,8 +8,15 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- Product page price row now shows the estimated Kroger-brand 10% discount (Kroger, Simple Truth, Private Selection, Hemisfares), stacked on any sale price, the same way the cart preview and shopping list already do — e.g. "$3.59 ~~$4.99~~ Sale · Save $1.00 · -10% Kroger brand". This is a display estimate only; Kroger applies the actual discount in the cart. The brand check and math live in a new shared `KrogerBrandDiscount` helper.
+- Products page: a "Select" mode lets you pick multiple saved products and add them to the Kroger cart in one go, via a bottom "Add to Cart" bar (mirrors the existing "Add selected" search-results pattern). The multi-select flow goes through the existing Kroger cart preview → auth → add flow via a new `CartController.PreviewProductsToCart` entry point that builds preview items directly from Kroger product details (no unit conversion, since a saved product's quantity is already a pack count, not an ingredient amount). The product detail page has an "Add to Cart" action with a quantity stepper (defaults to 1) that skips the preview entirely and goes straight to Kroger auth → add, since there's nothing to review for a single known product, then returns to that product page. Success and error states return to where the flow started, tracked via a new `Origin` field carried through the cart flow (the existing meal-plan/recipe behavior is unchanged).
+
 ### Fixed
 
+- Product page never showed sale prices: `KrogerProductDto.onSale` was a plain property nothing ever set, so it was always false and the page always showed the regular price. It's now derived from the promo/regular prices (promo > 0 and below regular), and the price row shows the sale price, the struck-through regular price and a "Sale · Save $X.XX" badge.
+- A success/error toast (e.g. "added to your Kroger cart") reappeared when navigating back to the page it was shown on: the service worker's page cache stored the one-time toast page and replayed it. Pages carrying a toast now send an `X-SW-No-Cache` header and `sw.js` doesn't cache them. The product page's own inline error banner was removed, since it duplicated the layout toast.
 - Recipe Edit: linking a previously-unlinked ingredient to a Kroger product found via "Search Kroger" (as opposed to one already in the local product DB) failed to save. `UpdateRecipeAsync`'s existing-ingredient branch assigned `SelectedKrogerUpc` directly without first ensuring a matching `KrogerProduct` row existed, so `SaveChangesAsync` threw a foreign-key violation — unlike the new-ingredient path, which already did this via `ResolveIngredientAsync`. Extracted the ensure-exists step into a shared `EnsureKrogerProductExistsAsync` helper used by both paths.
 - Products page: "Add selected" (bulk-adding searched Kroger products to the local DB) 404'd — the results form posted to `AddSelectedProducts`, an action that didn't exist. Added the action, wired to the existing `ProductService.AddProducts`, with a matching antiforgery token on the form.
 

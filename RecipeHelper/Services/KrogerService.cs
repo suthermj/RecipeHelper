@@ -226,13 +226,38 @@ namespace RecipeHelper.Services
         /// Returns a map of UPC → KrogerProductDto.
         /// </summary>
         public async Task<Dictionary<string, KrogerProductDto>> GetProductsByUpcBatch(IEnumerable<string> upcs, string locationId)
+            => (await GetProductsByUpcBatchWithFailures(upcs, locationId)).Products;
+
+        // Reasons shown on the cart preview's "Not mapped" list. Kept distinct so the
+        // user can tell "Kroger hiccuped, retry" apart from "this product is gone, remap it".
+        internal const string LookupFailedReason = "Product lookup failed";
+        internal const string ProductNotFoundReason = "Product not found at Kroger — try remapping it";
+
+        // Attempts per UPC (1 initial + retries) and the base backoff between them.
+        // internal so tests can shrink the delay.
+        internal int LookupMaxAttempts { get; set; } = 3;
+        internal TimeSpan LookupRetryBaseDelay { get; set; } = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan LookupAttemptTimeout = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan MaxRetryAfter = TimeSpan.FromSeconds(5);
+
+        /// <summary>
+        /// Same as <see cref="GetProductsByUpcBatch"/>, but also reports why each UPC
+        /// that has no product failed, keyed by UPC.
+        /// </summary>
+        internal async Task<(Dictionary<string, KrogerProductDto> Products, Dictionary<string, string> Failures)> GetProductsByUpcBatchWithFailures(IEnumerable<string> upcs, string locationId)
         {
             var result = new Dictionary<string, KrogerProductDto>(StringComparer.OrdinalIgnoreCase);
-            var upcList = upcs.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().ToList();
-            if (!upcList.Any()) return result;
+            var failures = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var upcList = upcs.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (!upcList.Any()) return (result, failures);
 
             var token = await GetKrogerClientCredentialsToken();
-            if (token == null) return result;
+            if (token == null)
+            {
+                _logger.LogWarning("GetProductsByUpcBatch: no client-credentials token, all {Count} lookups failed", upcList.Count);
+                foreach (var upc in upcList) failures[upc] = LookupFailedReason;
+                return (result, failures);
+            }
 
             // Use the details endpoint per-UPC with locationId for store-specific aisle data.
             // filter.productId on the search endpoint silently ignores filter.locationId,
@@ -241,28 +266,103 @@ namespace RecipeHelper.Services
             var tasks = upcList.Select(async upc =>
             {
                 await throttle.WaitAsync();
-                try
-                {
-                    var client = _httpClientFactory.CreateClient();
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                    var url = $"{_baseUri}/products/{upc}?filter.locationId={locationId}";
-                    var response = await client.GetAsync(url);
-                    if (!response.IsSuccessStatusCode) return (upc, dto: (KrogerProductDto?)null);
-
-                    var content = await response.Content.ReadAsStringAsync();
-                    var detailsResponse = JsonConvert.DeserializeObject<KrogerProductDetailsResponse>(content);
-                    var dto = detailsResponse?.data != null ? (KrogerProductDto?)detailsResponse.data.ToKrogerProduct() : null;
-                    return (upc, dto);
-                }
+                try { return (upc, outcome: await FetchProductWithRetry(upc, locationId, token)); }
                 finally { throttle.Release(); }
             });
 
-            foreach (var (upc, dto) in await Task.WhenAll(tasks))
+            foreach (var (upc, outcome) in await Task.WhenAll(tasks))
             {
-                if (dto != null) result[upc] = dto;
+                if (outcome.Product != null) result[upc] = outcome.Product;
+                else failures[upc] = outcome.FailureReason ?? LookupFailedReason;
             }
 
-            return result;
+            if (failures.Count > 0)
+                _logger.LogWarning("GetProductsByUpcBatch: {FailedCount} of {Total} product lookups failed", failures.Count, upcList.Count);
+
+            return (result, failures);
+        }
+
+        // One UPC's details lookup. Retries transient failures (429 rate limiting,
+        // 5xx, 408, network errors, per-attempt timeouts) with backoff instead of
+        // giving up on the first bad response -- a single rate-limited burst used to
+        // drop a large share of a cart preview's items into "Product lookup failed".
+        // Also never throws: an exception on one UPC used to fault Task.WhenAll and
+        // take the whole preview down with it.
+        private async Task<(KrogerProductDto? Product, string? FailureReason)> FetchProductWithRetry(string upc, string locationId, string token)
+        {
+            var url = $"{_baseUri}/products/{upc}?filter.locationId={locationId}";
+            // The UPC arrives from a posted form (including the preview's Retry button),
+            // so strip line breaks before logging it -- otherwise a crafted value could
+            // forge extra log entries.
+            var logUpc = upc.Replace("\r", "").Replace("\n", "");
+
+            for (var attempt = 1; ; attempt++)
+            {
+                TimeSpan? retryAfter = null;
+                string failureDetail;
+
+                try
+                {
+                    using var cts = new CancellationTokenSource(LookupAttemptTimeout);
+                    var client = _httpClientFactory.CreateClient();
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    using var response = await client.GetAsync(url, cts.Token);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var content = await response.Content.ReadAsStringAsync(cts.Token);
+                        var detailsResponse = JsonConvert.DeserializeObject<KrogerProductDetailsResponse>(content);
+                        if (detailsResponse?.data != null)
+                            return (detailsResponse.data.ToKrogerProduct(), null);
+
+                        _logger.LogWarning("Product lookup for UPC {Upc} returned no data", logUpc);
+                        return (null, ProductNotFoundReason);
+                    }
+
+                    var status = (int)response.StatusCode;
+                    if (status == 404)
+                    {
+                        _logger.LogWarning("Product lookup for UPC {Upc} returned 404", logUpc);
+                        return (null, ProductNotFoundReason);
+                    }
+
+                    var transient = status == 429 || status == 408 || status >= 500;
+                    failureDetail = $"HTTP {status}";
+                    if (!transient)
+                    {
+                        _logger.LogWarning("Product lookup for UPC {Upc} failed with non-retryable StatusCode={StatusCode}", logUpc, status);
+                        return (null, LookupFailedReason);
+                    }
+
+                    retryAfter = response.Headers.RetryAfter?.Delta
+                        ?? (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow);
+                }
+                catch (Exception ex)
+                {
+                    failureDetail = $"{ex.GetType().Name}: {ex.Message}".Replace("\r", "").Replace("\n", " ");
+                    // Network errors and per-attempt timeouts are worth retrying;
+                    // anything else (bad JSON, a mapping bug) won't fix itself.
+                    if (ex is not HttpRequestException && ex is not TaskCanceledException)
+                    {
+                        _logger.LogWarning(ex, "Product lookup for UPC {Upc} failed. {Detail}", logUpc, failureDetail);
+                        return (null, LookupFailedReason);
+                    }
+                }
+
+                if (attempt >= LookupMaxAttempts)
+                {
+                    _logger.LogWarning("Product lookup for UPC {Upc} failed after {Attempts} attempts. LastError={Detail}", logUpc, attempt, failureDetail);
+                    return (null, LookupFailedReason);
+                }
+
+                var backoff = LookupRetryBaseDelay * Math.Pow(2, attempt - 1)
+                    + TimeSpan.FromMilliseconds(Random.Shared.Next(0, (int)Math.Max(1, LookupRetryBaseDelay.TotalMilliseconds / 2)));
+                if (retryAfter is { } ra && ra > backoff)
+                    backoff = ra < MaxRetryAfter ? ra : MaxRetryAfter;
+
+                _logger.LogInformation("Product lookup for UPC {Upc} attempt {Attempt} failed ({Detail}), retrying in {DelayMs}ms", logUpc, attempt, failureDetail, (int)backoff.TotalMilliseconds);
+                await Task.Delay(backoff);
+            }
         }
 
         public async Task<KrogerProductDto?> GetProductDetails(string productId)
@@ -355,7 +455,7 @@ namespace RecipeHelper.Services
             // few dozen ingredients, sequential per-item lookups added up to ~20s of pure serialized
             // Kroger API latency on a single cart preview.
             var upcs = vm.Items.Where(i => !string.IsNullOrWhiteSpace(i.Upc)).Select(i => i.Upc);
-            var productsByUpc = await GetProductsByUpcBatch(upcs, GetLocationId());
+            var (productsByUpc, lookupFailures) = await GetProductsByUpcBatchWithFailures(upcs, GetLocationId());
 
             // Resolve each ingredient to its Kroger product first, separating out anything
             // that can't be converted at all before any quantity math runs.
@@ -374,7 +474,18 @@ namespace RecipeHelper.Services
                 if (!productsByUpc.TryGetValue(item.Upc, out var krogerProduct))
                 {
                     _logger.LogWarning("Could not fetch product details for UPC {upc} ({name}), skipping.", item.Upc, itemName);
-                    skipped.Add(new SkippedCartItem { Name = itemName, Reason = "Product lookup failed", Quantity = item.Quantity });
+                    // Upc + Measurement ride along so the preview page can retry just
+                    // these lookups later (CartController.RetryPreviewLookups).
+                    var reason = lookupFailures.TryGetValue(item.Upc, out var r) ? r : LookupFailedReason;
+                    skipped.Add(new SkippedCartItem
+                    {
+                        Name = itemName,
+                        Reason = reason,
+                        Quantity = item.Quantity,
+                        Upc = item.Upc,
+                        Measurement = item.Measurement,
+                        Retryable = reason == LookupFailedReason,
+                    });
                     continue;
                 }
 
@@ -446,32 +557,62 @@ namespace RecipeHelper.Services
                     upc, itemName, totalVolumeBase, totalWeightBase, totalCount,
                     krogerProduct.name, krogerProduct.size, pack.SoldByEffective, pack.Dimension);
 
-                // At most one row per dimension bucket per UPC -- rare in practice (most
-                // ingredients only ever need one dimension across all their sources), but
-                // mirrors the same split DinnerController already does when a single
-                // ingredient's uses can't be summed into one unit.
-                void AddRow(decimal baseQuantity, string bucketMeasurement)
+                // Always exactly one row per UPC. This used to emit one row per dimension
+                // bucket, which showed the same product twice on the cart preview (e.g.
+                // "Green Onions" once for "0.5 Cups" and again for "1 Unit", both rows
+                // reading "Needed: 0.5 Cups + 1 Unit") and ordered it twice.
+                string? mixNote = null;
+
+                // Volume + weight: fold the volume into the weight total via density, so
+                // the combined need is rounded up once, same reasoning as the per-UPC
+                // grouping above.
+                if (hasVolume && hasWeight)
                 {
-                    // A synthetic CartItemVM already expressed in the dimension's base unit
-                    // (teaspoons/grams/count) lets this reuse the exact same per-branch
-                    // conversion logic as a single ingredient would use -- ToBase on the
-                    // base unit itself is an identity conversion, so no double-conversion.
-                    var bucketItem = new CartItemVM { Upc = upc, Name = itemName, Quantity = baseQuantity, Measurement = bucketMeasurement, Include = true };
-                    var (quantity, note) = ComputeCartQuantity(bucketItem, krogerProduct, pack);
-
-                    var cartItem = krogerProduct.ToDetailedCartItem();
-                    cartItem.Quantity = quantity;
-                    cartItem.OriginalIngredient = originalIngredient;
-                    cartItem.KrogerPackSize = krogerProduct.size;
-                    cartItem.ConversionNote = note;
-                    cartItems.Add(cartItem);
-
-                    _logger.LogInformation("Result: {qty}x '{name}' {note}", quantity, cartItem.Name, note ?? "OK");
+                    var density = DensityTable.GetDensity(krogerProduct.name) ?? DensityTable.GetDensity(itemName);
+                    if (density == null)
+                    {
+                        mixNote = QuantityNeedsReviewNote;
+                        _logger.LogInformation("UPC {upc}: volume+weight uses but no density for '{name}', used default (water)", upc, krogerProduct.name);
+                    }
+                    totalWeightBase += DensityTable.VolumeToGrams(totalVolumeBase, density ?? 1.0m);
+                    hasVolume = false;
                 }
 
-                if (hasVolume) AddRow(totalVolumeBase, "Teaspoons");
-                if (hasWeight) AddRow(totalWeightBase, "Grams");
-                if (hasCount) AddRow(totalCount, "Unit");
+                // A synthetic CartItemVM already expressed in the dimension's base unit
+                // (teaspoons/grams/count) lets this reuse the exact same per-branch
+                // conversion logic as a single ingredient would use -- ToBase on the
+                // base unit itself is an identity conversion, so no double-conversion.
+                (int Quantity, string? Note) Compute(decimal baseQuantity, string bucketMeasurement) =>
+                    ComputeCartQuantity(
+                        new CartItemVM { Upc = upc, Name = itemName, Quantity = baseQuantity, Measurement = bucketMeasurement, Include = true },
+                        krogerProduct, pack);
+
+                var bucketResults = new List<(int Quantity, string? Note)>();
+                if (hasVolume) bucketResults.Add(Compute(totalVolumeBase, "Teaspoons"));
+                if (hasWeight) bucketResults.Add(Compute(totalWeightBase, "Grams"));
+                if (hasCount) bucketResults.Add(Compute(totalCount, "Unit"));
+
+                // Count + volume/weight can't be summed (there's no size for "1 onion"),
+                // so take the larger of the two pack estimates rather than adding them --
+                // adding would double-order the common case where both uses fit in one
+                // pack -- and flag it for a human to check.
+                if (bucketResults.Count > 1)
+                {
+                    mixNote = QuantityNeedsReviewNote;
+                    _logger.LogInformation("UPC {upc}: count and volume/weight uses can't be combined exactly, using the larger estimate", upc);
+                }
+
+                var quantity = bucketResults.Max(r => r.Quantity);
+                var note = mixNote ?? bucketResults.Select(r => r.Note).FirstOrDefault(n => n != null);
+
+                var cartItem = krogerProduct.ToDetailedCartItem();
+                cartItem.Quantity = quantity;
+                cartItem.OriginalIngredient = originalIngredient;
+                cartItem.KrogerPackSize = krogerProduct.size;
+                cartItem.ConversionNote = note;
+                cartItems.Add(cartItem);
+
+                _logger.LogInformation("Result: {qty}x '{name}' {note}", quantity, cartItem.Name, note ?? "OK");
             }
 
             return cartItems;

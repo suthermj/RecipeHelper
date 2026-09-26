@@ -62,22 +62,7 @@ namespace RecipeHelper.Controllers
 
             foreach (var cartItem in detailedCartItems)
             {
-                // Adjust property names to your Product type
-                previewItems.Add(new AddToCartPreviewItemVM
-                {
-                    Upc = cartItem.Upc,
-                    QuantityToAdd = cartItem.Quantity,
-                    Name = cartItem.Name,
-                    Brand = cartItem.Brand,
-                    StockLevel = cartItem.StockLevel,
-                    Size = cartItem.KrogerPackSize ?? "",
-                    Aisle = cartItem.Aisle ?? "",
-                    RegularPrice = cartItem.RegularPrice,
-                    PromoPrice = cartItem.PromoPrice,
-                    Include = true,
-                    ConversionNote = cartItem.ConversionNote,
-                    OriginalIngredient = cartItem.OriginalIngredient,
-                });
+                previewItems.Add(ToPreviewItem(cartItem));
             }
 
             var previewVm = new AddToCartPreviewVM
@@ -93,6 +78,70 @@ namespace RecipeHelper.Controllers
             // (see the matching comment in DinnerController.SubmitDinnerSelections).
             PendingResultCache.Set(HttpContext.Session, PendingPreviewSessionKey, previewVm);
             return RedirectToAction(nameof(PreviewAddToCart));
+        }
+
+        private static AddToCartPreviewItemVM ToPreviewItem(DetailedCartItem cartItem) => new AddToCartPreviewItemVM
+        {
+            Upc = cartItem.Upc,
+            QuantityToAdd = cartItem.Quantity,
+            Name = cartItem.Name,
+            Brand = cartItem.Brand,
+            StockLevel = cartItem.StockLevel,
+            Size = cartItem.KrogerPackSize ?? "",
+            Aisle = cartItem.Aisle ?? "",
+            RegularPrice = cartItem.RegularPrice,
+            PromoPrice = cartItem.PromoPrice,
+            Include = true,
+            ConversionNote = cartItem.ConversionNote,
+            OriginalIngredient = cartItem.OriginalIngredient,
+        };
+
+        // POST: Cart/RetryPreviewLookups -- the preview page's "Retry" button on the
+        // "Not mapped" list. Re-runs the conversion for just the items whose Kroger
+        // product lookup failed and returns only the new rows as HTML; the page's JS
+        // inserts them into the existing form in place, so quantities/checkboxes the
+        // user already changed on the page are left untouched. Also folds the result
+        // into the cached preview so a reload of the page keeps the recovered items.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RetryPreviewLookups([FromBody] RetryPreviewLookupsRequest request)
+        {
+            var toRetry = (request?.Items ?? new()).Where(i => !string.IsNullOrWhiteSpace(i.Upc)).ToList();
+            _logger.LogInformation("RetryPreviewLookups started. ItemCount={ItemCount}", toRetry.Count);
+
+            var conversionResult = await _krogerService.ConvertIngredientsToCartItems(new AddToCartVM
+            {
+                Items = toRetry.Select(i => new CartItemVM
+                {
+                    Upc = i.Upc!,
+                    Name = i.Name,
+                    Quantity = i.Quantity,
+                    Measurement = i.Measurement ?? "",
+                    Include = true,
+                }).ToList()
+            });
+
+            var recovered = conversionResult.Items.Select(ToPreviewItem).ToList();
+            var startIndex = Math.Max(0, request?.StartIndex ?? 0);
+
+            if (PendingResultCache.TryGet<AddToCartPreviewVM>(HttpContext.Session, PendingPreviewSessionKey, out var cached) && cached != null)
+            {
+                var retriedUpcs = new HashSet<string>(toRetry.Select(i => i.Upc!), StringComparer.OrdinalIgnoreCase);
+                cached.Items.AddRange(recovered);
+                cached.Skipped = cached.Skipped
+                    .Where(s => s.Upc == null || !retriedUpcs.Contains(s.Upc))
+                    .Concat(conversionResult.Skipped)
+                    .ToList();
+                PendingResultCache.Set(HttpContext.Session, PendingPreviewSessionKey, cached);
+            }
+
+            _logger.LogInformation("RetryPreviewLookups completed. RecoveredCount={RecoveredCount}, StillSkippedCount={StillSkippedCount}", recovered.Count, conversionResult.Skipped.Count);
+
+            return PartialView("_RetriedPreviewLookups", new RetriedPreviewLookupsVM
+            {
+                Rows = recovered.Select((item, idx) => new CartPreviewRowVM { Item = item, Index = startIndex + idx }).ToList(),
+                StillSkipped = conversionResult.Skipped,
+            });
         }
 
         // POST: Cart/PreviewProductsToCart -- same preview screen as above, but for

@@ -1,0 +1,18 @@
+@using RecipeHelper.Models.Kroger
+@model RetriedPreviewLookupsVM
+
+@* Response of Cart/RetryPreviewLookups. The preview page's JS moves these rows
+   into the existing form/sections in place, so nothing the user already edited
+   on the page is re-rendered. *@
+<div id="retried-rows">
+    @foreach (var row in Model.Rows)
+    {
+        <partial name="_CartPreviewRow" model="row" />
+    }
+</div>
+<div id="still-skipped">
+    @foreach (var skip in Model.StillSkipped)
+    {
+        <partial name="_SkippedCartRow" model="skip" />
+    }
+</div>

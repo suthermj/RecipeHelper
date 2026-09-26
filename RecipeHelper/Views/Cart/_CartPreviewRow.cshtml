@@ -1,0 +1,80 @@
+@using RecipeHelper.Models.Kroger
+@using RecipeHelper.Utility
+@model CartPreviewRowVM
+
+@* One cart preview row. Shared by PreviewAddToCart (initial render) and
+   _RetriedPreviewLookups (rows recovered by the "Retry" button), so both render
+   identical markup and Items[i].* input names. *@
+@{
+    var row = Model.Item;
+    var i = Model.Index;
+    var unitPrice = KrogerBrandDiscount.EstimatedPrice(row.Brand, (decimal)row.RegularPrice, (decimal)row.PromoPrice);
+    var preDiscountPrice = row.OnSale && row.PromoPrice > 0 ? row.PromoPrice : row.RegularPrice;
+    var isKrogerBrandItem = KrogerBrandDiscount.IsKrogerBrand(row.Brand);
+    var needsReview = !string.IsNullOrWhiteSpace(row.ConversionNote);
+}
+<div class="ios-cell gap-3 cart-row" data-unit-price="@unitPrice.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+     data-section="@(needsReview ? "review" : "mapped")"
+     style="border-bottom: 0.5px solid var(--ios-separator); align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
+
+    <div class="pt-0.5 shrink-0">
+        <input type="checkbox"
+               class="row-include h-5 w-5 rounded-full"
+               style="accent-color: var(--ios-red);"
+               name="Items[@i].Include"
+               value="true"
+               checked />
+        <input type="hidden" name="Items[@i].Include" value="false" />
+        <input type="hidden" name="Items[@i].Upc" value="@row.Upc" />
+    </div>
+
+    <div class="row-image h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl" style="background: var(--ios-fill);">
+        <img src="https://www.kroger.com/product/images/medium/front/@row.Upc"
+             alt="@row.Name"
+             class="h-full w-full object-cover" />
+    </div>
+
+    <div class="flex-1 min-w-0 space-y-1">
+        <p class="row-name text-[15px] font-semibold leading-snug" style="color: var(--ios-label);">@row.Name</p>
+        <div class="row-details space-y-1">
+            <div class="flex flex-wrap items-center gap-2">
+                @if (isKrogerBrandItem && preDiscountPrice > 0)
+                {
+                    <span class="ios-badge" style="background: #E8F8ED; color: #1F9D55;">-10%</span>
+                    <span class="text-[13px] font-semibold" style="color: #1F9D55;">@unitPrice.ToString("C")</span>
+                    <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@preDiscountPrice.ToString("C")</span>
+                    @if (row.OnSale && row.PromoPrice > 0)
+                    {
+                        <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
+                    }
+                }
+                else if (row.OnSale && row.PromoPrice > 0)
+                {
+                    <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@row.PromoPrice.ToString("C")</span>
+                    <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@row.RegularPrice.ToString("C")</span>
+                    <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
+                }
+                else if (row.RegularPrice > 0)
+                {
+                    <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@row.RegularPrice.ToString("C")</span>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(row.OriginalIngredient))
+            {
+                <p class="text-[11px]" style="color: var(--ios-label-2);">Needed: @row.OriginalIngredient</p>
+            }
+            @if (needsReview)
+            {
+                <p class="text-[11px]" style="color: #FF9500;">&#9888; @row.ConversionNote</p>
+            }
+            <div class="flex items-center gap-2 pt-1">
+                <label class="text-[12px]" style="color: var(--ios-label-2);">Qty</label>
+                <input type="number"
+                       name="Items[@i].Quantity"
+                       value="@row.QuantityToAdd"
+                       min="1"
+                       class="row-quantity field-input w-16 text-right py-1" style="font-size: 14px;" />
+            </div>
+        </div>
+    </div>
+</div>

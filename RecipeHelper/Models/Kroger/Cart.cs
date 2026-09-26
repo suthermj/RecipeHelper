@@ -126,6 +126,35 @@ namespace RecipeHelper.Models.Kroger
         public string Name { get; set; } = "";
         public string Reason { get; set; } = "";
         public decimal Quantity { get; set; }
+        // Only set for lookup failures (the ingredient was mapped, but fetching the
+        // Kroger product failed) -- enough to re-run the conversion for just this item
+        // from the preview page's "Retry" button.
+        public string? Upc { get; set; }
+        public string? Measurement { get; set; }
+        public bool CanRetry => !string.IsNullOrWhiteSpace(Upc);
+    }
+
+    // One row of Cart/PreviewAddToCart (Views/Cart/_CartPreviewRow.cshtml). Index is
+    // the row's Items[i] position in the submitted form.
+    public class CartPreviewRowVM
+    {
+        public AddToCartPreviewItemVM Item { get; set; } = null!;
+        public int Index { get; set; }
+    }
+
+    // Response of CartController.RetryPreviewLookups (Views/Cart/_RetriedPreviewLookups.cshtml).
+    public class RetriedPreviewLookupsVM
+    {
+        public List<CartPreviewRowVM> Rows { get; set; } = new();
+        public List<SkippedCartItem> StillSkipped { get; set; } = new();
+    }
+
+    public class RetryPreviewLookupsRequest
+    {
+        public List<SkippedCartItem> Items { get; set; } = new();
+        // Index to give the first recovered row, so its Items[i].* inputs continue the
+        // form's existing contiguous sequence and still model-bind.
+        public int StartIndex { get; set; }
     }
 
     public class ConvertIngredientsResult

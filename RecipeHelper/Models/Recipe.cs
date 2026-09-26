@@ -131,6 +131,8 @@ namespace RecipeHelper.Models
         // string is what lets the by-recipe view (#78) and the merged section view stay
         // in sync when toggling the same ingredient from either one. Count and Unknown
         // both bucket as "Unit", matching the `default:` case in that same aggregation.
+        //
+        // The identity half is GroupKey when set (see below), else the normalized name.
         public string DimensionKey
         {
             get
@@ -142,8 +144,16 @@ namespace RecipeHelper.Models
                     MeasureDimension.Weight => "Weight",
                     _ => "Unit"
                 };
-                return $"{Name?.Trim().ToLowerInvariant()}|{bucket}";
+                return $"{GroupKey ?? Name?.Trim().ToLowerInvariant()}|{bucket}";
             }
         }
+
+        // Which merged row this ingredient belongs to on the review page, set by
+        // DinnerController.SubmitDinnerSelections. It's the linked Kroger UPC when there
+        // is one, so differently-worded ingredients that buy the same product
+        // ("Garlic Cloves (Minced)", "garlic minced", "garlic, minced") merge into one
+        // row instead of one row -- and one toggle -- per wording. Unlinked ingredients
+        // fall back to their normalized name.
+        public string? GroupKey { get; set; }
     }
 }

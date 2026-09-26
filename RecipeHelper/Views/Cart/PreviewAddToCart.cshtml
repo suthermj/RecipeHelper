@@ -1,4 +1,5 @@
 @using RecipeHelper.Models.Kroger
+@using RecipeHelper.Utility
 @model AddToCartPreviewVM
 
 @{
@@ -11,15 +12,8 @@
     ViewData["BackLabel"] = isProductsOrigin ? "Products" : "Ingredients";
     var totalItems = Model.Items.Sum(i => i.QuantityToAdd);
 
-    var krogerBrands = new[] { "kroger", "simple truth", "private selection", "hemisfares" };
-    bool IsKrogerBrand(string? brand) =>
-        brand != null && krogerBrands.Any(b => brand.Contains(b, StringComparison.OrdinalIgnoreCase));
-
-    decimal UnitPrice(AddToCartPreviewItemVM item)
-    {
-        decimal basePrice = item.OnSale && item.PromoPrice > 0 ? (decimal)item.PromoPrice : (decimal)item.RegularPrice;
-        return IsKrogerBrand(item.Brand) ? Math.Round(basePrice * 0.9m, 2) : basePrice;
-    }
+    decimal UnitPrice(AddToCartPreviewItemVM item) =>
+        KrogerBrandDiscount.EstimatedPrice(item.Brand, (decimal)item.RegularPrice, (decimal)item.PromoPrice);
 
     var estimatedTotal = Model.Items.Sum(i => UnitPrice(i) * i.QuantityToAdd);
 
@@ -28,80 +22,11 @@
     // before ordering); everything else converted cleanly. Indices below are each
     // item's position in Model.Items and stay stable across the regrouping -- the
     // Items[i].* hidden inputs bind by name, not by DOM order, so it doesn't matter
-    // that rows render out of their original sequence.
+    // that rows render out of their original sequence. Rows live in
+    // _CartPreviewRow.cshtml, shared with the "Retry" response (_RetriedPreviewLookups).
     var indexedItems = Model.Items.Select((item, idx) => (Item: item, Idx: idx)).ToList();
     var needsReview = indexedItems.Where(x => !string.IsNullOrWhiteSpace(x.Item.ConversionNote)).ToList();
     var correctlyMapped = indexedItems.Where(x => string.IsNullOrWhiteSpace(x.Item.ConversionNote)).ToList();
-
-    Func<int, object> RenderCartRow = @<div class="ios-cell gap-3 cart-row" data-unit-price="@UnitPrice(Model.Items[item]).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
-         style="border-bottom: 0.5px solid var(--ios-separator); align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
-        @{ var row = Model.Items[item]; }
-
-        <div class="pt-0.5 shrink-0">
-            <input type="checkbox"
-                   class="row-include h-5 w-5 rounded-full"
-                   style="accent-color: var(--ios-red);"
-                   name="Items[@item].Include"
-                   value="true"
-                   checked />
-            <input type="hidden" name="Items[@item].Include" value="false" />
-            <input type="hidden" name="Items[@item].Upc" value="@row.Upc" />
-        </div>
-
-        <div class="row-image h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl" style="background: var(--ios-fill);">
-            <img src="https://www.kroger.com/product/images/medium/front/@row.Upc"
-                 alt="@row.Name"
-                 class="h-full w-full object-cover" />
-        </div>
-
-        <div class="flex-1 min-w-0 space-y-1">
-            <p class="row-name text-[15px] font-semibold leading-snug" style="color: var(--ios-label);">@row.Name</p>
-            <div class="row-details space-y-1">
-                <div class="flex flex-wrap items-center gap-2">
-                    @{
-                        var preDiscountPrice = row.OnSale && row.PromoPrice > 0 ? row.PromoPrice : row.RegularPrice;
-                        var isKrogerBrandItem = IsKrogerBrand(row.Brand);
-                    }
-                    @if (isKrogerBrandItem && preDiscountPrice > 0)
-                    {
-                        <span class="ios-badge" style="background: #E8F8ED; color: #1F9D55;">-10%</span>
-                        <span class="text-[13px] font-semibold" style="color: #1F9D55;">@UnitPrice(row).ToString("C")</span>
-                        <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@preDiscountPrice.ToString("C")</span>
-                        @if (row.OnSale && row.PromoPrice > 0)
-                        {
-                            <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
-                        }
-                    }
-                    else if (row.OnSale && row.PromoPrice > 0)
-                    {
-                        <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@row.PromoPrice.ToString("C")</span>
-                        <span class="text-[12px] line-through" style="color: var(--ios-label-2);">@row.RegularPrice.ToString("C")</span>
-                        <span class="ios-badge" style="background: #FFF0F0; color: var(--ios-red);">Sale</span>
-                    }
-                    else if (row.RegularPrice > 0)
-                    {
-                        <span class="text-[13px] font-semibold" style="color: var(--ios-label);">@row.RegularPrice.ToString("C")</span>
-                    }
-                </div>
-                @if (!string.IsNullOrWhiteSpace(row.OriginalIngredient))
-                {
-                    <p class="text-[11px]" style="color: var(--ios-label-2);">Needed: @row.OriginalIngredient</p>
-                }
-                @if (!string.IsNullOrWhiteSpace(row.ConversionNote))
-                {
-                    <p class="text-[11px]" style="color: #FF9500;">&#9888; @row.ConversionNote</p>
-                }
-                <div class="flex items-center gap-2 pt-1">
-                    <label class="text-[12px]" style="color: var(--ios-label-2);">Qty</label>
-                    <input type="number"
-                           name="Items[@item].Quantity"
-                           value="@row.QuantityToAdd"
-                           min="1"
-                           class="row-quantity field-input w-16 text-right py-1" style="font-size: 14px;" />
-                </div>
-            </div>
-        </div>
-    </div>;
 }
 
 <div class="pt-2 pb-32">
@@ -127,66 +52,83 @@
                     <input type="checkbox" id="select-all" checked
                            class="h-5 w-5 rounded-full" style="accent-color: var(--ios-red);" />
                     <span class="flex-1 text-[15px] font-semibold" style="color: var(--ios-label);">Select all</span>
-                    <span class="text-[13px]" style="color: var(--ios-label-2);">@totalItems item@(totalItems == 1 ? "" : "s")</span>
+                    <span id="cart-item-count" class="text-[13px]" style="color: var(--ios-label-2);">@totalItems item@(totalItems == 1 ? "" : "s")</span>
                 </label>
             </div>
 
-            @if (needsReview.Any())
-            {
-                <div class="mx-4 mb-4 section-collapsible">
-                    <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
-                        <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: #FF9500;">Needs review (@needsReview.Count)</span>
-                        <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
-                        </svg>
-                    </button>
-                    <div class="section-body ios-group mt-1">
-                        @foreach (var x in needsReview)
-                        {
-                            @RenderCartRow(x.Idx)
-                        }
-                    </div>
+            @* Both sections are always rendered (hidden while empty) so rows recovered by
+               the "Retry" button below have a section to land in. *@
+            <div class="mx-4 mb-4 section-collapsible@(needsReview.Any() ? "" : " hidden")" data-section="review">
+                <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
+                    <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: #FF9500;">Needs review (<span class="section-count">@needsReview.Count</span>)</span>
+                    <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+                    </svg>
+                </button>
+                <div class="section-body ios-group mt-1">
+                    @foreach (var x in needsReview)
+                    {
+                        <partial name="_CartPreviewRow" model="new CartPreviewRowVM { Item = x.Item, Index = x.Idx }" />
+                    }
                 </div>
-            }
+            </div>
 
-            @if (correctlyMapped.Any())
-            {
-                <div class="mx-4 mb-4 section-collapsible" data-default-collapsed="true">
-                    <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
-                        <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">Correctly mapped (@correctlyMapped.Count)</span>
-                        <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
-                        </svg>
-                    </button>
-                    <div class="section-body ios-group mt-1 hidden">
-                        @foreach (var x in correctlyMapped)
-                        {
-                            @RenderCartRow(x.Idx)
-                        }
-                    </div>
+            <div class="mx-4 mb-4 section-collapsible@(correctlyMapped.Any() ? "" : " hidden")" data-section="mapped" data-default-collapsed="true">
+                <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
+                    <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">Correctly mapped (<span class="section-count">@correctlyMapped.Count</span>)</span>
+                    <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+                    </svg>
+                </button>
+                <div class="section-body ios-group mt-1 hidden">
+                    @foreach (var x in correctlyMapped)
+                    {
+                        <partial name="_CartPreviewRow" model="new CartPreviewRowVM { Item = x.Item, Index = x.Idx }" />
+                    }
                 </div>
-            }
+            </div>
         </form>
     }
 
+    @* Skipped items split by what fixes them: "Lookup failed" (Kroger errored --
+       retry) vs "Not mapped" (no product, or Kroger no longer has it -- remap the
+       ingredient). Both are always rendered when anything was skipped (hidden while
+       empty) because a retry can move an item from the first into the second. *@
     @if (Model.Skipped.Any())
     {
-        <div class="mx-4 mb-4 section-collapsible">
+        var failedLookups = Model.Skipped.Where(sk => sk.Retryable).ToList();
+        var notMapped = Model.Skipped.Where(sk => !sk.Retryable).ToList();
+
+        <div id="failed-section" class="mx-4 mb-4 section-collapsible@(failedLookups.Any() ? "" : " hidden")">
             <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
-                <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-red);">Not mapped (@Model.Skipped.Count)</span>
+                <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-red);">Lookup failed (<span class="section-count">@failedLookups.Count</span>)</span>
+                <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+                </svg>
+            </button>
+            @* Re-fetches only these items; recovered rows are added to the list above
+               without resetting anything already changed on this page. *@
+            <button type="button" id="retry-lookups" class="btn-secondary w-full mt-1 mb-2">Retry</button>
+            <p id="retry-status" class="hidden text-[12px] mb-2" style="color: var(--ios-label-2);"></p>
+            <div class="section-body ios-group mt-1">
+                @foreach (var skip in failedLookups)
+                {
+                    <partial name="_SkippedCartRow" model="skip" />
+                }
+            </div>
+        </div>
+
+        <div id="notmapped-section" class="mx-4 mb-4 section-collapsible@(notMapped.Any() ? "" : " hidden")">
+            <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
+                <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">Not mapped (<span class="section-count">@notMapped.Count</span>)</span>
                 <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
                 </svg>
             </button>
             <div class="section-body ios-group mt-1">
-                @foreach (var skip in Model.Skipped)
+                @foreach (var skip in notMapped)
                 {
-                    <div class="ios-cell" style="border-bottom: 0.5px solid var(--ios-separator);">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-[14px] font-medium" style="color: var(--ios-label);">@skip.Name</p>
-                            <p class="text-[12px]" style="color: var(--ios-label-2);">@skip.Reason</p>
-                        </div>
-                    </div>
+                    <partial name="_SkippedCartRow" model="skip" />
                 }
             </div>
         </div>
@@ -217,12 +159,16 @@
         document.addEventListener('DOMContentLoaded', function () {
             var selectAll = document.getElementById('select-all');
             var totalEl = document.getElementById('cart-estimated-total');
-            var rows = document.querySelectorAll('.cart-row');
+            var countEl = document.getElementById('cart-item-count');
+
+            // Queried fresh each time (not cached at load) because the Retry button
+            // below can add rows after the page has rendered.
+            function allRows() { return document.querySelectorAll('.cart-row'); }
 
             function recalcTotal() {
                 if (!totalEl) return;
                 var total = 0;
-                rows.forEach(function (row) {
+                allRows().forEach(function (row) {
                     var checkbox = row.querySelector('.row-include');
                     var qtyInput = row.querySelector('.row-quantity');
                     if (!checkbox || !qtyInput || !checkbox.checked) return;
@@ -248,20 +194,22 @@
                 if (details) details.classList.toggle('hidden', collapsed);
             }
 
-            rows.forEach(function (row) {
+            function wireRow(row) {
                 var checkbox = row.querySelector('.row-include');
                 var qtyInput = row.querySelector('.row-quantity');
                 if (checkbox) checkbox.addEventListener('change', function () { recalcTotal(); updateRowCollapse(row); });
                 if (qtyInput) qtyInput.addEventListener('input', recalcTotal);
                 updateRowCollapse(row);
-            });
+            }
+
+            allRows().forEach(wireRow);
 
             if (selectAll) {
                 selectAll.addEventListener('change', function () {
                     document.querySelectorAll('.row-include').forEach(function (cb) {
                         cb.checked = selectAll.checked;
                     });
-                    rows.forEach(updateRowCollapse);
+                    allRows().forEach(updateRowCollapse);
                     recalcTotal();
                 });
             }
@@ -285,7 +233,118 @@
                     if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
                 });
             });
+
+            // Retry failed product lookups. Posts only the failed items and appends the
+            // recovered rows into the existing form -- the page is never reloaded or
+            // re-rendered, so quantities and checkboxes already changed here survive.
+            var retryBtn = document.getElementById('retry-lookups');
+            var retryStatus = document.getElementById('retry-status');
+            var failedSection = document.getElementById('failed-section');
+            var notMappedSection = document.getElementById('notmapped-section');
+
+            // Recount a section and hide its header/list once empty. The "Lookup
+            // failed" section itself stays shown so its status line can still report
+            // the result of the last retry.
+            function refreshSection(section, keepVisible) {
+                if (!section) return 0;
+                var n = section.querySelectorAll('.skipped-row').length;
+                var el = section.querySelector('.section-count');
+                if (el) el.textContent = n;
+                section.querySelector('.section-toggle').classList.toggle('hidden', n === 0);
+                section.querySelector('.section-body').classList.toggle('hidden', n === 0);
+                if (!keepVisible) section.classList.toggle('hidden', n === 0);
+                return n;
+            }
+
+            if (retryBtn && failedSection) {
+                retryBtn.addEventListener('click', async function () {
+                    var failed = Array.prototype.slice.call(failedSection.querySelectorAll('.skipped-row'));
+                    if (!failed.length) return;
+
+                    var form = document.getElementById('cartForm');
+                    var tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                    var payload = {
+                        startIndex: allRows().length,
+                        items: failed.map(function (el) {
+                            return {
+                                name: el.dataset.retryName,
+                                upc: el.dataset.retryUpc,
+                                measurement: el.dataset.retryMeasurement,
+                                quantity: parseFloat(el.dataset.retryQuantity) || 0
+                            };
+                        })
+                    };
+
+                    retryBtn.disabled = true;
+                    retryBtn.style.opacity = '0.5';
+                    retryBtn.textContent = 'Retrying…';
+                    retryStatus.classList.add('hidden');
+
+                    try {
+                        var resp = await fetch('@Url.Action("RetryPreviewLookups", "Cart")', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': tokenInput ? tokenInput.value : ''
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+                        var doc = new DOMParser().parseFromString(await resp.text(), 'text/html');
+                        var newRows = doc.querySelectorAll('#retried-rows .cart-row');
+
+                        // Nothing to preserve on a page with no cart rows (and no form to
+                        // add rows into) -- the server already updated the cached preview.
+                        if (newRows.length && !form) { window.location.reload(); return; }
+
+                        newRows.forEach(function (row) {
+                            var section = form.querySelector('.section-collapsible[data-section="' + row.dataset.section + '"]');
+                            var imported = document.importNode(row, true);
+                            section.querySelector('.section-body').appendChild(imported);
+                            section.classList.remove('hidden');
+                            section.querySelector('.section-count').textContent = section.querySelectorAll('.cart-row').length;
+                            wireRow(imported);
+                        });
+
+                        // Swap the retried rows for whatever still failed: transient
+                        // failures back into "Lookup failed", products Kroger now says
+                        // don't exist into "Not mapped".
+                        failed.forEach(function (el) { el.remove(); });
+                        doc.querySelectorAll('#still-skipped .skipped-row').forEach(function (el) {
+                            var target = el.classList.contains('retryable') ? failedSection : notMappedSection;
+                            target.querySelector('.section-body').appendChild(document.importNode(el, true));
+                        });
+                        var stillFailed = refreshSection(failedSection, true);
+                        refreshSection(notMappedSection, false);
+                        retryBtn.classList.toggle('hidden', stillFailed === 0);
+
+                        if (countEl) {
+                            var count = 0;
+                            allRows().forEach(function (row) {
+                                var q = row.querySelector('.row-quantity');
+                                count += q ? (parseInt(q.value, 10) || 0) : 0;
+                            });
+                            countEl.textContent = count + ' item' + (count === 1 ? '' : 's');
+                        }
+                        recalcTotal();
+
+                        var parts = [];
+                        if (newRows.length) parts.push('Added ' + newRows.length + ' item' + (newRows.length === 1 ? '' : 's') + '.');
+                        if (stillFailed) parts.push(stillFailed + ' still failed — try again in a moment.');
+                        if (!parts.length) parts.push('Kroger doesn’t have those products — remap them under Not mapped.');
+                        retryStatus.textContent = parts.join(' ');
+                        retryStatus.classList.remove('hidden');
+                    } catch (e) {
+                        retryStatus.textContent = 'Retry failed (' + e.message + '). Your changes are kept — try again.';
+                        retryStatus.classList.remove('hidden');
+                    } finally {
+                        retryBtn.disabled = false;
+                        retryBtn.style.opacity = '';
+                        retryBtn.textContent = 'Retry';
+                    }
+                });
+            }
         });
     </script>
 }
-

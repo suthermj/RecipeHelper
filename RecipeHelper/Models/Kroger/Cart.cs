@@ -126,12 +126,16 @@ namespace RecipeHelper.Models.Kroger
         public string Name { get; set; } = "";
         public string Reason { get; set; } = "";
         public decimal Quantity { get; set; }
-        // Only set for lookup failures (the ingredient was mapped, but fetching the
-        // Kroger product failed) -- enough to re-run the conversion for just this item
-        // from the preview page's "Retry" button.
+        // Only set when the ingredient was mapped but fetching its Kroger product
+        // failed -- enough to re-run the conversion for just this item from the
+        // preview page's "Retry" button.
         public string? Upc { get; set; }
         public string? Measurement { get; set; }
-        public bool CanRetry => !string.IsNullOrWhiteSpace(Upc);
+        // True only for transient lookup failures, which the preview lists in their
+        // own "Lookup failed" section with a Retry button. Unmapped items and products
+        // Kroger reports as not found stay under "Not mapped": retrying can't fix
+        // those, they need (re)mapping.
+        public bool Retryable { get; set; }
     }
 
     // One row of Cart/PreviewAddToCart (Views/Cart/_CartPreviewRow.cshtml). Index is

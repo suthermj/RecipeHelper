@@ -1,11 +1,12 @@
 @using RecipeHelper.Models.Kroger
 @model SkippedCartItem
 
-@* One "Not mapped" row. Lookup failures are marked .retryable and carry the data
-   the "Retry" button posts back to Cart/RetryPreviewLookups. (A class, not the
-   presence of the data-* attributes: Razor always renders data-* attributes,
-   even when their value is null.) *@
-<div class="ios-cell skipped-row@(Model.CanRetry ? " retryable" : "")" style="border-bottom: 0.5px solid var(--ios-separator);"
+@* One skipped-item row, used in both the "Lookup failed" and "Not mapped"
+   sections. Retryable rows are marked .retryable (a class, not the presence of
+   the data-* attributes: Razor always renders data-* attributes, even when their
+   value is null) and carry the data the "Retry" button posts back to
+   Cart/RetryPreviewLookups. *@
+<div class="ios-cell skipped-row@(Model.Retryable ? " retryable" : "")" style="border-bottom: 0.5px solid var(--ios-separator);"
      data-retry-upc="@Model.Upc"
      data-retry-name="@Model.Name"
      data-retry-measurement="@Model.Measurement"

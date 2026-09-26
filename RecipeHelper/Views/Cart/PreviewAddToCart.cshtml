@@ -90,25 +90,43 @@
         </form>
     }
 
+    @* Skipped items split by what fixes them: "Lookup failed" (Kroger errored --
+       retry) vs "Not mapped" (no product, or Kroger no longer has it -- remap the
+       ingredient). Both are always rendered when anything was skipped (hidden while
+       empty) because a retry can move an item from the first into the second. *@
     @if (Model.Skipped.Any())
     {
-        var retryableCount = Model.Skipped.Count(sk => sk.CanRetry);
-        <div id="skipped-section" class="mx-4 mb-4 section-collapsible">
+        var failedLookups = Model.Skipped.Where(sk => sk.Retryable).ToList();
+        var notMapped = Model.Skipped.Where(sk => !sk.Retryable).ToList();
+
+        <div id="failed-section" class="mx-4 mb-4 section-collapsible@(failedLookups.Any() ? "" : " hidden")">
             <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
-                <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-red);">Not mapped (<span class="section-count">@Model.Skipped.Count</span>)</span>
+                <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-red);">Lookup failed (<span class="section-count">@failedLookups.Count</span>)</span>
                 <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
                 </svg>
             </button>
-            @* Re-fetches only the failed lookups; recovered rows are added to the list
-               above without resetting anything already changed on this page. *@
-            <button type="button" id="retry-lookups"
-                    class="btn-secondary w-full mt-1 mb-2@(retryableCount > 0 ? "" : " hidden")">
-                Retry failed lookups (<span id="retry-count">@retryableCount</span>)
-            </button>
+            @* Re-fetches only these items; recovered rows are added to the list above
+               without resetting anything already changed on this page. *@
+            <button type="button" id="retry-lookups" class="btn-secondary w-full mt-1 mb-2">Retry</button>
             <p id="retry-status" class="hidden text-[12px] mb-2" style="color: var(--ios-label-2);"></p>
             <div class="section-body ios-group mt-1">
-                @foreach (var skip in Model.Skipped)
+                @foreach (var skip in failedLookups)
+                {
+                    <partial name="_SkippedCartRow" model="skip" />
+                }
+            </div>
+        </div>
+
+        <div id="notmapped-section" class="mx-4 mb-4 section-collapsible@(notMapped.Any() ? "" : " hidden")">
+            <button type="button" class="section-toggle flex w-full items-center justify-between py-1.5">
+                <span class="text-[13px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">Not mapped (<span class="section-count">@notMapped.Count</span>)</span>
+                <svg class="section-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+                </svg>
+            </button>
+            <div class="section-body ios-group mt-1">
+                @foreach (var skip in notMapped)
                 {
                     <partial name="_SkippedCartRow" model="skip" />
                 }
@@ -221,16 +239,26 @@
             // re-rendered, so quantities and checkboxes already changed here survive.
             var retryBtn = document.getElementById('retry-lookups');
             var retryStatus = document.getElementById('retry-status');
-            var skippedSection = document.getElementById('skipped-section');
+            var failedSection = document.getElementById('failed-section');
+            var notMappedSection = document.getElementById('notmapped-section');
 
-            function setSectionCount(section, n) {
-                var el = section && section.querySelector('.section-count');
+            // Recount a section and hide its header/list once empty. The "Lookup
+            // failed" section itself stays shown so its status line can still report
+            // the result of the last retry.
+            function refreshSection(section, keepVisible) {
+                if (!section) return 0;
+                var n = section.querySelectorAll('.skipped-row').length;
+                var el = section.querySelector('.section-count');
                 if (el) el.textContent = n;
+                section.querySelector('.section-toggle').classList.toggle('hidden', n === 0);
+                section.querySelector('.section-body').classList.toggle('hidden', n === 0);
+                if (!keepVisible) section.classList.toggle('hidden', n === 0);
+                return n;
             }
 
-            if (retryBtn && skippedSection) {
+            if (retryBtn && failedSection) {
                 retryBtn.addEventListener('click', async function () {
-                    var failed = Array.prototype.slice.call(skippedSection.querySelectorAll('.skipped-row.retryable'));
+                    var failed = Array.prototype.slice.call(failedSection.querySelectorAll('.skipped-row'));
                     if (!failed.length) return;
 
                     var form = document.getElementById('cartForm');
@@ -249,9 +277,8 @@
 
                     retryBtn.disabled = true;
                     retryBtn.style.opacity = '0.5';
-                    retryStatus.classList.add('hidden');
-                    var originalLabel = retryBtn.innerHTML;
                     retryBtn.textContent = 'Retrying…';
+                    retryStatus.classList.add('hidden');
 
                     try {
                         var resp = await fetch('@Url.Action("RetryPreviewLookups", "Cart")', {
@@ -276,26 +303,21 @@
                             var imported = document.importNode(row, true);
                             section.querySelector('.section-body').appendChild(imported);
                             section.classList.remove('hidden');
-                            setSectionCount(section, section.querySelectorAll('.cart-row').length);
+                            section.querySelector('.section-count').textContent = section.querySelectorAll('.cart-row').length;
                             wireRow(imported);
                         });
 
-                        // Replace the retried "Not mapped" rows with whatever still failed.
+                        // Swap the retried rows for whatever still failed: transient
+                        // failures back into "Lookup failed", products Kroger now says
+                        // don't exist into "Not mapped".
                         failed.forEach(function (el) { el.remove(); });
-                        var skippedBody = skippedSection.querySelector('.section-body');
                         doc.querySelectorAll('#still-skipped .skipped-row').forEach(function (el) {
-                            skippedBody.appendChild(document.importNode(el, true));
+                            var target = el.classList.contains('retryable') ? failedSection : notMappedSection;
+                            target.querySelector('.section-body').appendChild(document.importNode(el, true));
                         });
-
-                        var remaining = skippedSection.querySelectorAll('.skipped-row').length;
-                        var retryable = skippedSection.querySelectorAll('.skipped-row.retryable').length;
-                        setSectionCount(skippedSection, remaining);
-                        // Once nothing is left, hide the header and list but leave the
-                        // status line below visible so the result is still reported.
-                        skippedSection.querySelector('.section-toggle').classList.toggle('hidden', remaining === 0);
-                        skippedBody.classList.toggle('hidden', remaining === 0);
-                        // (#retry-count itself is restored in the finally block below.)
-                        retryBtn.classList.toggle('hidden', retryable === 0);
+                        var stillFailed = refreshSection(failedSection, true);
+                        refreshSection(notMappedSection, false);
+                        retryBtn.classList.toggle('hidden', stillFailed === 0);
 
                         if (countEl) {
                             var count = 0;
@@ -307,9 +329,11 @@
                         }
                         recalcTotal();
 
-                        retryStatus.textContent = newRows.length
-                            ? 'Added ' + newRows.length + ' item' + (newRows.length === 1 ? '' : 's') + (retryable ? '; ' + retryable + ' still failed.' : '.')
-                            : 'Still couldn’t reach those products. Try again in a moment.';
+                        var parts = [];
+                        if (newRows.length) parts.push('Added ' + newRows.length + ' item' + (newRows.length === 1 ? '' : 's') + '.');
+                        if (stillFailed) parts.push(stillFailed + ' still failed — try again in a moment.');
+                        if (!parts.length) parts.push('Kroger doesn’t have those products — remap them under Not mapped.');
+                        retryStatus.textContent = parts.join(' ');
                         retryStatus.classList.remove('hidden');
                     } catch (e) {
                         retryStatus.textContent = 'Retry failed (' + e.message + '). Your changes are kept — try again.';
@@ -317,9 +341,7 @@
                     } finally {
                         retryBtn.disabled = false;
                         retryBtn.style.opacity = '';
-                        retryBtn.innerHTML = originalLabel;
-                        var rc = document.getElementById('retry-count');
-                        if (rc) rc.textContent = skippedSection.querySelectorAll('.skipped-row.retryable').length;
+                        retryBtn.textContent = 'Retry';
                     }
                 });
             }

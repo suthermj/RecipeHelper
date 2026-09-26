@@ -130,7 +130,7 @@ namespace RecipeHelper.Tests
             Assert.Empty(result.Items);
             var milk = Assert.Single(result.Skipped, s => s.Name == "Milk");
             Assert.Equal(KrogerService.LookupFailedReason, milk.Reason);
-            Assert.True(milk.CanRetry);
+            Assert.True(milk.Retryable);
             Assert.Equal("111", milk.Upc);
             Assert.Equal("Cups", milk.Measurement);
             Assert.Equal(2, milk.Quantity);
@@ -138,6 +138,7 @@ namespace RecipeHelper.Tests
 
             var cornbread = Assert.Single(result.Skipped, s => s.Name == "Cornbread");
             Assert.Equal(KrogerService.ProductNotFoundReason, cornbread.Reason);
+            Assert.False(cornbread.Retryable); // needs remapping, not a retry
             Assert.Equal(1, handler.Calls["404"]); // 404 isn't transient -- no retry
         }
     }

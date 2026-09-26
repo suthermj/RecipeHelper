@@ -106,7 +106,7 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RetryPreviewLookups([FromBody] RetryPreviewLookupsRequest request)
         {
-            var toRetry = (request?.Items ?? new()).Where(i => i.CanRetry).ToList();
+            var toRetry = (request?.Items ?? new()).Where(i => !string.IsNullOrWhiteSpace(i.Upc)).ToList();
             _logger.LogInformation("RetryPreviewLookups started. ItemCount={ItemCount}", toRetry.Count);
 
             var conversionResult = await _krogerService.ConvertIngredientsToCartItems(new AddToCartVM

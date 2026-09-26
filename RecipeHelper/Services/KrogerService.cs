@@ -472,13 +472,15 @@ namespace RecipeHelper.Services
                     _logger.LogWarning("Could not fetch product details for UPC {upc} ({name}), skipping.", item.Upc, itemName);
                     // Upc + Measurement ride along so the preview page can retry just
                     // these lookups later (CartController.RetryPreviewLookups).
+                    var reason = lookupFailures.TryGetValue(item.Upc, out var r) ? r : LookupFailedReason;
                     skipped.Add(new SkippedCartItem
                     {
                         Name = itemName,
-                        Reason = lookupFailures.TryGetValue(item.Upc, out var reason) ? reason : LookupFailedReason,
+                        Reason = reason,
                         Quantity = item.Quantity,
                         Upc = item.Upc,
                         Measurement = item.Measurement,
+                        Retryable = reason == LookupFailedReason,
                     });
                     continue;
                 }

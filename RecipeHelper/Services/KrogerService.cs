@@ -291,6 +291,10 @@ namespace RecipeHelper.Services
         private async Task<(KrogerProductDto? Product, string? FailureReason)> FetchProductWithRetry(string upc, string locationId, string token)
         {
             var url = $"{_baseUri}/products/{upc}?filter.locationId={locationId}";
+            // The UPC arrives from a posted form (including the preview's Retry button),
+            // so strip line breaks before logging it -- otherwise a crafted value could
+            // forge extra log entries.
+            var logUpc = upc.Replace("\r", "").Replace("\n", "");
 
             for (var attempt = 1; ; attempt++)
             {
@@ -311,14 +315,14 @@ namespace RecipeHelper.Services
                         if (detailsResponse?.data != null)
                             return (detailsResponse.data.ToKrogerProduct(), null);
 
-                        _logger.LogWarning("Product lookup for UPC {Upc} returned no data", upc);
+                        _logger.LogWarning("Product lookup for UPC {Upc} returned no data", logUpc);
                         return (null, ProductNotFoundReason);
                     }
 
                     var status = (int)response.StatusCode;
                     if (status == 404)
                     {
-                        _logger.LogWarning("Product lookup for UPC {Upc} returned 404", upc);
+                        _logger.LogWarning("Product lookup for UPC {Upc} returned 404", logUpc);
                         return (null, ProductNotFoundReason);
                     }
 
@@ -326,7 +330,7 @@ namespace RecipeHelper.Services
                     failureDetail = $"HTTP {status}";
                     if (!transient)
                     {
-                        _logger.LogWarning("Product lookup for UPC {Upc} failed with non-retryable StatusCode={StatusCode}", upc, status);
+                        _logger.LogWarning("Product lookup for UPC {Upc} failed with non-retryable StatusCode={StatusCode}", logUpc, status);
                         return (null, LookupFailedReason);
                     }
 
@@ -335,19 +339,19 @@ namespace RecipeHelper.Services
                 }
                 catch (Exception ex)
                 {
-                    failureDetail = $"{ex.GetType().Name}: {ex.Message}";
+                    failureDetail = $"{ex.GetType().Name}: {ex.Message}".Replace("\r", "").Replace("\n", " ");
                     // Network errors and per-attempt timeouts are worth retrying;
                     // anything else (bad JSON, a mapping bug) won't fix itself.
                     if (ex is not HttpRequestException && ex is not TaskCanceledException)
                     {
-                        _logger.LogWarning(ex, "Product lookup for UPC {Upc} failed. {Detail}", upc, failureDetail);
+                        _logger.LogWarning(ex, "Product lookup for UPC {Upc} failed. {Detail}", logUpc, failureDetail);
                         return (null, LookupFailedReason);
                     }
                 }
 
                 if (attempt >= LookupMaxAttempts)
                 {
-                    _logger.LogWarning("Product lookup for UPC {Upc} failed after {Attempts} attempts. LastError={Detail}", upc, attempt, failureDetail);
+                    _logger.LogWarning("Product lookup for UPC {Upc} failed after {Attempts} attempts. LastError={Detail}", logUpc, attempt, failureDetail);
                     return (null, LookupFailedReason);
                 }
 
@@ -356,7 +360,7 @@ namespace RecipeHelper.Services
                 if (retryAfter is { } ra && ra > backoff)
                     backoff = ra < MaxRetryAfter ? ra : MaxRetryAfter;
 
-                _logger.LogInformation("Product lookup for UPC {Upc} attempt {Attempt} failed ({Detail}), retrying in {DelayMs}ms", upc, attempt, failureDetail, (int)backoff.TotalMilliseconds);
+                _logger.LogInformation("Product lookup for UPC {Upc} attempt {Attempt} failed ({Detail}), retrying in {DelayMs}ms", logUpc, attempt, failureDetail, (int)backoff.TotalMilliseconds);
                 await Task.Delay(backoff);
             }
         }

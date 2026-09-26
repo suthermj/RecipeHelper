@@ -21,6 +21,7 @@ namespace RecipeHelper.Models
         public string? Instructions { get; set; }
         public string? DinnerCategory { get; set; }
         public string? SourceUrl { get; set; }
+        public string? ShareToken { get; set; }
         public List<RecipeIngredient> Ingredients { get; set; } = [];
     }
 
@@ -32,6 +33,18 @@ namespace RecipeHelper.Models
         public string? ThumbnailUri { get; set; }
         public string? DinnerCategory { get; set; }
         public string? SourceUrl { get; set; }
+        public List<IngredientVM> Ingredients { get; set; } = [];
+        public List<string> Instructions { get; set; } = new();
+    }
+
+    // Public, read-only view for a recipe's share link (Share/Recipe/{token}) --
+    // recipe content only, no edit/delete/import affordances and no Kroger/pricing
+    // data, mirroring the minimalism of ShareMealPlanVM.
+    public class ShareRecipeVM
+    {
+        public required string RecipeName { get; set; }
+        public string ImageUri { get; set; } = string.Empty;
+        public string? ThumbnailUri { get; set; }
         public List<IngredientVM> Ingredients { get; set; } = [];
         public List<string> Instructions { get; set; } = new();
     }

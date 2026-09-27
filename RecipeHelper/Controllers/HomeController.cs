@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models;
 
@@ -8,6 +9,7 @@ namespace RecipeHelper.Controllers
     // whenever an unhandled exception occurs in production.
     public class HomeController : Controller
     {
+        [AllowAnonymous]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
+using RecipeHelper.Models.Account;
 using RecipeHelper.Models.Dinner;
 using RecipeHelper.Models.IngredientModels;
 using RecipeHelper.Models.Kroger;
@@ -60,6 +61,40 @@ namespace RecipeHelper
                 .HasForeignKey(e => e.RecipeId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            builder.Entity<AppUser>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
+
+            builder.Entity<AppUser>()
+                .HasOne(u => u.Household)
+                .WithMany(h => h.Members)
+                .HasForeignKey(u => u.HouseholdId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<HouseholdInvite>()
+                .HasIndex(i => i.TokenHash)
+                .IsUnique();
+
+            builder.Entity<HouseholdInvite>()
+                .HasOne(i => i.Household)
+                .WithMany()
+                .HasForeignKey(i => i.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict (not cascade): SQL Server rejects a second cascade path from
+            // Household to HouseholdInvite (Household -> Users -> invites).
+            builder.Entity<HouseholdInvite>()
+                .HasOne(i => i.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(i => i.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<HouseholdInvite>()
+                .HasOne(i => i.UsedByUser)
+                .WithMany()
+                .HasForeignKey(i => i.UsedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
         }
 
         public DbSet<Recipe> Recipes { get; set; }
@@ -76,5 +111,9 @@ namespace RecipeHelper
 
         public DbSet<MealPlan> MealPlans { get; set; }
         public DbSet<MealPlanEntry> MealPlanEntries { get; set; }
+
+        public DbSet<Household> Households => Set<Household>();
+        public DbSet<AppUser> Users => Set<AppUser>();
+        public DbSet<HouseholdInvite> HouseholdInvites => Set<HouseholdInvite>();
     }
 }

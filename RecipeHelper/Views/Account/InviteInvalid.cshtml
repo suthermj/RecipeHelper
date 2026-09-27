@@ -1,0 +1,11 @@
+@{
+    ViewData["Title"] = "Invite expired";
+}
+
+<div class="px-4 pt-16 pb-8 max-w-md mx-auto text-center">
+    <h1 class="ios-large-title">Invite link expired</h1>
+    <p class="text-[15px] mt-3" style="color: var(--ios-label-2);">
+        This invite has already been used or is more than 7 days old. Ask for a new one from Settings &rarr; Household.
+    </p>
+    <a asp-controller="Account" asp-action="Login" class="ios-primary-btn mt-8" style="text-decoration: none;">Sign in</a>
+</div>

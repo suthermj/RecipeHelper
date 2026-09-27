@@ -1,4 +1,8 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +14,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RecipeHelper;
+using RecipeHelper.Controllers;
 using RecipeHelper.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,6 +47,78 @@ builder.Services.AddScoped<MeasurementService, MeasurementService>();
 builder.Services.AddScoped<IngredientsService, IngredientsService>();
 builder.Services.AddScoped<ShoppingListService, ShoppingListService>();
 builder.Services.AddScoped<MealPlanService, MealPlanService>();
+builder.Services.AddScoped<AccountService, AccountService>();
+
+// App login. The cookie is encrypted with the data protection keys persisted above,
+// so it survives restarts and deploys -- signing in is meant to be a once-per-device
+// thing, like a native app. It lasts a year and slides: any visit in the second half
+// of that year re-issues it for another full year.
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "RecipeHelper.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        // Lax (not Strict) so the cookie is still sent when Kroger's OAuth login
+        // redirects back to /auth/callback -- a cross-site top-level navigation.
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.ExpireTimeSpan = TimeSpan.FromDays(365);
+        options.SlidingExpiration = true;
+        options.LoginPath = "/Account/Login";
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/Login";
+        options.Events.OnRedirectToLogin = context =>
+        {
+            // A signed-out fetch() gets a plain 401 instead of a redirect to the login
+            // page's HTML, which it can't use. Page scripts already reload on a failed
+            // request, and that reload is a navigation, which does get the redirect.
+            var fetchMode = context.Request.Headers["Sec-Fetch-Mode"].ToString();
+            if (!string.IsNullOrEmpty(fetchMode) && fetchMode != "navigate")
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            else
+                context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        };
+    });
+
+// Every endpoint requires a signed-in user unless it opts out with [AllowAnonymous]
+// (login/setup/join, public share links, the error page). Static files are served
+// before routing, so CSS/JS/icons/manifest/sw.js stay public.
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+// Brute-force guard on the login/setup/join POSTs: 10 attempts per 5 minutes per
+// client IP (the real IP from nginx's X-Forwarded-For, see UseForwardedHeaders below).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(AccountController.RateLimitPolicy, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0,
+            }));
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.ContentType = "text/plain";
+        await context.HttpContext.Response.WriteAsync("Too many sign-in attempts. Wait a few minutes and try again.", token);
+    };
+});
+
+// nginx terminates TLS and proxies to Kestrel over plain HTTP on localhost. Trust its
+// X-Forwarded-For/Proto (loopback proxies are trusted by default) so the app sees the
+// real client IP (rate limiting) and the real https scheme (Secure cookies, links).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 
 builder.Services.AddSingleton(new OpenAIClient(
     apiKey: builder.Configuration["OpenAI:ApiKey"]
@@ -123,6 +200,8 @@ builder.Logging.AddOpenTelemetry(o =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -155,6 +234,9 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseRouting();
 
+app.UseRateLimiter();
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseSession();

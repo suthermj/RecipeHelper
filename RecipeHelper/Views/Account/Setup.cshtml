@@ -1,0 +1,50 @@
+@using RecipeHelper.Models.Account
+@model SetupVM
+
+@{
+    ViewData["Title"] = "Set up";
+}
+
+<div class="px-4 pt-12 pb-8 max-w-md mx-auto">
+    <div class="text-center mb-8">
+        <img src="/apple-touch-icon.png" alt="" class="h-16 w-16 rounded-2xl mx-auto mb-4" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12);" />
+        <h1 class="ios-large-title">Welcome</h1>
+        <p class="text-[15px] mt-2" style="color: var(--ios-label-2);">
+            Create your household and your account. Your existing recipes and meal plans stay right where they are.
+        </p>
+    </div>
+
+    <form asp-controller="Account" asp-action="Setup" method="post" novalidate>
+        <p class="ios-section-hdr" style="padding-left: 16px;">Household</p>
+        <div class="ios-group" style="margin: 0;">
+            <label class="ios-cell">
+                <span class="ios-field-label">Name</span>
+                <input asp-for="HouseholdName" class="ios-field-input" placeholder="e.g. The Sutherlins" autocomplete="off" />
+            </label>
+        </div>
+        <span asp-validation-for="HouseholdName" class="ios-field-error"></span>
+
+        <p class="ios-section-hdr" style="padding-left: 16px;">You</p>
+        <div class="ios-group" style="margin: 0;">
+            <label class="ios-cell">
+                <span class="ios-field-label">Name</span>
+                <input asp-for="DisplayName" class="ios-field-input" placeholder="First name" autocomplete="given-name" />
+            </label>
+            <label class="ios-cell">
+                <span class="ios-field-label">Email</span>
+                <input asp-for="Email" type="email" class="ios-field-input" placeholder="you@example.com"
+                       autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" />
+            </label>
+            <label class="ios-cell">
+                <span class="ios-field-label">Password</span>
+                <input asp-for="Password" type="password" class="ios-field-input" placeholder="At least 8 characters"
+                       autocomplete="new-password" />
+            </label>
+        </div>
+        <span asp-validation-for="DisplayName" class="ios-field-error"></span>
+        <span asp-validation-for="Email" class="ios-field-error"></span>
+        <span asp-validation-for="Password" class="ios-field-error"></span>
+
+        <button type="submit" class="ios-primary-btn mt-6">Create household</button>
+    </form>
+</div>

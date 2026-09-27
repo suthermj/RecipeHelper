@@ -1,0 +1,45 @@
+@using RecipeHelper.Models.Account
+@model LoginVM
+
+@{
+    ViewData["Title"] = "Sign in";
+    var formError = ViewData.ModelState.TryGetValue("", out var entry) ? entry.Errors.FirstOrDefault()?.ErrorMessage : null;
+}
+
+<div class="px-4 pt-12 pb-8 max-w-md mx-auto">
+    <div class="text-center mb-8">
+        <img src="/apple-touch-icon.png" alt="" class="h-16 w-16 rounded-2xl mx-auto mb-4" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12);" />
+        <h1 class="ios-large-title">Sign in</h1>
+        <p class="text-[15px] mt-2" style="color: var(--ios-label-2);">Your household's recipes and meal plans.</p>
+    </div>
+
+    <form asp-controller="Account" asp-action="Login" method="post" novalidate>
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        @if (formError != null)
+        {
+            <p class="text-[15px] mb-3 text-center" style="color: var(--ios-red);" role="alert">@formError</p>
+        }
+
+        <div class="ios-group" style="margin: 0;">
+            <label class="ios-cell">
+                <span class="ios-field-label">Email</span>
+                <input asp-for="Email" type="email" class="ios-field-input" placeholder="you@example.com"
+                       autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" />
+            </label>
+            <label class="ios-cell">
+                <span class="ios-field-label">Password</span>
+                <input asp-for="Password" type="password" class="ios-field-input" placeholder="Required"
+                       autocomplete="current-password" />
+            </label>
+        </div>
+        <span asp-validation-for="Email" class="ios-field-error"></span>
+        <span asp-validation-for="Password" class="ios-field-error"></span>
+
+        <button type="submit" class="ios-primary-btn mt-6">Sign in</button>
+    </form>
+
+    <p class="text-[13px] text-center mt-6 px-4" style="color: var(--ios-label-2);">
+        New here? Ask someone in your household to send you an invite link from Settings.
+    </p>
+</div>

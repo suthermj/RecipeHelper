@@ -1,0 +1,59 @@
+@using RecipeHelper.Models.Account
+@model JoinVM
+
+@{
+    ViewData["Title"] = "Join household";
+    var signedInAs = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
+}
+
+<div class="px-4 pt-12 pb-8 max-w-md mx-auto">
+    <div class="text-center mb-8">
+        <img src="/apple-touch-icon.png" alt="" class="h-16 w-16 rounded-2xl mx-auto mb-4" style="box-shadow: 0 2px 8px rgba(0,0,0,0.12);" />
+        <h1 class="ios-large-title">Join @Model.HouseholdName</h1>
+        <p class="text-[15px] mt-2" style="color: var(--ios-label-2);">
+            @Model.InvitedBy invited you to share recipes and meal plans.
+        </p>
+    </div>
+
+    @if (signedInAs != null)
+    {
+        <div class="ios-card p-4 text-center">
+            <p class="text-[15px]" style="color: var(--ios-label);">You're already signed in as @signedInAs.</p>
+            <p class="text-[13px] mt-1" style="color: var(--ios-label-2);">Sign out first to create a new account with this invite.</p>
+            <form asp-controller="Account" asp-action="Logout" method="post" class="mt-4">
+                <button type="submit" class="ios-inline-action">Sign out</button>
+            </form>
+        </div>
+    }
+    else
+    {
+        <form action="/Account/Join/@Model.Token" method="post" novalidate>
+            @Html.AntiForgeryToken()
+            <div class="ios-group" style="margin: 0;">
+                <label class="ios-cell">
+                    <span class="ios-field-label">Name</span>
+                    <input asp-for="DisplayName" class="ios-field-input" placeholder="First name" autocomplete="given-name" />
+                </label>
+                <label class="ios-cell">
+                    <span class="ios-field-label">Email</span>
+                    <input asp-for="Email" type="email" class="ios-field-input" placeholder="you@example.com"
+                           autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                </label>
+                <label class="ios-cell">
+                    <span class="ios-field-label">Password</span>
+                    <input asp-for="Password" type="password" class="ios-field-input" placeholder="At least 8 characters"
+                           autocomplete="new-password" />
+                </label>
+            </div>
+            <span asp-validation-for="DisplayName" class="ios-field-error"></span>
+            <span asp-validation-for="Email" class="ios-field-error"></span>
+            <span asp-validation-for="Password" class="ios-field-error"></span>
+
+            <button type="submit" class="ios-primary-btn mt-6">Join household</button>
+        </form>
+
+        <p class="text-[13px] text-center mt-6" style="color: var(--ios-label-2);">
+            Already have an account? <a asp-controller="Account" asp-action="Login" style="color: #007AFF;">Sign in</a>
+        </p>
+    }
+</div>

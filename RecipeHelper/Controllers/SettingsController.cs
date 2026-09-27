@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RecipeHelper.Models.Account;
 using RecipeHelper.Models.Kroger;
 using RecipeHelper.Models.Settings;
 using RecipeHelper.Services;
@@ -8,18 +9,20 @@ namespace RecipeHelper.Controllers
     public class SettingsController : Controller
     {
         private readonly KrogerService _krogerService;
+        private readonly AccountService _accountService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<SettingsController> _logger;
 
-        public SettingsController(KrogerService krogerService, IConfiguration configuration, ILogger<SettingsController> logger)
+        public SettingsController(KrogerService krogerService, AccountService accountService, IConfiguration configuration, ILogger<SettingsController> logger)
         {
             _krogerService = krogerService;
+            _accountService = accountService;
             _configuration = configuration;
             _logger = logger;
         }
 
         [HttpGet]
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             var currentLocationId = Request.Cookies["KrogerLocationId"]
                 ?? _configuration["Kroger:mariemontLocationId"]
@@ -32,6 +35,21 @@ namespace RecipeHelper.Controllers
                 CurrentLocationId = currentLocationId,
                 CurrentStoreName = currentStoreName
             };
+
+            var householdId = User.GetHouseholdId();
+            if (householdId != null)
+            {
+                var currentUserId = User.GetUserId();
+                var (household, members) = await _accountService.GetHouseholdAsync(householdId.Value);
+                vm.HouseholdName = household?.Name ?? "";
+                vm.HouseholdMembers = members.Select(m => new HouseholdMemberVM
+                {
+                    Id = m.Id,
+                    DisplayName = m.DisplayName,
+                    Email = m.Email,
+                    IsCurrentUser = m.Id == currentUserId,
+                }).ToList();
+            }
 
             return View(vm);
         }

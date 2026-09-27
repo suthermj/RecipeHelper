@@ -7,6 +7,37 @@
 
 <div class="pt-2 pb-6">
 
+    <!-- Household -->
+    @if (Model.HouseholdMembers.Count > 0)
+    {
+        <p class="ios-section-hdr">Household</p>
+        <div class="ios-group">
+            <div class="ios-cell">
+                <p class="text-[16px] font-semibold" style="color: var(--ios-label);">@Model.HouseholdName</p>
+            </div>
+            @foreach (var member in Model.HouseholdMembers)
+            {
+                <div class="ios-cell justify-between">
+                    <div class="min-w-0">
+                        <p class="text-[16px] truncate" style="color: var(--ios-label);">@member.DisplayName</p>
+                        <p class="text-[13px] truncate" style="color: var(--ios-label-2);">@member.Email</p>
+                    </div>
+                    @if (member.IsCurrentUser)
+                    {
+                        <span class="ios-badge ios-badge-gray shrink-0">You</span>
+                    }
+                </div>
+            }
+            <button id="inviteBtn" type="button" class="ios-cell w-full" style="border-bottom: none;">
+                <span class="text-[15px]" style="color: #007AFF;">Invite someone</span>
+            </button>
+        </div>
+        <p class="text-[13px] px-8 mt-2" style="color: var(--ios-label-2);">
+            Everyone in your household shares the same recipes and meal plans. Invite links work once and expire after 7 days.
+        </p>
+        <p id="inviteError" class="text-[13px] px-8 mt-2 hidden" style="color: var(--ios-red);">Couldn't create an invite link. Please try again.</p>
+    }
+
     <!-- Catalog -->
     <p class="ios-section-hdr">Catalog</p>
     <div class="ios-group">
@@ -85,6 +116,15 @@
     <p id="searchEmpty" class="text-[14px] px-4 mt-2 hidden" style="color: var(--ios-label-2);">No stores found for that ZIP code.</p>
     <p id="searchError"  class="text-[14px] px-4 mt-2 hidden" style="color: var(--ios-red);">Something went wrong. Please try again.</p>
 
+    <!-- Sign out -->
+    <form asp-controller="Account" asp-action="Logout" method="post" class="mt-8">
+        <div class="ios-group">
+            <button type="submit" class="ios-cell w-full justify-center" style="border-bottom: none;">
+                <span class="text-[16px]" style="color: var(--ios-red);">Sign out</span>
+            </button>
+        </div>
+    </form>
+
 </div>
 
 <!-- Hidden form for store selection POST -->
@@ -98,6 +138,40 @@
 
 @section Scripts {
 <script>
+    const inviteBtn = document.getElementById('inviteBtn');
+    if (inviteBtn) {
+        inviteBtn.addEventListener('click', async () => {
+            const inviteError = document.getElementById('inviteError');
+            inviteError.classList.add('hidden');
+            inviteBtn.disabled = true;
+            try {
+                const resp = await fetch('@Url.Action("CreateInvite", "Account")', {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value,
+                        'Accept': 'application/json'
+                    }
+                });
+                if (!resp.ok) throw new Error('Invite failed: ' + resp.status);
+                const data = await resp.json();
+
+                if (navigator.share) {
+                    await navigator.share({ title: 'Join our household', text: 'Join our household on the recipe app', url: data.url });
+                } else {
+                    await navigator.clipboard.writeText(data.url);
+                    alert('Invite link copied to clipboard!');
+                }
+            } catch (err) {
+                // Cancelling the native share sheet rejects with AbortError -- not a failure.
+                if (err && err.name === 'AbortError') return;
+                console.error(err);
+                inviteError.classList.remove('hidden');
+            } finally {
+                inviteBtn.disabled = false;
+            }
+        });
+    }
+
     const searchBtn        = document.getElementById('searchBtn');
     const zipInput         = document.getElementById('zipInput');
     const locationBtn      = document.getElementById('locationBtn');

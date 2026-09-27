@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models.Dinner;
 using RecipeHelper.Services;
 
 namespace RecipeHelper.Controllers
 {
+    // Public by design: share links are opened by people without an account.
+    [AllowAnonymous]
     public class ShareController : Controller
     {
         private readonly MealPlanService _mealPlanService;

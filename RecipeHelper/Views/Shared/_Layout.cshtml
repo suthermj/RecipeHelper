@@ -24,6 +24,9 @@
     var isMealPlan = controller == "Dinner";
     var isLists    = controller == "ShoppingList" || controller == "Cart";
     var isSettings = controller == "Settings" || controller == "Product";
+    // Signed-out viewers (login/setup/join pages, someone opening a public share
+    // link) get no tab bar or "+" sheet -- every destination in them needs an account.
+    var showAppChrome = User.Identity?.IsAuthenticated == true;
 }
 
 <body class="min-h-screen flex flex-col"
@@ -147,6 +150,8 @@
         @RenderBody()
     </main>
 
+    @if (showAppChrome)
+    {
     <!-- iOS Bottom Tab Bar -->
     <nav class="fixed bottom-0 inset-x-0 z-50 ios-tab safe-bottom">
         <div class="flex justify-around ios-tab-items">
@@ -267,6 +272,8 @@
             });
         })();
     </script>
+
+    }
 
     <!-- Loading overlay (shown on .loading-form submit) -->
     <div id="loadingOverlay"

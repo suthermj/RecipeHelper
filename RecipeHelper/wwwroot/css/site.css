@@ -386,6 +386,62 @@ html {
   flex-shrink: 0;
 }
 
+/* ─── Form fields inside an .ios-group (sign-in / account pages) ─── */
+.ios-field-label {
+  width: 88px;
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--ios-label);
+}
+
+.ios-field-input {
+  flex: 1;
+  min-width: 0;
+  /* 16px+ keeps iOS Safari from zooming the page when the field is focused */
+  font-size: 16px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ios-label);
+  padding: 0;
+  -webkit-appearance: none;
+}
+
+.ios-field-input::placeholder {
+  color: var(--ios-label-3);
+}
+
+.ios-field-error {
+  display: block;
+  font-size: 13px;
+  color: var(--ios-red);
+  padding: 6px 16px 0;
+}
+
+.ios-field-error:empty {
+  display: none;
+}
+
+/* ─── Full-width primary button ─── */
+.ios-primary-btn {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 12px;
+  background: var(--ios-red);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ios-primary-btn:active {
+  opacity: 0.8;
+}
+
 /* ─── Card ─── */
 .ios-card {
   background: var(--ios-surface);

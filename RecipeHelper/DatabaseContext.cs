@@ -50,6 +50,15 @@ namespace RecipeHelper
                 .IsUnique()
                 .HasFilter("[ShareToken] IS NOT NULL");
 
+            builder.Entity<Recipe>()
+                .Property(r => r.ShareToken)
+                .HasMaxLength(450);
+
+            builder.Entity<Recipe>()
+                .HasIndex(r => r.ShareToken)
+                .IsUnique()
+                .HasFilter("[ShareToken] IS NOT NULL");
+
             // RecipeId is optional (free-text entries have no Recipe), but still
             // cascade-delete on the DB side to match the prior required-FK behavior
             // when a Recipe is deleted -- the convention default for an optional FK

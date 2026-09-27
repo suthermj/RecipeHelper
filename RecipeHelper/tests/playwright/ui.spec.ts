@@ -190,3 +190,24 @@ test.describe('Layout', () => {
     expect(position).toBe('fixed');
   });
 });
+
+// ─── Signed out ──────────────────────────────────────────────────────────────
+
+test.describe('Signed out', () => {
+  // Fresh browser with no session cookie, unlike every other test in this file.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('meal plan redirects to sign in', async ({ page }) => {
+    await page.goto('/Dinner/Index');
+    await expect(page).toHaveURL(/\/Account\/Login\?ReturnUrl=%2FDinner%2FIndex/);
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  });
+
+  test('recipes are browsable read-only, with no tab bar', async ({ page }) => {
+    await page.goto('/Recipe');
+    await expect(page.locator('h1', { hasText: 'Recipes' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+    await expect(page.locator('nav.ios-tab')).toHaveCount(0);
+    await expect(page.locator('#tabPlusBtn')).toHaveCount(0);
+  });
+});

@@ -1,8 +1,30 @@
 # Multi-User Architecture — Future State
 
-**Status:** Planning only. Nothing here is implemented. This document exists so the
-architecture and data flows can be reviewed thoroughly before any code changes —
-per explicit request, this is a design reference, not a task list to execute yet.
+**Status:** Phase 1 (identity + sign-in wall) is implemented, with **households** as
+the unit of ownership (see "Households" below — this supersedes the per-user
+`OwnerId` design further down wherever they differ). Phases 2+ are still planning.
+
+## Households (decided)
+
+- Ownership is per **household**, not per user: you and your partner (and anyone
+  else invited) share one household and see/edit the same data. Other people get
+  their own household — just them, or them and their family.
+- Joining an existing household is invite-only (single-use, 7-day link from
+  Settings). First-run setup creates the first household.
+- Wherever this document says `OwnerId` / "owner" / "per user" below, read
+  `HouseholdId` / "household". Kroger connection and store preference can stay
+  per user (or per device) — they're about who is shopping, not what data is shared.
+- **Creating a second household is deliberately not possible yet**: data is still
+  global, so a second household would see the first household's data. Phase 2
+  (scoping queries by `HouseholdId`) must land before any "create household" flow.
+- **Public/private recipes (future):** each recipe gets a visibility flag. Today,
+  signed-out visitors can already browse *all* recipes read-only (no meal plans,
+  settings, or editing). Once data is scoped by household, the signed-out/public
+  view shows only recipes marked public, and the "Discover" tab below becomes the
+  signed-in version of the same thing.
+- **Face ID (future):** passkeys (WebAuthn) as an additional credential on an
+  existing account, so they belong to the account and therefore the household.
+  Until then, iOS Passwords autofill already offers Face ID to fill the password.
 
 ## Goal
 
@@ -214,7 +236,7 @@ above:
 
 ## Suggested Phasing
 
-1. **Identity + auth wall only**, data still global. Cheapest possible first
+1. ✅ **Identity + auth wall only**, data still global (done — households, invites, persistent cookie). Cheapest possible first
    step — gets a real `User` table and `[Authorize]` scaffolding in place
    without touching the data model at all.
 2. **Add `OwnerId`** to `Recipe` / `MealPlan` / `ShoppingList`, backfill

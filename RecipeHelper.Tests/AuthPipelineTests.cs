@@ -47,6 +47,12 @@ namespace RecipeHelper.Tests
                 builder.UseEnvironment("Testing");
                 builder.UseSetting("ConnectionString", "Server=unused-in-tests");
                 builder.UseSetting("OpenAI:ApiKey", "unused-in-tests");
+                // StorageService (a RecipeController dependency) validates these at
+                // construction; nothing in these tests touches blob storage.
+                builder.UseSetting("StorageSettings:accountUri", "https://unused.blob.core.windows.net");
+                builder.UseSetting("AzureAd:TenantId", "00000000-0000-0000-0000-000000000000");
+                builder.UseSetting("AzureAd:ClientId", "unused");
+                builder.UseSetting("AzureAd:ClientSecret", "unused");
                 builder.ConfigureServices(services =>
                 {
                     services.RemoveAll<DbContextOptions<DatabaseContext>>();
@@ -141,6 +147,80 @@ namespace RecipeHelper.Tests
             // Unknown token: 404 from the share action itself, not a login redirect.
             var response = await Browser(StartApp()).GetAsync("/Share/MealPlan/no-such-token");
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        private static async Task<int> SeedRecipe(AppFactory app, string name)
+        {
+            using var scope = app.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
+            var recipe = new Models.Recipe
+            {
+                Name = name,
+                DinnerCategory = "Chicken",
+                Instructions = "[\"Preheat the oven.\",\"Roast the chicken.\"]",
+            };
+            db.Recipes.Add(recipe);
+            await db.SaveChangesAsync();
+            return recipe.Id;
+        }
+
+        [Fact]
+        public async Task SignedOut_CanBrowseRecipes_ReadOnly()
+        {
+            var app = StartApp();
+            var id = await SeedRecipe(app, "Lemon Roast Chicken");
+            var visitor = Browser(app);
+
+            var list = await visitor.GetAsync("/Recipe");
+            Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+            var listHtml = await list.Content.ReadAsStringAsync();
+            Assert.Contains("Lemon Roast Chicken", listHtml);
+            Assert.Contains("/Account/Login", listHtml);   // Sign in link
+            Assert.DoesNotContain("ios-tab", listHtml);    // no tab bar / + button
+
+            var view = await visitor.GetAsync($"/Recipe/ViewRecipe/{id}");
+            Assert.Equal(HttpStatusCode.OK, view.StatusCode);
+            var viewHtml = await view.Content.ReadAsStringAsync();
+            Assert.Contains("Lemon Roast Chicken", viewHtml);
+            Assert.Contains("Roast the chicken.", viewHtml);
+            Assert.DoesNotContain("CreateEditRecipe", viewHtml);
+            Assert.DoesNotContain("Delete recipe", viewHtml);
+            Assert.DoesNotContain("Add to Cart", viewHtml);
+        }
+
+        [Fact]
+        public async Task SignedOut_CannotCreateEditOrDeleteRecipes()
+        {
+            var app = StartApp();
+            var id = await SeedRecipe(app, "Lemon Roast Chicken");
+            var visitor = Browser(app);
+
+            Assert.Equal(HttpStatusCode.Redirect, (await visitor.GetAsync("/Recipe/CreateEditRecipe")).StatusCode);
+            Assert.Equal(HttpStatusCode.Redirect, (await visitor.GetAsync($"/Recipe/CreateEditRecipe/{id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Redirect, (await visitor.GetAsync("/Import/ImportRecipe")).StatusCode);
+
+            // DeleteRecipe is routed at POST /{id}. Signed out, it must bounce to login
+            // before ever reaching the action.
+            var delete = await visitor.PostAsync($"/{id}", new FormUrlEncodedContent(new Dictionary<string, string>()));
+            Assert.Equal(HttpStatusCode.Redirect, delete.StatusCode);
+            Assert.Contains("/Account/Login", delete.Headers.Location!.ToString());
+
+            using var scope = app.Services.CreateScope();
+            Assert.NotNull(await scope.ServiceProvider.GetRequiredService<DatabaseContext>().Recipes.FindAsync(id));
+        }
+
+        [Fact]
+        public async Task SignedIn_SeesRecipeEditActions()
+        {
+            var app = StartApp();
+            var id = await SeedRecipe(app, "Lemon Roast Chicken");
+            var client = Browser(app);
+            await SetUp(client);
+
+            var viewHtml = await client.GetStringAsync($"/Recipe/ViewRecipe/{id}");
+            Assert.Contains("CreateEditRecipe", viewHtml);
+            Assert.Contains("Delete recipe", viewHtml);
+            Assert.Contains("ios-tab", viewHtml);
         }
 
         [Fact]

@@ -11,3 +11,4 @@ RecipeHelper/appsettings.Production.json
 /publish
 /RecipeHelper/test-results
 /RecipeHelper/playwright-report
+/RecipeHelper/tests/playwright/.auth

@@ -1,7 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
+import { AUTH_STATE } from './tests/playwright/global-setup';
 
 export default defineConfig({
   testDir: './tests/playwright',
+  // Signs in once and shares the session with every test -- see global-setup.ts.
+  globalSetup: './tests/playwright/global-setup.ts',
   timeout: 15000,
   retries: 1,
   // 'list' alone never writes playwright-report/ -- smoke-test.yml's "Upload
@@ -13,6 +16,7 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'https://sutherlinsrecipes.duckdns.org',
+    storageState: AUTH_STATE,
     ignoreHTTPSErrors: false,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

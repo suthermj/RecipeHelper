@@ -63,6 +63,11 @@ jobs:
       - name: Run smoke tests against production
         id: run_tests
         working-directory: RecipeHelper
+        # The app requires sign-in; global-setup.ts signs in with this dedicated
+        # household member account before the suite runs.
+        env:
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
         run: npx playwright test
 
       - name: Upload Playwright report

@@ -31,7 +31,12 @@
 
 ## Architecture / Future
 
-- [ ] Multi-user support (logins, private-by-default recipes with an opt-in Public flag, a "Discover" tab for browsing/copying other users' public recipes) — planning doc in [`MULTI_USER_ROADMAP.md`](MULTI_USER_ROADMAP.md), not started; architecture and data flows to be reviewed thoroughly before implementation begins
+- [ ] Multi-user support, household-based — planning doc in [`MULTI_USER_ROADMAP.md`](MULTI_USER_ROADMAP.md)
+  - [x] Phase 1 — sign-in, households, invite links, persistent login; signed-out visitors can browse recipes read-only
+  - [ ] Phase 2 — scope recipes / meal plans / lists by `HouseholdId`, then allow creating new households
+  - [ ] Public/private flag per recipe (public view shows only public recipes once data is scoped)
+  - [ ] Face ID sign-in via passkeys
+  - [ ] Password reset (e.g. a household member generates a reset link)
 
 ## Infrastructure / DevOps
 

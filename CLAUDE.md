@@ -68,10 +68,24 @@ gh pr merge <number> --squash --delete-branch
 | `Controllers/ImportController.cs` | Recipe import flow: URL fetch → Spoonacular preview → mapping page → save |
 | `Services/ImportService.cs` | Saves mapped import to DB; **only `SelectedUpc` is persisted** — `SuggestedUpc` is a UI hint only |
 | `Services/StorageService.cs` | Blob upload/delete; uses `ClientSecretCredential` in prod, connection string in dev |
-| `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
+| `Program.cs` | DI registration, cookie auth + sign-in-required fallback policy, rate limiting, OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
+| `Controllers/AccountController.cs` | App sign-in/out, first-run setup, household invite create/join |
+| `Services/AccountService.cs` | Households, users, password hashing, invites; `GetUserId()`/`GetHouseholdId()` claim helpers |
 | `deploy/deploy.sh` | Full deploy: CSS build → dotnet publish → scp → restart systemd |
 | `wwwroot/sw.js` | Service worker: static-asset + page caching; `CACHE_VERSION` auto-stamped at deploy time (see PWA note above) |
 | `wwwroot/js/site.js` | SW registration + "update available" reload banner; also global loading-overlay wiring |
+
+## Accounts & Households
+
+- **Household-based.** `Household` → many `AppUser` (table `Users`). Everyone in a household shares everything. A household is joined only by a single-use, 7-day `HouseholdInvite` link (Settings → Household → "Invite someone"); only the SHA-256 of the token is stored.
+- **First run:** `/Account/Setup` creates the first household + account and is only reachable while the `Users` table is empty. There is no self-signup into an existing household and no way yet to create a *second* household — intentionally, because **data is not yet scoped by household** (all recipes/meal plans/lists are still global). Don't add household creation until data scoping lands (see `MULTI_USER_ROADMAP.md`).
+- **Sign-in required by default:** `AuthorizationOptions.FallbackPolicy` requires an authenticated user on every endpoint. Opt-outs are explicit `[AllowAnonymous]`: `AccountController` login/setup/join, `ShareController`, `HomeController.Error`, and **`RecipeController.Recipe` / `ViewRecipe` (signed-out visitors can browse recipes read-only** — views hide Edit/Delete/Add to Cart via `User.Identity.IsAuthenticated`). Static files are served before routing, so they stay public. New controllers are protected automatically — only add `[AllowAnonymous]` deliberately.
+- **Cookie:** `RecipeHelper.Auth`, always persistent, 365 days, sliding; SameSite=Lax so it survives the Kroger OAuth round trip. Signed-out `fetch()` calls (non-`navigate` `Sec-Fetch-Mode`) get 401 instead of a login-page redirect.
+- **Claims:** user id, display name, email, `household_id` — read via `User.GetUserId()` / `User.GetHouseholdId()` (`Services/AccountService.cs`).
+- **Passwords:** ASP.NET Core Identity's `PasswordHasher<T>` on its own (no full Identity). No password reset yet — a forgotten password needs a DB fix.
+- **Brute force:** `account-auth` rate-limit policy, 10 POSTs / 5 min / IP on login, setup, join. `UseForwardedHeaders` trusts nginx's `X-Forwarded-For`/`-Proto` so the real client IP and https scheme are seen.
+- `_Layout` hides the tab bar and "+" sheet for signed-out viewers. Account pages send `X-SW-No-Cache`.
+- `AuthController` is **Kroger** OAuth, not app login — app login is `AccountController`.
 
 ## Data Model
 
@@ -188,7 +202,7 @@ npx playwright test --ui      # interactive UI mode (recommended for visual revi
 - **Hetzner Cloud Firewall:** SSH (22) is restricted by source IP. If `bash deploy/deploy.sh` fails with a connection timeout, the home IP probably rotated — whitelist the current one at `https://api.ipify.org` in the Hetzner Cloud console firewall.
 - **`appsettings.json` and `appsettings.Production.json` are both gitignored.** `appsettings.json` contains empty placeholders only. All secrets live in `appsettings.Production.json` on the dev machine, which ships to the VM via `dotnet publish` (SDK auto-copies all `appsettings*.json` as content). Treat `appsettings.Production.json` as the production-secrets source of truth.
 - **Entra service principal:** `sp-recipe-helper-p` (client ID `3e54accb-87f2-4f61-9732-9d01bf5c669d`, object ID `6922cf3d-d918-47fa-ac48-9e72ffa1378e`). Has `db_datareader`, `db_datawriter`, `db_ddladmin` on `recipehelper` DB and `Storage Blob Data Contributor` on `sarecipehelper`. Credentials in `AzureAd` config section.
-- **Known issue: ephemeral data protection keys.** The app uses in-memory key storage, so antiforgery tokens are invalidated on every restart (deploy). Users see a blank page on the first POST after a deploy and must go back and retry. Fix: persist keys to disk or blob storage via `AddDataProtection().PersistKeysTo...()` in `Program.cs`.
+- **Data protection keys persist at `/var/lib/recipehelper/keys`** (`Program.cs`; both deploy paths create the directory and never touch it). This is what keeps antiforgery tokens *and sign-in cookies* valid across deploys. Deleting that directory signs every user out once.
 - **.NET package pinning on the VM.** The VM has both Microsoft's official apt repo (`packages.microsoft.com`) and Ubuntu's own repo (`jammy-updates`/`jammy-security`) providing `dotnet-runtime-8.0`/`aspnetcore-runtime-8.0` at the *same version string* but different install layouts — Microsoft's build installs to `/usr/share/dotnet` (where `/usr/bin/dotnet` and the systemd unit expect it), Ubuntu's installs to `/usr/lib/dotnet`. If Ubuntu's wins an `apt upgrade` (it did once, silently, and broke `recipehelper.service` with "No frameworks were found"), the fix is `apt-get install --allow-downgrades aspnetcore-runtime-8.0=<ver>-1 dotnet-runtime-8.0=<ver>-1 dotnet-hostfxr-8.0=<ver>-1` (the `-1` suffix is Microsoft's build, vs. `-0ubuntuN` for Ubuntu's). `/etc/apt/preferences.d/dotnet-microsoft-repo` now pins `dotnet-*`/`aspnetcore-*` to `origin packages.microsoft.com` to prevent recurrence.
 
 ## Observability

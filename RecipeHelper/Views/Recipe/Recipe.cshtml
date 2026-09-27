@@ -5,11 +5,21 @@
 
 @model List<ViewRecipeVM>
 
+@{
+    // Signed-out visitors can browse recipes read-only (RecipeController.Recipe is
+    // [AllowAnonymous]); they get a Sign in link instead of add/import actions.
+    var signedIn = User.Identity?.IsAuthenticated == true;
+}
+
 <div class="pt-2 pb-4">
 
     <!-- Large title -->
-    <div class="px-4 pb-3">
+    <div class="px-4 pb-3 flex items-end justify-between gap-3">
         <h1 class="ios-large-title">Recipes</h1>
+        @if (!signedIn)
+        {
+            <a asp-controller="Account" asp-action="Login" class="ios-inline-action mb-1" style="min-height: 44px;">Sign in</a>
+        }
     </div>
 
     @if (Model == null || !Model.Any())
@@ -22,15 +32,18 @@
                       d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
             </svg>
             <h2 class="text-[17px] font-semibold mb-1" style="color: var(--ios-label);">No recipes yet</h2>
-            <p class="text-[15px] mb-5" style="color: var(--ios-label-2);">
-                Add or import a recipe to get started.
-            </p>
-            <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="btn-primary">
-                Add your first recipe
-            </a>
-            <p class="mt-4 text-[13px]" style="color: var(--ios-label-2);">
-                or <a class="ios-btn-text-sm" asp-controller="Import" asp-action="ImportRecipe">import from a link</a>
-            </p>
+            @if (signedIn)
+            {
+                <p class="text-[15px] mb-5" style="color: var(--ios-label-2);">
+                    Add or import a recipe to get started.
+                </p>
+                <a asp-controller="Recipe" asp-action="CreateEditRecipe" class="btn-primary">
+                    Add your first recipe
+                </a>
+                <p class="mt-4 text-[13px]" style="color: var(--ios-label-2);">
+                    or <a class="ios-btn-text-sm" asp-controller="Import" asp-action="ImportRecipe">import from a link</a>
+                </p>
+            }
         </div>
     }
     else

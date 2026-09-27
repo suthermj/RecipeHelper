@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,10 @@ namespace RecipeHelper.Controllers
             _ingredientsService = ingredientsService;
         }
 
+        // Recipe list and recipe view are the app's only signed-out pages besides share
+        // links: anyone can browse recipes read-only. Every other action here (create,
+        // edit, delete) still requires signing in via the global fallback policy.
+        [AllowAnonymous]
         public async Task<ActionResult> Recipe()
         {
 
@@ -53,6 +58,7 @@ namespace RecipeHelper.Controllers
             return View(recipes);
         }
 
+        [AllowAnonymous]
         public async Task<ActionResult> ViewRecipe(int Id, string? from = null)
         {
             var data = await _context.Recipes.AsNoTracking().Where(r => r.Id == Id).Select(r => new
@@ -74,7 +80,7 @@ namespace RecipeHelper.Controllers
 
             if (data == null) return RedirectToAction("Recipe");
 
-            if (from == "mealplan")
+            if (from == "mealplan" && User.Identity?.IsAuthenticated == true)
             {
                 ViewData["BackLink"] = Url.Action("Index", "Dinner");
                 ViewData["BackLabel"] = "Meal Plan";

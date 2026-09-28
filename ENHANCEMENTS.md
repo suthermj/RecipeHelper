@@ -82,17 +82,27 @@ Follow-ups (each can be its own PR once #1 is merged):
 
 ## 3. Real pantry list (issue #64)
 
-**Status:** In progress (branch `pantry-list`); the "Add to pantry?" prompt is a follow-up
+**Status:** Done (#182). Follow-ups below are still open.
 
-- Replace the hardcoded `pantryKeywords` JS array in
-  `Views/Dinner/ReviewDinnerSelections.cshtml` with a `PantryItem` table the user
-  edits in Settings.
-- Match on linked Kroger UPC or `IngredientId` first, the same way #171 merges rows
-  by UPC, and fall back to whole-word name matching. No bare substring matching:
-  today `"oil"` matches anything containing "oil".
-- Optional: offer "Add to pantry?" when the same ingredient is unchecked across
-  several reviews.
-- Once #1c lands, the pantry list should be per household.
+Shipped: a `PantryItem` table edited in Settings → Pantry (seeded with common
+staples), matched by linked Kroger UPC first, then whole-word match on the *end* of the
+ingredient name (so "flour" matches "all-purpose flour" but not "flour tortillas", and
+the seeded "black pepper" doesn't touch bell peppers). `PantryMatcher` does the matching
+and `SubmitDinnerSelections` sets `IngredientVM.IsPantry`.
+
+Follow-ups:
+
+- **3a. "Add to pantry?" prompt.** Track how often each ingredient (by UPC, else
+  normalized name) is unchecked on submit; after 3 skips in a row, show a dismissible
+  card on the review page with Add / Not now. Needs a `PantrySkip` table (count,
+  last skipped, dismissed). Reset the count when the row is left checked.
+- **3b. Kroger category veto.** Store the product `categories` Kroger already returns
+  on `KrogerProduct` (needs a column + backfill) and never treat Produce/Meat/Seafood
+  products as pantry, whatever their name says. Only works for linked ingredients, and
+  Kroger's category data is inconsistent, so use it as a veto only.
+- **3c. Known false positives in the seed.** `water` matches "coconut water" and fresh
+  `basil` / `thyme` match produce-section herbs; consider dried-only entries.
+- **3d. Per household.** Once #1c lands, add `HouseholdId` to `PantryItem`.
 
 ## 4. Recipe share link (issue #91)
 

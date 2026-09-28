@@ -20,6 +20,23 @@ namespace RecipeHelper.Tests
         public void Oil_matches_whole_words_only(string ingredient, bool expected) =>
             Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null, new[] { P("oil"), P("salt") }));
 
+        // Reported on prod: Red Bell Pepper, Anaheim Peppers and Flour Tortillas were
+        // unchecked by "Uncheck pantry" because the item's word appeared anywhere in the
+        // name. The pantry item must be what the ingredient *is* (its trailing words).
+        [Theory]
+        [InlineData("Red Bell Pepper (Deseeded And Chopped)", false)]
+        [InlineData("Anaheim Peppers", false)]
+        [InlineData("Flour Tortillas", false)]
+        [InlineData("sugar snap peas", false)]
+        [InlineData("water chestnuts", false)]
+        [InlineData("Black Pepper", true)]
+        [InlineData("freshly ground black pepper, to taste", true)]
+        [InlineData("Salt And Pepper (To Taste)", true)]
+        [InlineData("all-purpose flour", true)]
+        public void Item_must_be_the_ingredient_not_a_modifier(string ingredient, bool expected) =>
+            Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null,
+                new[] { P("black pepper"), P("salt and pepper"), P("flour"), P("sugar"), P("water") }));
+
         [Fact]
         public void Multi_word_item_needs_contiguous_words() =>
             Assert.False(PantryMatcher.IsPantry("olive and garlic oil", null, new[] { P("olive oil") }));

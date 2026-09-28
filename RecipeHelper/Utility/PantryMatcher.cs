@@ -7,8 +7,8 @@ namespace RecipeHelper.Utility
     {
         public static string Normalize(string? name) => (name ?? "").Trim().ToLowerInvariant();
 
-        // UPC match wins; otherwise the pantry item's words must appear as a contiguous
-        // run of whole words in the ingredient name ("oil" no longer matches "foil").
+        // UPC match wins; otherwise whole-word match on the end of the name ("oil" no
+        // longer matches "foil").
         public static bool IsPantry(string? name, string? upc, IReadOnlyCollection<PantryItem> items)
         {
             if (items.Count == 0) return false;
@@ -18,21 +18,31 @@ namespace RecipeHelper.Utility
                                string.Equals(p.KrogerUpc.Trim(), upc.Trim(), StringComparison.OrdinalIgnoreCase)))
                 return true;
 
-            var words = Tokenize(name);
+            // Judge only the ingredient itself: drop "(to taste)" notes and anything after
+            // a comma ("onion, finely chopped"). The pantry item must then be the *end*
+            // of the name -- what the ingredient is -- so "pepper" matches "black pepper"
+            // but not "red bell pepper" (unless "pepper" itself is listed), and "flour"
+            // matches "all-purpose flour" but not "flour tortillas".
+            var words = Tokenize(HeadPhrase(name));
             if (words.Length == 0) return false;
 
             foreach (var item in items)
             {
                 var needle = Tokenize(item.Name);
                 if (needle.Length == 0 || needle.Length > words.Length) continue;
-                for (int start = 0; start + needle.Length <= words.Length; start++)
-                {
-                    int k = 0;
-                    while (k < needle.Length && words[start + k] == needle[k]) k++;
-                    if (k == needle.Length) return true;
-                }
+                int offset = words.Length - needle.Length;
+                int k = 0;
+                while (k < needle.Length && words[offset + k] == needle[k]) k++;
+                if (k == needle.Length) return true;
             }
             return false;
+        }
+
+        private static string HeadPhrase(string? name)
+        {
+            var text = Regex.Replace(name ?? "", @"\([^)]*\)", " ");
+            var comma = text.IndexOf(',');
+            return comma >= 0 ? text[..comma] : text;
         }
 
         // Lowercase words, with a trailing plural "s" trimmed so "eggs" == "egg".

@@ -56,11 +56,18 @@ echo "  recipehelper.service created and enabled"
 
 # --- 5. Configure nginx ---
 echo "[5/6] Configuring nginx..."
+# Timed access-log format. nginx buffers the whole request body before proxying, so
+# the app never sees client upload time — rt (total) minus urt (app) is the only
+# place it shows up. Photo imports can upload 100+ MB of ProRAW over cellular.
+sudo tee /etc/nginx/conf.d/timing-log.conf > /dev/null <<'EOF'
+log_format timed '$remote_addr - [$time_local] "$request" $status $body_bytes_sent rt=$request_time urt=$upstream_response_time rl=$request_length "$http_user_agent"';
+EOF
 sudo tee /etc/nginx/sites-available/recipehelper > /dev/null <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
     client_max_body_size 300m;
+    access_log /var/log/nginx/access.log timed;
 
     location / {
         proxy_pass http://localhost:5000;

@@ -477,24 +477,131 @@
             applySelection(remainingFiles);
         }
 
-        if (photoForm) {
-            let photoLoadingTimer = null;
+        // The server downsizes every photo to 2000px before sending it to the vision
+        // model anyway, so doing it here first means uploading ~1 MB instead of up to
+        // ~100 MB of ProRAW over cellular, and the server skips its DNG conversion.
+        const maxUploadDimension = 2000;
+        const uploadJpegQuality = 0.88;
 
-            photoForm.addEventListener('submit', function (e) {
+        function loadImage(file) {
+            return new Promise(function (resolve, reject) {
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = function () { resolve({ img: img, url: url }); };
+                img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('decode failed')); };
+                img.src = url;
+            });
+        }
+
+        // Resolves to a downsized JPEG File, or the original file if the browser can't
+        // decode it (or it's already small enough) — the server still handles originals.
+        async function downsizePhoto(file) {
+            let loaded;
+            try {
+                loaded = await loadImage(file);
+            } catch {
+                return file;
+            }
+
+            try {
+                const img = loaded.img;
+                const w = img.naturalWidth, h = img.naturalHeight;
+                if (!w || !h) return file;
+
+                const isJpeg = (file.type || '').toLowerCase() === 'image/jpeg';
+                const scale = Math.min(1, maxUploadDimension / Math.max(w, h));
+                if (scale === 1 && isJpeg) return file;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(w * scale);
+                canvas.height = Math.round(h * scale);
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return file;
+                // <img> already applies EXIF orientation, and the JPEG written below
+                // carries no EXIF, so the orientation is baked into the pixels.
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                const blob = await new Promise(function (resolve) {
+                    canvas.toBlob(resolve, 'image/jpeg', uploadJpegQuality);
+                });
+                canvas.width = canvas.height = 0; // release canvas memory early on iOS
+                if (!blob || blob.size === 0 || blob.size >= file.size) return file;
+
+                // .jpg name matters: the server routes anything named .dng to DNG conversion.
+                const baseName = (file.name || 'photo').replace(/\.[^.]+$/, '');
+                return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
+            } catch {
+                return file;
+            } finally {
+                URL.revokeObjectURL(loaded.url);
+            }
+        }
+
+        if (photoForm) {
+            let photoStageTimers = [];
+            let submitting = false;
+
+            function clearPhotoStageTimers() {
+                photoStageTimers.forEach(function (t) { window.clearTimeout(t); });
+                photoStageTimers = [];
+            }
+
+            // Stage messages after the upload is sent. The server runs as one request,
+            // so these are timed to typical durations (upload ~1-2s, vision read
+            // ~6-13s depending on photo count), not reported by the server.
+            function scheduleServerStages(photoCount) {
+                const readAt = 1500;
+                const slowAt = readAt + 8000 + photoCount * 4000;
+                showLoadingOverlay('Uploading photos...');
+                photoStageTimers.push(window.setTimeout(function () {
+                    showLoadingOverlay('Reading recipe...');
+                }, readAt));
+                photoStageTimers.push(window.setTimeout(function () {
+                    showLoadingOverlay('Still reading. Longer recipes take a bit more time...');
+                }, slowAt));
+            }
+
+            photoForm.addEventListener('submit', async function (e) {
+                // Native submit() below doesn't fire this event again; this guards
+                // against a second tap while photos are still being prepared.
+                e.preventDefault();
+                if (submitting) return;
+
                 const files = Array.from(photoInput.files || []);
                 const validationMessage = validatePhotoFiles(files);
                 if (files.length === 0 || validationMessage) {
-                    e.preventDefault();
                     setPhotoError(validationMessage || 'Please select at least one photo.');
                     photoSubmitBtn.disabled = files.length === 0;
                     return;
                 }
 
-                showLoadingOverlay('Extracting recipe from photo...');
+                submitting = true;
                 photoSubmitBtn.disabled = true;
-                photoLoadingTimer = window.setTimeout(function () {
-                    showLoadingOverlay('Still extracting. DNG photos may take longer to convert.');
-                }, 30000);
+
+                const prepared = [];
+                for (let i = 0; i < files.length; i++) {
+                    showLoadingOverlay(files.length > 1
+                        ? 'Preparing photo ' + (i + 1) + ' of ' + files.length + '...'
+                        : 'Preparing photo...');
+                    prepared.push(await downsizePhoto(files[i]));
+                }
+
+                // Only the <input> gets the downsized files; accumulatedFiles keeps the
+                // originals so a back-navigation can re-submit or edit the selection.
+                syncPhotoInputFiles(prepared);
+                scheduleServerStages(prepared.length);
+                photoForm.submit();
+            });
+
+            // Coming back via the back button restores this page from bfcache with the
+            // overlay still up and timers still pending; reset to the pre-submit state.
+            window.addEventListener('pageshow', function (e) {
+                if (!e.persisted || !submitting) return;
+                submitting = false;
+                clearPhotoStageTimers();
+                hideLoadingOverlay();
+                syncPhotoInputFiles(accumulatedFiles);
+                photoSubmitBtn.disabled = accumulatedFiles.length === 0;
             });
         }
     })();

@@ -663,12 +663,21 @@ namespace RecipeHelper.Services
                 var packCount = pack.CountEach ?? pack.PrimaryQty ?? 1;
                 quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity / packCount));
             }
-            // BRANCH 3: Ingredient is count-based but product is weight/volume
+            // BRANCH 3: Ingredient is count-based but product is weight/volume. Estimate
+            // pieces-per-pack from a count in the product name ("... 8 ct"), then from
+            // servings per package (one serving ≈ one piece for tortillas, buns, bagels);
+            // only if neither exists, fall back to one pack per piece. Always flagged,
+            // since these are guesses.
             else if (ingredientDim == MeasureDimension.Count)
             {
-                quantity = Math.Max(1, (int)Math.Ceiling(item.Quantity));
+                var estimatedPackCount = KrogerSizeParser.TryParseCountFromName(krogerProduct.name)
+                    ?? (krogerProduct.servingsPerPackage is > 0 ? krogerProduct.servingsPerPackage : null);
+                quantity = estimatedPackCount.HasValue
+                    ? Math.Max(1, (int)Math.Ceiling(item.Quantity / estimatedPackCount.Value))
+                    : Math.Max(1, (int)Math.Ceiling(item.Quantity));
                 conversionNote = QuantityNeedsReviewNote;
-                _logger.LogInformation("Ingredient is counted but product for UPC {upc} is sold by {dim} -- using raw count", item.Upc, pack.Dimension);
+                _logger.LogInformation("Ingredient is counted but product for UPC {upc} is sold by {dim} -- estimated {count} pieces per pack",
+                    item.Upc, pack.Dimension, estimatedPackCount?.ToString() ?? "(unknown, using raw count)");
             }
             // BRANCH 4: Same dimension (both volume or both weight)
             else if (AreSameDimension(ingredientDim, pack.Dimension))

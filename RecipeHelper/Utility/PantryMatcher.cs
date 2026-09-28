@@ -7,6 +7,10 @@ namespace RecipeHelper.Utility
     {
         public static string Normalize(string? name) => (name ?? "").Trim().ToLowerInvariant();
 
+        // The user's pantry list plus the built-in defaults (PantryDefaults).
+        public static bool IsPantryOrDefault(string? name, string? upc, IReadOnlyCollection<PantryItem> userItems) =>
+            IsPantry(name, upc, userItems) || IsPantry(name, null, PantryDefaults.Items);
+
         // UPC match wins; otherwise whole-word match on the end of the name ("oil" no
         // longer matches "foil").
         public static bool IsPantry(string? name, string? upc, IReadOnlyCollection<PantryItem> items)

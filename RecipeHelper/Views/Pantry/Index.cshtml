@@ -1,3 +1,4 @@
+@using RecipeHelper.Utility
 @model List<RecipeHelper.Models.PantryItem>
 
 @{
@@ -27,7 +28,7 @@
             <input id="pantrySearch" type="search" placeholder="Search pantry…" class="ios-search-input" />
         </div>
         <p class="text-[13px] mt-2" style="color: var(--ios-label-2);">
-            @Model.Count item@(Model.Count == 1 ? "" : "s") &middot; "Uncheck pantry" on the ingredient review page unchecks these.
+            @Model.Count of your own &middot; "Uncheck pantry" on the ingredient review page also skips the built-in staples below.
         </p>
     </div>
 
@@ -35,8 +36,8 @@
     {
         <div class="mx-4 rounded-2xl p-10 text-center"
              style="background: var(--ios-surface); box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
-            <h2 class="text-[17px] font-semibold mb-1" style="color: var(--ios-label);">Nothing in your pantry</h2>
-            <p class="text-[15px]" style="color: var(--ios-label-2);">Add staples you already have so they're unchecked for you.</p>
+            <h2 class="text-[17px] font-semibold mb-1" style="color: var(--ios-label);">Nothing added yet</h2>
+            <p class="text-[15px]" style="color: var(--ios-label-2);">Common staples are already built in. Add anything else you keep on hand.</p>
         </div>
     }
     else
@@ -55,6 +56,15 @@
         <p id="pantryEmpty" class="text-[14px] px-4 mt-3 hidden" style="color: var(--ios-label-2);">No matching items.</p>
     }
 </div>
+
+<details class="ios-group mt-6">
+    <summary class="ios-cell justify-between cursor-pointer" style="min-height:44px; border-bottom: none;">
+        <span class="text-[15px] font-semibold" style="color: var(--ios-label);">Built-in staples (@PantryDefaults.Names.Count)</span>
+    </summary>
+    <div class="px-4 py-3 text-[14px]" style="color: var(--ios-label-2); border-top: 0.5px solid var(--ios-separator);">
+        @string.Join(", ", PantryDefaults.Names.OrderBy(n => n))
+    </div>
+</details>
 
 @section Scripts {
 <script>

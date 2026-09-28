@@ -84,8 +84,8 @@ Follow-ups (each can be its own PR once #1 is merged):
 
 **Status:** Done (#182). Follow-ups below are still open.
 
-Shipped: a `PantryItem` table edited in Settings → Pantry (seeded with common
-staples), matched by linked Kroger UPC first, then whole-word match on the *end* of the
+Shipped: a built-in default list in code (`Utility/PantryDefaults.cs`) plus a `PantryItem` table
+for the user's own additions, edited on the Pantry page (Settings → Pantry), matched by linked Kroger UPC first, then whole-word match on the *end* of the
 ingredient name (so "flour" matches "all-purpose flour" but not "flour tortillas", and
 the seeded "black pepper" doesn't touch bell peppers). `PantryMatcher` does the matching
 and `SubmitDinnerSelections` sets `IngredientVM.IsPantry`.

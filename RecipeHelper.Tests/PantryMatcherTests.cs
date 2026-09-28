@@ -71,6 +71,27 @@ namespace RecipeHelper.Tests
             Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null,
                 new[] { P("minced garlic"), P("garlic minced"), P("garlic cloves minced") }));
 
+        // The built-in list (PantryDefaults) applies with an empty user pantry.
+        [Theory]
+        [InlineData("Red Pepper Flakes", true)]
+        [InlineData("Black Pepper", true)]
+        [InlineData("Salt And Pepper (To Taste)", true)]
+        [InlineData("peanut butter", true)]
+        [InlineData("garlic, minced", true)]
+        [InlineData("Garlic Cloves (Minced)", true)]
+        [InlineData("olive oil", true)]
+        [InlineData("Red Bell Pepper (Deseeded And Chopped)", false)]
+        [InlineData("Anaheim Peppers", false)]
+        [InlineData("Flour Tortillas", false)]
+        [InlineData("garlic cloves", false)]
+        [InlineData("aluminum foil", false)]
+        public void Built_in_defaults_apply_with_empty_user_list(string ingredient, bool expected) =>
+            Assert.Equal(expected, PantryMatcher.IsPantryOrDefault(ingredient, null, Array.Empty<PantryItem>()));
+
+        [Fact]
+        public void User_items_add_to_the_defaults() =>
+            Assert.True(PantryMatcher.IsPantryOrDefault("Sriracha", null, new[] { P("sriracha") }));
+
         [Fact]
         public void Multi_word_item_needs_contiguous_words() =>
             Assert.False(PantryMatcher.IsPantry("olive and garlic oil", null, new[] { P("olive oil") }));

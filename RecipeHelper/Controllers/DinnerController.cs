@@ -376,7 +376,7 @@ namespace RecipeHelper.Controllers
             // pantry" button can uncheck them (whole-word / UPC match, not substring).
             var pantryItems = await _context.PantryItems.AsNoTracking().ToListAsync();
             foreach (var ing in model.Ingredients.Concat(model.RecipeGroups.SelectMany(g => g.Ingredients)))
-                ing.IsPantry = PantryMatcher.IsPantry(ing.Name, ing.Upc, pantryItems);
+                ing.IsPantry = PantryMatcher.IsPantryOrDefault(ing.Name, ing.Upc, pantryItems);
 
             // Dictionary iteration order isn't guaranteed, so sort explicitly by name --
             // this keeps an ingredient's split-dimension rows (e.g. a count-based entry

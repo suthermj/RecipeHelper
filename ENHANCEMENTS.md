@@ -82,7 +82,7 @@ Follow-ups (each can be its own PR once #1 is merged):
 
 ## 3. Real pantry list (issue #64)
 
-**Status:** Open
+**Status:** In progress (branch `pantry-list`); the "Add to pantry?" prompt is a follow-up
 
 - Replace the hardcoded `pantryKeywords` JS array in
   `Views/Dinner/ReviewDinnerSelections.cshtml` with a `PantryItem` table the user

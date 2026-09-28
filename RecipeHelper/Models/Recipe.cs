@@ -155,5 +155,9 @@ namespace RecipeHelper.Models
         // row instead of one row -- and one toggle -- per wording. Unlinked ingredients
         // fall back to their normalized name.
         public string? GroupKey { get; set; }
+
+        // Matches the user's pantry list (PantryMatcher); the review page's "Uncheck
+        // pantry" button unchecks these rows.
+        public bool IsPantry { get; set; }
     }
 }

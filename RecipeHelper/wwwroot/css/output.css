@@ -923,6 +923,10 @@ video {
   margin-top: 1rem;
 }
 
+.mt-6 {
+  margin-top: 1.5rem;
+}
+
 .line-clamp-2 {
   overflow: hidden;
   display: -webkit-box;
@@ -1172,6 +1176,10 @@ video {
 
 .max-w-\[160px\] {
   max-width: 160px;
+}
+
+.max-w-\[180px\] {
+  max-width: 180px;
 }
 
 .max-w-\[80px\] {

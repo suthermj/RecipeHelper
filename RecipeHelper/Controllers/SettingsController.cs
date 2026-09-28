@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models.Kroger;
 using RecipeHelper.Models.Settings;
+using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Services;
 
 namespace RecipeHelper.Controllers
@@ -10,16 +11,18 @@ namespace RecipeHelper.Controllers
         private readonly KrogerService _krogerService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<SettingsController> _logger;
+        private readonly DatabaseContext _context;
 
-        public SettingsController(KrogerService krogerService, IConfiguration configuration, ILogger<SettingsController> logger)
+        public SettingsController(KrogerService krogerService, IConfiguration configuration, ILogger<SettingsController> logger, DatabaseContext context)
         {
+            _context = context;
             _krogerService = krogerService;
             _configuration = configuration;
             _logger = logger;
         }
 
         [HttpGet]
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             var currentLocationId = Request.Cookies["KrogerLocationId"]
                 ?? _configuration["Kroger:mariemontLocationId"]
@@ -30,7 +33,8 @@ namespace RecipeHelper.Controllers
             var vm = new SettingsVM
             {
                 CurrentLocationId = currentLocationId,
-                CurrentStoreName = currentStoreName
+                CurrentStoreName = currentStoreName,
+                PantryCount = await _context.PantryItems.CountAsync()
             };
 
             return View(vm);

@@ -4,5 +4,6 @@ namespace RecipeHelper.Models.Settings
     {
         public string CurrentLocationId { get; set; } = "";
         public string CurrentStoreName { get; set; } = "";
+        public int PantryCount { get; set; }
     }
 }

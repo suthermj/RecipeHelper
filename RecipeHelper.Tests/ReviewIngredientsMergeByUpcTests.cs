@@ -106,6 +106,22 @@ namespace RecipeHelper.Tests
         }
 
         [Fact]
+        public async Task PantryItems_FlagMatchingRows_ByUpcAndWholeWordName()
+        {
+            var model = await Submit(db =>
+            {
+                SeedGarlicRecipes(db);
+                db.PantryItems.AddRange(
+                    new PantryItem { Name = "Garlic", NormalizedName = "garlic", KrogerUpc = GarlicUpc },
+                    new PantryItem { Name = "onions", NormalizedName = "onions" });
+            }, 1, 2, 3);
+
+            Assert.True(Assert.Single(model.Ingredients, i => i.Upc == GarlicUpc).IsPantry);
+            Assert.True(model.Ingredients.Single(i => i.Name.StartsWith("onion")).IsPantry); // plural-trimmed word match
+            Assert.All(model.RecipeGroups.SelectMany(g => g.Ingredients), i => Assert.True(i.IsPantry));
+        }
+
+        [Fact]
         public async Task SameName_OneMappedOneNot_StillMergeWithTheMappedProduct()
         {
             // "garlic, minced" appears unmapped in one recipe but mapped in another.

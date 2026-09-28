@@ -34,7 +34,7 @@ namespace RecipeHelper.Controllers
             {
                 CurrentLocationId = currentLocationId,
                 CurrentStoreName = currentStoreName,
-                PantryItems = await _context.PantryItems.AsNoTracking().OrderBy(p => p.Name).ToListAsync()
+                PantryCount = await _context.PantryItems.CountAsync()
             };
 
             return View(vm);

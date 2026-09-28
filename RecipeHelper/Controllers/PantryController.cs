@@ -17,25 +17,29 @@ namespace RecipeHelper.Controllers
             _logger = logger;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> Index() =>
+            View(await _context.PantryItems.AsNoTracking().OrderBy(p => p.Name).ToListAsync());
+
         [HttpPost]
         public async Task<IActionResult> Add(string name)
         {
             var trimmed = (name ?? "").Trim();
             var normalized = PantryMatcher.Normalize(trimmed);
             if (normalized.Length == 0)
-                return RedirectToAction("Index", "Settings", new { pantryOpen = 1 });
+                return RedirectToAction(nameof(Index));
 
             if (await _context.PantryItems.AnyAsync(p => p.NormalizedName == normalized))
             {
                 TempData["SuccessMessage"] = $"{trimmed} is already in your pantry";
-                return RedirectToAction("Index", "Settings", new { pantryOpen = 1 });
+                return RedirectToAction(nameof(Index));
             }
 
             _context.PantryItems.Add(new PantryItem { Name = trimmed, NormalizedName = normalized });
             await _context.SaveChangesAsync();
             _logger.LogInformation("Pantry item added. Name={Name}", trimmed);
             TempData["SuccessMessage"] = $"Added {trimmed} to your pantry";
-            return RedirectToAction("Index", "Settings", new { pantryOpen = 1 });
+            return RedirectToAction(nameof(Index));
         }
 
         [HttpPost]
@@ -48,7 +52,7 @@ namespace RecipeHelper.Controllers
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Pantry item removed. Name={Name}", item.Name);
             }
-            return RedirectToAction("Index", "Settings", new { pantryOpen = 1 });
+            return RedirectToAction(nameof(Index));
         }
     }
 }

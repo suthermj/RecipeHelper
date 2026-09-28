@@ -358,6 +358,11 @@ html {
   max-height: 280px;
 }
 
+/* Pantry accordion on Settings: hide the default marker, flip the chevron when open. */
+.pantry-details > summary { list-style: none; }
+.pantry-details > summary::-webkit-details-marker { display: none; }
+.pantry-details[open] > summary .pantry-chevron { transform: rotate(180deg); }
+
 .ios-file-trigger {
   display: inline-flex;
   min-height: 38px;

@@ -1174,6 +1174,10 @@ video {
   max-width: 160px;
 }
 
+.max-w-\[180px\] {
+  max-width: 180px;
+}
+
 .max-w-\[80px\] {
   max-width: 80px;
 }
@@ -2639,6 +2643,20 @@ html {
 
 .store-change-panel.expanded {
   max-height: 280px;
+}
+
+/* Pantry accordion on Settings: hide the default marker, flip the chevron when open. */
+
+.pantry-details > summary {
+  list-style: none;
+}
+
+.pantry-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pantry-details[open] > summary .pantry-chevron {
+  transform: rotate(180deg);
 }
 
 .ios-file-trigger {

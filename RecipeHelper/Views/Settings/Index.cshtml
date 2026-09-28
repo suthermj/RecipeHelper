@@ -21,10 +21,20 @@
         </a>
     </div>
 
-    <!-- Pantry -->
+    <!-- Pantry (collapsed by default; stays open after an add/remove) -->
     <p class="ios-section-hdr">Pantry</p>
-    <div class="ios-group">
-        <form asp-controller="Pantry" asp-action="Add" method="post" class="ios-cell gap-2">
+    <details class="ios-group pantry-details" @(Context.Request.Query.ContainsKey("pantryOpen") ? "open" : "")>
+        <summary class="ios-cell justify-between cursor-pointer" style="min-height:44px; border-bottom: none;">
+            <div class="min-w-0">
+                <p class="text-[16px] font-semibold" style="color: var(--ios-label);">Pantry staples</p>
+                <p class="text-[13px]" style="color: var(--ios-label-2);">@Model.PantryItems.Count item@(Model.PantryItems.Count == 1 ? "" : "s") skipped by "Uncheck pantry"</p>
+            </div>
+            <svg class="pantry-chevron h-4 w-4 shrink-0" style="color: var(--ios-label-2); transition: transform 0.2s;"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+            </svg>
+        </summary>
+        <form asp-controller="Pantry" asp-action="Add" method="post" class="ios-cell gap-2" style="border-top: 0.5px solid var(--ios-separator);">
             <input type="text" name="name" placeholder="Add a staple (e.g. olive oil)…" maxlength="100"
                    autocomplete="off" required class="ios-search-input flex-1" style="min-height:44px;" />
             <button type="submit" class="ios-inline-action" style="min-height:44px;">Add</button>
@@ -38,10 +48,7 @@
                         style="min-height:44px;min-width:44px;color: var(--ios-red);">&times;</button>
             </form>
         }
-    </div>
-    <p class="text-[13px] px-4 mt-2" style="color: var(--ios-label-2);">
-        "Uncheck pantry" on the ingredient review page unchecks these items.
-    </p>
+    </details>
 
     <!-- Current Store -->
     <p class="ios-section-hdr">Kroger Store</p>

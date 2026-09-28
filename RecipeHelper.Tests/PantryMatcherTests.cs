@@ -37,6 +37,19 @@ namespace RecipeHelper.Tests
             Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null,
                 new[] { P("black pepper"), P("salt and pepper"), P("flour"), P("sugar"), P("water") }));
 
+        // Seasoning forms of pepper stay auto-excluded via the seeded list, while fresh
+        // peppers do not match anything.
+        [Theory]
+        [InlineData("Red Pepper Flakes", true)]
+        [InlineData("crushed red pepper flakes", true)]
+        [InlineData("Black Pepper", true)]
+        [InlineData("cayenne pepper", true)]
+        [InlineData("Red Bell Pepper (Deseeded And Chopped)", false)]
+        [InlineData("Anaheim Peppers", false)]
+        public void Seeded_pepper_seasonings_match_but_fresh_peppers_do_not(string ingredient, bool expected) =>
+            Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null,
+                new[] { P("black pepper"), P("ground pepper"), P("red pepper flakes"), P("crushed red pepper"), P("cayenne pepper"), P("white pepper") }));
+
         [Fact]
         public void Multi_word_item_needs_contiguous_words() =>
             Assert.False(PantryMatcher.IsPantry("olive and garlic oil", null, new[] { P("olive oil") }));

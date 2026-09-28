@@ -50,6 +50,17 @@ namespace RecipeHelper.Tests
             Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null,
                 new[] { P("black pepper"), P("ground pepper"), P("red pepper flakes"), P("crushed red pepper"), P("cayenne pepper"), P("white pepper") }));
 
+        // "butter" intentionally matches "peanut butter"; "ground cloves" must not catch
+        // garlic cloves (which is why the seed is "ground cloves", not "cloves").
+        [Theory]
+        [InlineData("peanut butter", true)]
+        [InlineData("Garlic Cloves (Minced)", false)]
+        [InlineData("ground cloves", true)]
+        [InlineData("Dijon Mustard", true)]
+        public void Seed_edge_cases(string ingredient, bool expected) =>
+            Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null,
+                new[] { P("butter"), P("ground cloves"), P("mustard") }));
+
         [Fact]
         public void Multi_word_item_needs_contiguous_words() =>
             Assert.False(PantryMatcher.IsPantry("olive and garlic oil", null, new[] { P("olive oil") }));

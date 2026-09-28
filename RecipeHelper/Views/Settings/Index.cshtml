@@ -21,6 +21,28 @@
         </a>
     </div>
 
+    <!-- Pantry -->
+    <p class="ios-section-hdr">Pantry</p>
+    <div class="ios-group">
+        <form asp-controller="Pantry" asp-action="Add" method="post" class="ios-cell gap-2">
+            <input type="text" name="name" placeholder="Add a staple (e.g. olive oil)…" maxlength="100"
+                   autocomplete="off" required class="ios-search-input flex-1" style="min-height:44px;" />
+            <button type="submit" class="ios-inline-action" style="min-height:44px;">Add</button>
+        </form>
+        @foreach (var item in Model.PantryItems)
+        {
+            <form asp-controller="Pantry" asp-action="Remove" method="post" class="ios-cell justify-between">
+                <input type="hidden" name="id" value="@item.Id" />
+                <span class="text-[15px]" style="color: var(--ios-label);">@item.Name</span>
+                <button type="submit" aria-label="Remove @item.Name" class="ios-inline-action"
+                        style="min-height:44px;min-width:44px;color: var(--ios-red);">&times;</button>
+            </form>
+        }
+    </div>
+    <p class="text-[13px] px-4 mt-2" style="color: var(--ios-label-2);">
+        "Uncheck pantry" on the ingredient review page unchecks these items.
+    </p>
+
     <!-- Current Store -->
     <p class="ios-section-hdr">Kroger Store</p>
     <div class="ios-group">

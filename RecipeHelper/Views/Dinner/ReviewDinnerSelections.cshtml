@@ -42,6 +42,7 @@
     Func<(IngredientVM Item, bool IsRecipeView), object> RenderRow = @<div class="ingredient-row ios-cell cursor-pointer select-none transition-opacity"
          data-key="@item.Item.DimensionKey"
          data-name="@item.Item.Name.ToLowerInvariant()"
+         data-pantry="@(item.Item.IsPantry ? "true" : "false")"
          style="border-bottom: 0.5px solid var(--ios-separator);">
         <!-- Check circle -->
         <div class="check-circle h-6 w-6 rounded-full shrink-0 flex items-center justify-center transition-colors"
@@ -329,15 +330,6 @@
         }
         searchInput?.addEventListener('input', applySearch);
 
-        var pantryKeywords = [
-            'olive oil','vegetable oil','canola oil','cooking oil',
-            'salt','pepper','black pepper',
-            'garlic powder','onion powder','baking powder','baking soda',
-            'brown sugar','sugar','flour','cornstarch',
-            'vinegar','soy sauce','butter','water',
-            'paprika','cumin','oregano','basil','thyme','cinnamon','oil'
-        ];
-
         document.getElementById('selectAllBtn')?.addEventListener('click', function () {
             allKeys().forEach(function (key) { setKeyState(key, true); });
         });
@@ -345,11 +337,8 @@
             allKeys().forEach(function (key) { setKeyState(key, false); });
         });
         document.getElementById('pantryBtn')?.addEventListener('click', function () {
-            allKeys().forEach(function (key) {
-                var name = key.split('|')[0];
-                if (pantryKeywords.some(function (kw) { return name.includes(kw); })) {
-                    setKeyState(key, false);
-                }
+            document.querySelectorAll('.ingredient-row[data-pantry="true"]').forEach(function (row) {
+                setKeyState(row.dataset.key, false);
             });
         });
 

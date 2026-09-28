@@ -330,6 +330,26 @@
         }
         searchInput?.addEventListener('input', applySearch);
 
+        // Within each list (each recipe's group, and the flat All list), move unchecked
+        // rows below checked ones so what's left to review is together at the top.
+        // Stable: rows keep their original relative order inside each half. Only runs
+        // after "Uncheck pantry" -- not on every tap, so a row never jumps out from under
+        // your finger.
+        function sortCheckedFirst() {
+            document.querySelectorAll('.ios-group').forEach(function (group) {
+                var rows = Array.from(group.querySelectorAll(':scope > .ingredient-row'));
+                if (!rows.length) return;
+                rows.forEach(function (row, i) { if (row.dataset.idx === undefined) row.dataset.idx = i; });
+                function isChecked(row) {
+                    var cb = document.querySelector('.ing-inputs[data-key="' + CSS.escape(row.dataset.key) + '"] .ingredient-checkbox');
+                    return !!cb?.checked;
+                }
+                rows.sort(function (a, b) {
+                    return (isChecked(a) ? 0 : 1) - (isChecked(b) ? 0 : 1) || a.dataset.idx - b.dataset.idx;
+                }).forEach(function (row) { group.appendChild(row); });
+            });
+        }
+
         document.getElementById('selectAllBtn')?.addEventListener('click', function () {
             allKeys().forEach(function (key) { setKeyState(key, true); });
         });
@@ -340,6 +360,7 @@
             document.querySelectorAll('.ingredient-row[data-pantry="true"]').forEach(function (row) {
                 setKeyState(row.dataset.key, false);
             });
+            sortCheckedFirst();
         });
 
         // View toggle (All / Recipe), persisted in localStorage. Renaming the "Section"

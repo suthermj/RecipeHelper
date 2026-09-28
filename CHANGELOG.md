@@ -17,6 +17,7 @@ by date rather than by release version.
 
 ### Changed
 
+- "Uncheck pantry" now moves the unchecked rows to the bottom of each list (each recipe's group, and the flat All view), so what's left to review is together at the top.
 - "Uncheck pantry" no longer matches by substring, so "oil" no longer unchecks foil or boiled eggs, and "salt" no longer unchecks unsalted butter.
 - Photo import is faster and shows progress. Photos are now downsized on the phone to 2000px JPEG before uploading, the same size the server already cut them to before sending them to the vision model. A 3-photo ProRAW import used to upload 104.8 MB (about 40s+ of a 1+ minute import); that becomes ~1–2 MB, and the server skips its DNG conversion (6.5s on that import). If the phone can't decode a photo it's uploaded as-is, as before. The loading overlay now steps through "Preparing photo 1 of 3…" (real progress), then "Uploading photos…" / "Reading recipe…" (timed to typical durations, since the server work is still one request). Partial progress toward #74. nginx's access log now records request/upload timing (`rt`/`urt`/`rl`) so upload time can be measured.
 

@@ -21,6 +21,8 @@ namespace RecipeHelper.Models.Import
         public string Name { get; set; } = "";
         public string CanonicalName { get; set; } = "";
         public int? IngredientId { get; set; }
+        public string? Text { get; set; }           // the line as shown/edited on the mapping page
+        public string? OriginalText { get; set; }   // the line the importer produced
         public decimal Amount { get; set; }
         public string? Unit { get; set; }
         public string? Section { get; set; }

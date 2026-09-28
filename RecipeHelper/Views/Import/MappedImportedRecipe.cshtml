@@ -8,10 +8,6 @@
     ViewData["BackLabel"] = "Import";
     var krogerImgBase = "https://www.kroger.com/product/images/large/front/";
     var placeholderProductImg = Url.Content("~/images/default-product.png");
-
-    string TitleCase(string? s) =>
-        string.IsNullOrWhiteSpace(s) ? "" :
-        System.Globalization.CultureInfo.GetCultureInfo("en-US").TextInfo.ToTitleCase(s.ToLower());
 }
 
 <div class="pt-2 pb-6 space-y-4">
@@ -152,35 +148,24 @@
                     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div class="flex-1 min-w-0">
 
-                            @* ✅ Editable name input *@
-                            <label class="block text-[12px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">
+                            @* The ingredient line as written ("Salt, to taste", "1 cup butter,
+                               divided"). The importer's parsed name/amount/unit ride along
+                               hidden; if the line is edited, the server re-parses it
+                               (ImportService.ReparseEditedLinesAsync). *@
+                            <input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
+                            <input type="hidden" name="Ingredients[@i].Amount" value="@((ing.Amount ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture))" />
+                            <input type="hidden" name="Ingredients[@i].Unit" value="@(ing.Unit ?? "")" />
+                            <input type="hidden" name="Ingredients[@i].OriginalText" value="@(ing.OriginalText ?? "")" />
+                            <label for="ingredientText-@i" class="block text-[12px] font-semibold uppercase tracking-wide" style="color: var(--ios-label-2);">
                                 Ingredient
                             </label>
-                            <textarea name="Ingredients[@i].Name"
+                            <textarea id="ingredientText-@i"
+                                      name="Ingredients[@i].Text"
                                       rows="1"
                                       class="js-ingredient-name js-autoresize mt-1 field-input w-full font-semibold resize-none overflow-hidden"
                                       data-idx="@i"
-                                      maxlength="120"
-                                      autocomplete="off">@TitleCase(ing.Name)</textarea>
-
-                            <div class="js-collapsible" data-idx="@i">
-                                <div class="mt-2 inline-flex items-stretch rounded-lg border border-gray-200 overflow-hidden">
-                                    <input type="number"
-                                           step="any"
-                                           min="0"
-                                           inputmode="decimal"
-                                           name="Ingredients[@i].Amount"
-                                           value="@(Math.Round(ing.Amount ?? 0m, 2))"
-                                           class="js-amount w-16 border-0 border-r border-gray-200 px-2 py-2 text-sm text-center text-gray-900 bg-white focus:outline-none focus:ring-0"
-                                           data-idx="@i" />
-
-                                    <select asp-for="Ingredients[@i].Unit"
-                                            asp-items="Model.AvailableMeasurements"
-                                            class="js-unit border-0 px-2 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-0 cursor-pointer"
-                                            data-idx="@i">
-                                    </select>
-                                </div>
-                            </div>
+                                      maxlength="500"
+                                      autocomplete="off">@(ing.Text ?? ing.Name)</textarea>
                         </div>
 
                         <div class="flex items-center gap-2">
@@ -348,19 +333,6 @@
         const dbSearchUrl = '@Url.Action("SearchDb", "Product")';
         const krogerSearchUrl = '@Url.Action("SearchKroger", "Product")';
         const debounceMs = 200;
-
-        // Measurement options for dynamically added rows
-        const measurementOptions = [
-            @foreach (var m in Model.AvailableMeasurements)
-            {
-                <text>{ value: "@m.Value", text: "@m.Text" },</text>
-            }
-        ];
-        function buildMeasurementOptions(selectedValue) {
-            return measurementOptions.map(o =>
-                `<option value="${o.value}" ${o.value === selectedValue ? 'selected' : ''}>${o.text}</option>`
-            ).join('');
-        }
 
         const placeholderProductImg = '@Url.Content("~/images/default-product.png")';
         const krogerImgBase = 'https://www.kroger.com/product/images/large/front/';
@@ -742,28 +714,19 @@
 
                     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div class="flex-1 min-w-0">
-                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Ingredient</label>
-                            <textarea name="Ingredients[${idx}].Name"
+                            <input type="hidden" name="Ingredients[${idx}].Name" value="" />
+                            <input type="hidden" name="Ingredients[${idx}].Amount" value="0" />
+                            <input type="hidden" name="Ingredients[${idx}].Unit" value="" />
+                            <input type="hidden" name="Ingredients[${idx}].OriginalText" value="" />
+                            <label for="ingredientText-${idx}" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Ingredient</label>
+                            <textarea id="ingredientText-${idx}"
+                                      name="Ingredients[${idx}].Text"
                                       rows="1"
                                       class="js-ingredient-name js-autoresize mt-1 field-input w-full font-semibold resize-none overflow-hidden"
                                       data-idx="${idx}"
-                                      maxlength="120"
+                                      maxlength="500"
                                       autocomplete="off"
-                                      placeholder="e.g., diced tomatoes"></textarea>
-
-                            <div class="js-collapsible" data-idx="${idx}">
-                                <div class="mt-2 inline-flex items-stretch rounded-lg border border-gray-200 overflow-hidden">
-                                    <input type="number" step="any" min="0" inputmode="decimal"
-                                           name="Ingredients[${idx}].Amount" value="1"
-                                           class="js-amount w-16 border-0 border-r border-gray-200 px-2 py-2 text-sm text-center text-gray-900 bg-white focus:outline-none focus:ring-0"
-                                           data-idx="${idx}" />
-                                    <select name="Ingredients[${idx}].Unit"
-                                            class="js-unit border-0 px-2 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-0 cursor-pointer"
-                                            data-idx="${idx}">
-                                        ${buildMeasurementOptions('')}
-                                    </select>
-                                </div>
-                            </div>
+                                      placeholder="e.g., 1 can diced tomatoes"></textarea>
                         </div>
 
                         <div class="flex items-center gap-2">

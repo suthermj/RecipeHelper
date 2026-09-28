@@ -531,7 +531,9 @@ namespace RecipeHelper.Services
 
                 foreach (var (item, _) in groupList)
                 {
-                    originalParts.Add($"{item.Quantity:0.##} {item.Measurement}");
+                    // Quantity 0 = no set amount ("to taste") -- contributes nothing to the
+                    // totals below, but a checked row still buys at least one pack.
+                    originalParts.Add(item.Quantity == 0 ? "no set amount" : $"{item.Quantity:0.##} {item.Measurement}");
                     var unit = UnitConverter.Parse(item.Measurement);
                     switch (UnitConverter.GetDimension(unit))
                     {

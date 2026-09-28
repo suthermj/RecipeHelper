@@ -176,7 +176,7 @@ namespace RecipeHelper.Services
                 Convert these ingredient lines to JSON.
                 Rules:
 
-                quantity must be a decimal number (e.g. 1.5). if no quantity is provided in the raw ingredient line, you can assume the quantity is 1
+                quantity must be a decimal number (e.g. 1.5) or null. Use null when the line has no set amount on purpose (""to taste"", ""as needed"", ""for garnish"", ""for frying"", ""for serving""). If the line names a countable item with no number (e.g. ""egg"", ""lemon""), assume 1
                 unit must be one of: tsp, tbsp, cup, oz, lb, ml, l, unit, pt. if no unit is provided in the raw ingredient line, you can assume the unit is 'unit'
                 originalQuantity must be the quantity as displayed in the raw text
                 ingredientName Will be displayed as the recipe ingredient in the UI. Remove the quantity and unit from the raw ingredient line
@@ -192,10 +192,10 @@ namespace RecipeHelper.Services
                 - russet potato vs red potato vs sweet potato vs yukon gold potato
                 - red apple vs green apple
 
-                Remove “optional” ingredients. Do no include ingredients that are obviously not ingredients.
+                Return exactly one item per input line -- never drop, merge or split lines, even optional ones.
                 Return ONLY JSON, no markdown.
                 Output must be: {{ ""items"": [ ... ] }}
-                Each item must include: quantity (decimal|0), unit (string|'unit'), originalQuantity (string|'1'), name (string), canonicalName (string).
+                Each item must include: quantity (decimal|null), unit (string|'unit'), originalQuantity (string|''), name (string), canonicalName (string).
                 Keep the same order as input.
 
                 Input:
@@ -232,8 +232,9 @@ namespace RecipeHelper.Services
             {
               "title": "Recipe name as printed",
               "ingredients": [
-                { "quantity": 1.5, "unit": "cup", "name": "all-purpose flour", "section": null },
-                { "quantity": 1, "unit": "tsp", "name": "salt", "section": "Blackening Seasoning" }
+                { "text": "1 1/2 cups all-purpose flour, sifted", "quantity": 1.5, "unit": "cup", "name": "all-purpose flour", "section": null },
+                { "text": "1 tsp salt", "quantity": 1, "unit": "tsp", "name": "salt", "section": "Blackening Seasoning" },
+                { "text": "Pepper, to taste", "quantity": null, "unit": null, "name": "pepper", "section": "Blackening Seasoning" }
               ],
               "steps": [
                 "Preheat the oven to 350°F.",
@@ -250,7 +251,13 @@ namespace RecipeHelper.Services
             }
 
             Rules:
-            - quantity: decimal number or null (convert fractions: 1/2 → 0.5, 3/4 → 0.75, 1/3 → 0.33)
+            - text: the full ingredient line as printed -- amount, unit, name and any notes
+              ("divided", "to taste", "optional", "for garnish"). If one printed line lists
+              several ingredients (e.g. "Salt and pepper to taste"), return one item per
+              ingredient, each with text written for that ingredient alone ("Salt, to taste",
+              "Pepper, to taste")
+            - quantity: decimal number or null (convert fractions: 1/2 → 0.5, 3/4 → 0.75, 1/3 → 0.33).
+              null when the line has no set amount ("to taste", "as needed", "for garnish")
             - unit: use one of: tsp, tbsp, cup, oz, fl oz, lb, g, ml, l, pt, qt — or null for unitless items (e.g. 2 eggs)
             - name: clean display name with no quantity or unit prefix
             - section: the group heading this ingredient is printed under, copied verbatim
@@ -285,6 +292,7 @@ namespace RecipeHelper.Services
             [property: JsonPropertyName("reason")] string? Reason);
 
         private sealed record RawExtractedIngredient(
+            [property: JsonPropertyName("text")] string? Text,
             [property: JsonPropertyName("quantity")] decimal? Quantity,
             [property: JsonPropertyName("unit")] string? Unit,
             [property: JsonPropertyName("name")] string Name,
@@ -798,6 +806,7 @@ namespace RecipeHelper.Services
                 {
                     Name = i.Name,
                     CleanName = i.Name,
+                    Text = string.IsNullOrWhiteSpace(i.Text) ? null : i.Text.Trim(),
                     Amount = i.Quantity ?? 0,
                     Unit = i.Unit ?? string.Empty,
                     Section = string.IsNullOrWhiteSpace(i.Section) ? null : i.Section.Trim()

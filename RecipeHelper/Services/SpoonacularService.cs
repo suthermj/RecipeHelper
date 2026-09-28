@@ -87,10 +87,14 @@ namespace RecipeHelper.Services
                     //ReadyInMinutes = recipe.TotalTime,
                     //Servings = recipe.RecipeYield,
                     Ingredients = ings.Items?
-                        .Select(line => new ImportIngredientVM
+                        .Select((line, i) => new ImportIngredientVM
                         {
                             CleanName = line.CanonicalName,
-                            Amount = (decimal)line.Quantity,
+                            Text = i < recipe.RecipeIngredient.Count
+                                ? System.Net.WebUtility.HtmlDecode(recipe.RecipeIngredient[i]).Trim()
+                                : null,
+                            Amount = line.Quantity ?? 0m, // null = no set amount
+
                             DisplayAmount = line.OriginalAmount,
                             Unit = line.Unit,
                             Name = line.Name

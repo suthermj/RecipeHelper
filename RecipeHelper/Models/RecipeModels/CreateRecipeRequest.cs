@@ -16,6 +16,8 @@ namespace RecipeHelper.Models.RecipeModels
     {
         public string DisplayName { get; set; } = "";
 
+        public string? OriginalText { get; set; }   // the line as typed
+
         public decimal Quantity { get; set; }
 
         public int? MeasurementId { get; set; }

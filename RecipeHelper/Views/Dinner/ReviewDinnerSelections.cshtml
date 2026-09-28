@@ -58,9 +58,12 @@
                 <span class="text-[11px] font-normal" style="color: var(--ios-label-2);">(shared)</span>
             }
         </span>
-        <span class="text-[12px] font-medium shrink-0 px-2 py-0.5 rounded-full" style="color: var(--ios-label-2); background: var(--ios-fill);">
-            @item.Item.DisplayQuantity @item.Item.DisplayMeasurement
-        </span>
+        @if (item.Item.HasAmount)
+        {
+            <span class="text-[12px] font-medium shrink-0 px-2 py-0.5 rounded-full" style="color: var(--ios-label-2); background: var(--ios-fill);">
+                @item.Item.DisplayQuantity @item.Item.DisplayMeasurement
+            </span>
+        }
     </div>;
 }
 

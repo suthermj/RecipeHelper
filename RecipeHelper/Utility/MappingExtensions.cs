@@ -88,6 +88,7 @@ namespace RecipeHelper.Utility
                 {
                     Name = i.Name ?? "",
                     CleanName = i.CleanName ?? "",
+                    Text = string.IsNullOrWhiteSpace(i.Text) ? null : i.Text.Trim(),
                     Amount = i.Amount ?? 0m,
                     Unit = i.Unit,
                     Section = i.Section
@@ -102,29 +103,47 @@ namespace RecipeHelper.Utility
                 Title = dto.Title,
                 Image = dto.Image,
                 SourceUrl = dto.SourceUrl,
-                Ingredients = dto.Ingredients.Select(x => new IngredientPreviewVM
+                Ingredients = dto.Ingredients.Select(x =>
                 {
-                    Name = x.Name,
-                    Amount = x.Amount,
-                    Unit = x.Unit,
-                    Section = x.Section,
-                    IngredientId = x.MatchedIngredientId,
-                    CanonicalName = x.MatchedCanonicalName,
-                    SuggestedName = x.SuggestedProductName,
-                    SuggestedUpc = x.SuggestedProductUpc,
-                    SelectedName = x.SuggestedProductName,
-                    SelectedUpc = x.SuggestedProductUpc,
-                    //SelectedSource 
-                    Include = true,
-                    Kroger = x.Kroger is null ? null : new SuggestedKrogerProductVM
+                    var line = x.Text ?? ComposeIngredientLine(x.Amount, x.Unit, x.Name);
+                    return new IngredientPreviewVM
                     {
-                        //Upc = x.Kroger.Upc,
-                        Name = x.Kroger.Name,
-                        ImageUrl = x.Kroger.ImageUrl,
-                        Upc = x.Kroger.Upc
-                    }
+                        Name = x.Name,
+                        Text = line,
+                        OriginalText = line,
+                        Amount = x.Amount,
+                        Unit = x.Unit,
+                        Section = x.Section,
+                        IngredientId = x.MatchedIngredientId,
+                        CanonicalName = x.MatchedCanonicalName,
+                        SuggestedName = x.SuggestedProductName,
+                        SuggestedUpc = x.SuggestedProductUpc,
+                        SelectedName = x.SuggestedProductName,
+                        SelectedUpc = x.SuggestedProductUpc,
+                        //SelectedSource
+                        Include = true,
+                        Kroger = x.Kroger is null ? null : new SuggestedKrogerProductVM
+                        {
+                            //Upc = x.Kroger.Upc,
+                            Name = x.Kroger.Name,
+                            ImageUrl = x.Kroger.ImageUrl,
+                            Upc = x.Kroger.Upc
+                        }
+                    };
                 }).ToList()
-            }; ;
+            };
+        }
+
+        // "1.5 cup flour", "2 eggs", or just "salt" when there's no set amount -- the
+        // fallback line for an importer that didn't supply the original text.
+        public static string ComposeIngredientLine(decimal? amount, string? unit, string? name)
+        {
+            name = (name ?? "").Trim();
+            if (amount is not > 0) return name;
+            var qty = amount.Value % 1 == 0 ? ((int)amount.Value).ToString() : amount.Value.ToString("0.##");
+            var u = string.IsNullOrWhiteSpace(unit) || unit.Trim().Equals("unit", StringComparison.OrdinalIgnoreCase)
+                ? "" : unit.Trim() + " ";
+            return $"{qty} {u}{name}".Trim();
         }
 
         public static ImportRecipeRequest ToRequest(this MappedImportedRecipeVM vm)
@@ -139,6 +158,8 @@ namespace RecipeHelper.Utility
                     Name = i.Name,
                     CanonicalName = i.CanonicalName,
                     IngredientId = i.IngredientId,
+                    Text = string.IsNullOrWhiteSpace(i.Text) ? null : i.Text.Trim(),
+                    OriginalText = string.IsNullOrWhiteSpace(i.OriginalText) ? null : i.OriginalText.Trim(),
                     Amount = i.Amount ?? 0m,
                     Unit = i.Unit,
                     Section = i.Section,

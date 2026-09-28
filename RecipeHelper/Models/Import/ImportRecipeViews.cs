@@ -104,11 +104,11 @@ public class ImportRecipeVM
                 {
                     Name = FirstNonEmpty(StripLeadingQuantity(ei.originalName), StripLeadingQuantity(ei.name), ei.original, "UNKNOWN"),
                     CleanName = FirstNonEmpty(StripLeadingQuantity(ei.name), StripLeadingQuantity(ei.originalName), ei.original, "UNKNOWN"),
+                    Text = string.IsNullOrWhiteSpace(ei.original) ? null : ei.original.Trim(),
                     DisplayAmount = PickAmount(ei),
                     Amount = (decimal)ei.amount,
                     Unit = ei.unit
-
-                }); 
+                });
             }
         }
 
@@ -141,6 +141,7 @@ public class ImportIngredientVM
 {
     public string Name { get; set; } = "";
     public string CleanName { get; set; } = "";
+    public string? Text { get; set; }           // the full line as written, e.g. "Salt, to taste"
     public string? DisplayAmount { get; set; }  // e.g. "1 cup" or "200 g"
     public decimal? Amount { get; set; }          // e.g. 1 or 200
     public string? Unit { get; set; }        // e.g. "cup" or "g"
@@ -164,6 +165,7 @@ public class PreviewImportedIngredientVM
 {
     public string Name { get; set; } = "";
     public string CleanName { get; set; } = "";
+    public string? Text { get; set; }
     public decimal? Amount { get; set; }
     public string? Unit { get; set; }
     public string? Section { get; set; }
@@ -190,7 +192,13 @@ public class IngredientPreviewVM
     [Required]
     public string Name { get; set; } = "";
 
-    public decimal? Amount { get; set; }   // e.g., 2
+    // The editable ingredient line shown on the mapping page ("Salt, to taste").
+    // OriginalText is what the importer produced; if the user edits Text, the line is
+    // re-parsed on save, otherwise Name/Amount/Unit below are used as-is.
+    public string? Text { get; set; }
+    public string? OriginalText { get; set; }
+
+    public decimal? Amount { get; set; }   // e.g., 2; 0 = no set amount
     public string? Unit { get; set; }    // e.g., "cloves", "tsp", "g"
     public string? Section { get; set; } // e.g. "Blackening Seasoning" (photo import only)
     public bool Include { get; set; }   // whether to include this ingredient when saving

@@ -23,17 +23,27 @@ namespace RecipeHelper.Utility
             // of the name -- what the ingredient is -- so "pepper" matches "black pepper"
             // but not "red bell pepper" (unless "pepper" itself is listed), and "flour"
             // matches "all-purpose flour" but not "flour tortillas".
-            var words = Tokenize(HeadPhrase(name));
-            if (words.Length == 0) return false;
-
-            foreach (var item in items)
+            // Two readings of the name: the ingredient alone, and the whole text with the
+            // notes folded back in, so "garlic, minced" / "Garlic Cloves (Minced)" can
+            // match a "garlic minced" item.
+            var candidates = new[]
             {
-                var needle = Tokenize(item.Name);
-                if (needle.Length == 0 || needle.Length > words.Length) continue;
-                int offset = words.Length - needle.Length;
-                int k = 0;
-                while (k < needle.Length && words[offset + k] == needle[k]) k++;
-                if (k == needle.Length) return true;
+                Tokenize(HeadPhrase(name)),
+                Tokenize(Regex.Replace(name ?? "", @"[(),]", " "))
+            };
+
+            foreach (var words in candidates)
+            {
+                if (words.Length == 0) continue;
+                foreach (var item in items)
+                {
+                    var needle = Tokenize(item.Name);
+                    if (needle.Length == 0 || needle.Length > words.Length) continue;
+                    int offset = words.Length - needle.Length;
+                    int k = 0;
+                    while (k < needle.Length && words[offset + k] == needle[k]) k++;
+                    if (k == needle.Length) return true;
+                }
             }
             return false;
         }

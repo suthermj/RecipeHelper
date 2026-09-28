@@ -61,6 +61,16 @@ namespace RecipeHelper.Tests
             Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null,
                 new[] { P("butter"), P("ground cloves"), P("mustard") }));
 
+        [Theory]
+        [InlineData("minced garlic", true)]
+        [InlineData("garlic, minced", true)]
+        [InlineData("Garlic Cloves (Minced)", true)]
+        [InlineData("garlic cloves", false)]
+        [InlineData("garlic cloves, peeled", false)]
+        public void Minced_garlic_forms_match_but_fresh_garlic_does_not(string ingredient, bool expected) =>
+            Assert.Equal(expected, PantryMatcher.IsPantry(ingredient, null,
+                new[] { P("minced garlic"), P("garlic minced"), P("garlic cloves minced") }));
+
         [Fact]
         public void Multi_word_item_needs_contiguous_words() =>
             Assert.False(PantryMatcher.IsPantry("olive and garlic oil", null, new[] { P("olive oil") }));

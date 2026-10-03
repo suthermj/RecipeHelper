@@ -66,6 +66,7 @@ namespace RecipeHelper.Controllers
                 Ingredients = r.Ingredients.OrderBy(rp => rp.SortOrder).Select(rp => new IngredientVM
                 {
                     Name = rp.DisplayName,
+                    Text = rp.OriginalText,
                     Quantity = rp.Quantity,
                     Measurement = rp.Measurement.Name,
                     Section = rp.Section,
@@ -128,6 +129,7 @@ namespace RecipeHelper.Controllers
                     {
                         rp.Id,
                         rp.DisplayName,
+                        rp.OriginalText,
                         rp.Quantity,
                         MeasurementName = rp.Measurement.Name,
                         rp.SelectedKrogerUpc,
@@ -149,7 +151,7 @@ namespace RecipeHelper.Controllers
                     Ingredients = data.Ingredients.Select(rp => new EditRecipeIngredientVM
                     {
                         Id = rp.Id,
-                        RawText = FormatIngredientText(rp.Quantity, rp.MeasurementName, rp.DisplayName),
+                        RawText = rp.OriginalText ?? FormatIngredientText(rp.Quantity, rp.MeasurementName, rp.DisplayName),
                         SelectedKrogerUpc = rp.SelectedKrogerUpc,
                         SelectedKrogerName = rp.SelectedKrogerName,
                         IngredientId = rp.IngredientId,
@@ -166,6 +168,7 @@ namespace RecipeHelper.Controllers
 
         private static string FormatIngredientText(decimal quantity, string measurementName, string displayName)
         {
+            if (quantity == 0) return displayName.Trim(); // no set amount -- don't show "0 Salt"
             var qtyStr = quantity % 1 == 0 ? ((int)quantity).ToString() : quantity.ToString("0.##");
             if (string.Equals(measurementName, "Unit", StringComparison.OrdinalIgnoreCase))
                 return $"{qtyStr} {displayName}".Trim();
@@ -212,6 +215,7 @@ namespace RecipeHelper.Controllers
                 Ingredients = ingredientDtos.Select((d, i) => new CreateRecipeIngredientDto
                 {
                     DisplayName = d.DisplayName,
+                    OriginalText = d.OriginalText,
                     Quantity = d.Quantity,
                     MeasurementId = d.MeasurementId,
                     SelectedKrogerUpc = d.KrogerUpc,
@@ -270,6 +274,7 @@ namespace RecipeHelper.Controllers
                     {
                         Id = item.Id,
                         DisplayName = d.DisplayName,
+                        OriginalText = d.OriginalText,
                         Quantity = d.Quantity,
                         MeasurementId = d.MeasurementId,
                         IngredientId = item.IngredientId,
@@ -289,6 +294,7 @@ namespace RecipeHelper.Controllers
                 {
                     Id = existing.Id,
                     DisplayName = existing.DisplayName,
+                    OriginalText = existing.OriginalText,
                     Quantity = existing.Quantity,
                     MeasurementId = existing.MeasurementId,
                     IngredientId = existing.IngredientId,
@@ -340,7 +346,9 @@ namespace RecipeHelper.Controllers
                 results.Add(new ParsedIngredientDto
                 {
                     DisplayName = item.Name ?? "",
-                    Quantity = item.Quantity ?? 1m,
+                    OriginalText = i < rawLines.Count ? TruncateLine(rawLines[i]) : null,
+                    // null = no set amount ("to taste") -- stored as 0, see RecipeIngredient.Quantity
+                    Quantity = item.Quantity ?? 0m,
                     MeasurementId = measurement.Id,
                     KrogerUpc = upc
                 });
@@ -349,9 +357,18 @@ namespace RecipeHelper.Controllers
             return results;
         }
 
+        // RecipeIngredient.OriginalText is MaxLength(500); same cap ImportService applies.
+        internal static string? TruncateLine(string? line)
+        {
+            line = line?.Trim();
+            if (string.IsNullOrEmpty(line)) return null;
+            return line.Length > 500 ? line[..500] : line;
+        }
+
         private class ParsedIngredientDto
         {
             public string DisplayName { get; set; } = "";
+            public string? OriginalText { get; set; }
             public decimal Quantity { get; set; }
             public int MeasurementId { get; set; }
             public string? KrogerUpc { get; set; }

@@ -129,7 +129,10 @@ namespace RecipeHelper.Services
                             CleanName = g.Key.CleanName,
                             Unit = g.Key.Unit,
                             Section = g.Key.Section,
-                            Amount = g.Sum(x => x.Amount)
+                            Amount = g.Sum(x => x.Amount),
+                            // A merged duplicate has no single original line -- fall
+                            // back to one composed from the summed amount.
+                            Text = g.Count() == 1 ? g.First().Text : null
                         })
                         .ToList();
 
@@ -166,6 +169,7 @@ namespace RecipeHelper.Services
                 var ingredientPreview = new ImportPreviewIngredient
                 {
                     Name = ingredient.Name,
+                    Text = ingredient.Text,
                     Unit = ingredient.Unit,
                     Amount = ingredient.Amount,
                     Section = ingredient.Section,
@@ -207,9 +211,74 @@ namespace RecipeHelper.Services
         }
 
 
+        // A line the user edited on the mapping page no longer matches the importer's
+        // Name/Amount/Unit, so it's re-parsed -- all edited lines in one AI call, the same
+        // parser Create/Edit use. Untouched lines keep the importer's values and cost
+        // nothing. When the edit changed which ingredient the line is, its earlier
+        // ingredient match is cleared so SaveImportedRecipe re-resolves it by name.
+        internal Task ReparseEditedLinesAsync(List<ImportedIngredient> ingredients) =>
+            ReparseEditedLinesAsync(ingredients,
+                async lines => (await _ingredientService.TransformRawIngredients(lines, CancellationToken.None)).Items,
+                _logger);
+
+        internal static async Task ReparseEditedLinesAsync(
+            List<ImportedIngredient> ingredients,
+            Func<List<string>, Task<List<IngredientsService.ParsedIngredientItem>>> parse,
+            ILogger logger)
+        {
+            var edited = ingredients.Where(i => i.Include && IsEditedLine(i)).ToList();
+            if (edited.Count == 0) return;
+
+            logger.LogInformation("Re-parsing {Count} ingredient line(s) edited on the mapping page", edited.Count);
+            var lines = edited.Select(i => i.Text!.Trim()).ToList();
+            List<IngredientsService.ParsedIngredientItem?> items = [.. await parse(lines)];
+
+            // Results are matched to lines by position, so a miscount (e.g. the model split
+            // "Salt and pepper to taste" into two items) would shift every later line onto
+            // the wrong parse. Fall back to one call per line so each gets its own result.
+            if (items.Count != edited.Count)
+            {
+                logger.LogWarning("Batch re-parse returned {Got} item(s) for {Expected} line(s); re-parsing one line at a time",
+                    items.Count, edited.Count);
+                items = new();
+                foreach (var line in lines)
+                    items.Add((await parse(new() { line })).FirstOrDefault());
+            }
+
+            for (var i = 0; i < edited.Count; i++)
+            {
+                var ing = edited[i];
+                var p = items[i];
+                if (p is null) continue; // parser returned nothing -- keep the importer's values
+                var newName = string.IsNullOrWhiteSpace(p.Name) ? ing.Name : p.Name.Trim();
+
+                if (!string.Equals(newName.Trim(), (ing.Name ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    ing.IngredientId = null;
+                    ing.CanonicalName = "";
+                }
+                ing.Name = newName;
+                ing.Amount = p.Quantity ?? 0m; // null = no set amount
+                ing.Unit = p.Unit;
+            }
+
+            // A row added on the mapping page starts with no name; if the parser didn't
+            // return one for it, the line itself is the best name there is.
+            foreach (var ing in edited.Where(i => string.IsNullOrWhiteSpace(i.Name)))
+                ing.Name = ing.Text!.Trim();
+        }
+
+        internal static bool IsEditedLine(ImportedIngredient i) =>
+            !string.IsNullOrWhiteSpace(i.Text) &&
+            !string.Equals(i.Text.Trim(), (i.OriginalText ?? "").Trim(), StringComparison.Ordinal);
+
         public async Task<ImportRecipeResponse> SaveImportedRecipe(ImportRecipeRequest recipe)
         {
             ImportRecipeResponse response = new ImportRecipeResponse();
+
+            // Before the transaction -- it's an AI call, no DB access.
+            await ReparseEditedLinesAsync(recipe.Ingredients);
+
             await using var tx = await _context.Database.BeginTransactionAsync();
 
             var (rehostedImageUri, rehostedThumbnailUri) = await RehostExternalImageAsync(recipe.Image);
@@ -294,9 +363,11 @@ namespace RecipeHelper.Services
 
                 var normalizedMeasurementUnit = MeasurementHelper.NormalizeMeasurementUnit(ingredient.Unit);
 
+                var line = ingredient.Text?.Trim();
                 var recipeIngredient = new RecipeIngredient
                 {
                     DisplayName = ingredient.Name,
+                    OriginalText = string.IsNullOrEmpty(line) ? null : line.Length > 500 ? line[..500] : line,
                     Quantity = ingredient.Amount,
                     MeasurementId = measurementDict.TryGetValue(normalizedMeasurementUnit, out var id) ? id : (int?)null,
                     SelectedKrogerUpc = ingredient.Upc,
@@ -428,6 +499,7 @@ namespace RecipeHelper.Services
                 var ingredientPreview = new ImportPreviewIngredient
                 {
                     Name = ingredient.Name,
+                    Text = ingredient.Text,
                     Unit = ingredient.Unit,
                     Amount = ingredient.Amount,
                     Section = ingredient.Section,

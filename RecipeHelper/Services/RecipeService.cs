@@ -65,6 +65,7 @@ namespace RecipeHelper.Services
                 newRecipe.Ingredients.Add(new RecipeIngredient
                 {
                     DisplayName = ingredient.DisplayName,
+                    OriginalText = ingredient.OriginalText,
                     Quantity = ingredient.Quantity,
                     MeasurementId = ingredient.MeasurementId,
                     SelectedKrogerUpc = ingredient.SelectedKrogerUpc,
@@ -200,6 +201,7 @@ namespace RecipeHelper.Services
                 {
                     _logger.LogInformation("[UpdateRecipe] Updating existing ingredient {IngredientRowId} [{DisplayName}]", existing.Id, dto.DisplayName);
                     existing.DisplayName = dto.DisplayName;
+                    existing.OriginalText = dto.OriginalText;
                     existing.Quantity = dto.Quantity;
                     existing.MeasurementId = dto.MeasurementId;
                     if (!string.IsNullOrEmpty(dto.SelectedKrogerUpc))
@@ -220,6 +222,7 @@ namespace RecipeHelper.Services
                     {
                         RecipeId = recipe.Id,
                         DisplayName = dto.DisplayName,
+                        OriginalText = dto.OriginalText,
                         Quantity = dto.Quantity,
                         MeasurementId = dto.MeasurementId,
                         SelectedKrogerUpc = dto.SelectedKrogerUpc,

@@ -1,0 +1,86 @@
+@using RecipeHelper.Utility
+@model List<RecipeHelper.Models.PantryItem>
+
+@{
+    ViewData["Title"]     = "Pantry";
+    ViewData["NavTitle"]  = "";
+    ViewData["BackLink"]  = Url.Action("Index", "Settings");
+    ViewData["BackLabel"] = "Settings";
+}
+
+<div class="pt-2 pb-32">
+
+    <!-- Large title + add + search -->
+    <div class="px-4 pb-3">
+        <h1 class="ios-large-title mb-3">Pantry</h1>
+
+        <form asp-action="Add" method="post" class="flex items-center gap-2 mb-3">
+            <input type="text" name="name" placeholder="Add a staple (e.g. olive oil)…" maxlength="100"
+                   autocomplete="off" required class="ios-search-input flex-1" style="min-height:44px;" />
+            <button type="submit" class="ios-inline-action" style="min-height:44px;">Add</button>
+        </form>
+
+        <div class="ios-search-wrap">
+            <svg class="ios-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input id="pantrySearch" type="search" placeholder="Search pantry…" class="ios-search-input" />
+        </div>
+        <p class="text-[13px] mt-2" style="color: var(--ios-label-2);">
+            @Model.Count of your own &middot; "Uncheck pantry" on the ingredient review page also skips the built-in staples below.
+        </p>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <div class="mx-4 rounded-2xl p-10 text-center"
+             style="background: var(--ios-surface); box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+            <h2 class="text-[17px] font-semibold mb-1" style="color: var(--ios-label);">Nothing added yet</h2>
+            <p class="text-[15px]" style="color: var(--ios-label-2);">Common staples are already built in. Add anything else you keep on hand.</p>
+        </div>
+    }
+    else
+    {
+        <div id="pantryList" class="ios-group">
+            @foreach (var item in Model)
+            {
+                <form asp-action="Remove" method="post" class="pantry-row ios-cell justify-between" data-name="@item.Name.ToLowerInvariant()">
+                    <input type="hidden" name="id" value="@item.Id" />
+                    <span class="text-[15px]" style="color: var(--ios-label);">@item.Name</span>
+                    <button type="submit" aria-label="Remove @item.Name" class="ios-inline-action"
+                            style="min-height:44px;min-width:44px;color: var(--ios-red);">&times;</button>
+                </form>
+            }
+        </div>
+        <p id="pantryEmpty" class="text-[14px] px-4 mt-3 hidden" style="color: var(--ios-label-2);">No matching items.</p>
+    }
+</div>
+
+<details class="ios-group mt-6">
+    <summary class="ios-cell justify-between cursor-pointer" style="min-height:44px; border-bottom: none;">
+        <span class="text-[15px] font-semibold" style="color: var(--ios-label);">Built-in staples (@PantryDefaults.Names.Count)</span>
+    </summary>
+    <div class="px-4 py-3 text-[14px]" style="color: var(--ios-label-2); border-top: 0.5px solid var(--ios-separator);">
+        @string.Join(", ", PantryDefaults.Names.OrderBy(n => n))
+    </div>
+</details>
+
+@section Scripts {
+<script>
+    (function () {
+        var input = document.getElementById('pantrySearch');
+        if (!input) return;
+        input.addEventListener('input', function () {
+            var term = input.value.toLowerCase().trim();
+            var visible = 0;
+            document.querySelectorAll('.pantry-row').forEach(function (row) {
+                var match = !term || row.dataset.name.includes(term);
+                row.style.display = match ? '' : 'none';
+                if (match) visible++;
+            });
+            document.getElementById('pantryEmpty')?.classList.toggle('hidden', visible > 0);
+        });
+    })();
+</script>
+}

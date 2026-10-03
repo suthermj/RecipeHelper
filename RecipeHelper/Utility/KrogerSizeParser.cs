@@ -102,6 +102,22 @@ namespace RecipeHelper.Utility
             return new ParsedPackSize { ParsedOk = false, Dimension = PackDimension.Unknown };
         }
 
+        // Piece count embedded in a product name, e.g. "Mission ... Burrito Size, 8 Count",
+        // "Sonora Style Burrito 12\" 8 ct", "Hot Dog Buns 8-pk". Whole-word unit only, so
+        // "12\"" or "20 oz" never match.
+        private static readonly Regex NameCountRegex = new(
+            @"(?<!\d)(?<count>\d+)\s*-?\s*(?:ct|count|pk|pack|pc|pcs|piece|pieces)\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        public static decimal? TryParseCountFromName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            var m = NameCountRegex.Match(name);
+            return m.Success && decimal.TryParse(m.Groups["count"].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var n) && n > 0
+                ? n
+                : null;
+        }
+
         private static decimal? TryParseDecimal(string s)
         {
             if (decimal.TryParse(s.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var val))

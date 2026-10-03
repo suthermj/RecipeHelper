@@ -142,21 +142,14 @@
 
     <!-- Actions (visible when ≥1 day filled) -->
     <div id="planActions" class="px-4 pt-4 space-y-3 @(hasEntries ? "" : "hidden")">
-        <form asp-action="SubmitDinnerSelections" method="post">
-            @Html.AntiForgeryToken()
-            <div id="reviewHiddenInputs">
-                @foreach (var entry in allEntries.Where(e => e.RecipeId.HasValue))
-                {
-                    <input type="hidden" name="selectedRecipes" value="@entry.RecipeId" />
-                }
-            </div>
-            <button type="submit" class="btn-primary w-full gap-2">
-                Review ingredients
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                </svg>
-            </button>
-        </form>
+        <a asp-action="SelectIngredientRecipes" asp-route-weekStart="@weekStart.ToString("yyyy-MM-dd")"
+           id="reviewIngredientsLink"
+           class="btn-primary w-full gap-2 @(allEntries.Any(e => e.RecipeId.HasValue) ? "" : "hidden")">
+            Review ingredients
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+        </a>
 
         <button type="button" id="shareBtn" class="btn-secondary w-full gap-2">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -370,7 +363,7 @@
     const addFreeTextOption = document.getElementById('addFreeTextOption');
     const addFreeTextTerm   = document.getElementById('addFreeTextTerm');
     const planActions  = document.getElementById('planActions');
-    const reviewHiddenInputs = document.getElementById('reviewHiddenInputs');
+    const reviewIngredientsLink = document.getElementById('reviewIngredientsLink');
     const deletePlanIdInput  = document.getElementById('deletePlanId');
     const weekStart          = '@weekStart.ToString("yyyy-MM-dd")';
     const defaultImg         = '@DefaultImg';
@@ -388,6 +381,17 @@
 
     function getToken() {
         return document.querySelector('input[name="__RequestVerificationToken"]').value;
+    }
+
+    // Recovers from a failed mutation by reloading the page. A POST here can fail
+    // with a 400 if the embedded antiforgery token has gone stale mid-session (the
+    // token in the DOM never changes until the page reloads, so retrying with
+    // getToken() just resends the same rejected value and fails again forever).
+    // Reloading fetches a fresh page with a fresh token -- same recovery pattern
+    // already used on ShoppingList/ViewList and Product/ViewProduct.
+    function recoverFromMutationFailure(err) {
+        if (err?.name === 'AbortError') return;
+        location.reload();
     }
 
     function openPicker(day) {
@@ -564,15 +568,7 @@
         bindMoveGestures();
         updateRecipeAvailability();
 
-        reviewHiddenInputs.innerHTML = '';
-        (data.entries || []).forEach(e => {
-            if (e.recipeId == null) return;
-            const input = document.createElement('input');
-            input.type  = 'hidden';
-            input.name  = 'selectedRecipes';
-            input.value = e.recipeId;
-            reviewHiddenInputs.appendChild(input);
-        });
+        reviewIngredientsLink.classList.toggle('hidden', !(data.entries || []).some(e => e.recipeId != null));
 
         deletePlanIdInput.value = data.planId || 0;
         planActions.classList.toggle('hidden', (data.entries || []).length === 0);
@@ -593,7 +589,7 @@
                 if (e.target.closest('.clear-btn')) return;
                 // A drag in progress prevents the synthetic click that follows
                 // touchend, so a click reaching here is always a genuine tap.
-                window.location.href = `${viewRecipeUrl}/${recipeId}`;
+                window.location.href = `${viewRecipeUrl}/${recipeId}?from=mealplan`;
             });
         });
     }
@@ -758,7 +754,7 @@
             if (!resp.ok) throw new Error('Add failed: ' + resp.status);
             renderAll(await resp.json());
         } catch (err) {
-            alert('Could not add recipe. Please try again.');
+            recoverFromMutationFailure(err);
         } finally {
             undimCard(card);
         }
@@ -780,7 +776,7 @@
             if (!resp.ok) throw new Error('Add failed: ' + resp.status);
             renderAll(await resp.json());
         } catch (err) {
-            alert('Could not add placeholder. Please try again.');
+            recoverFromMutationFailure(err);
         } finally {
             undimCard(card);
         }
@@ -801,7 +797,7 @@
             if (!resp.ok) throw new Error('Remove failed: ' + resp.status);
             renderAll(await resp.json());
         } catch (err) {
-            alert('Could not remove recipe. Please try again.');
+            recoverFromMutationFailure(err);
         } finally {
             undimCard(card);
         }
@@ -829,9 +825,7 @@
                 alert('Link copied to clipboard!');
             }
         } catch (err) {
-            if (err?.name !== 'AbortError') {
-                alert('Could not create share link. Please try again.');
-            }
+            recoverFromMutationFailure(err);
         }
     });
 
@@ -851,7 +845,7 @@
             if (!resp.ok) throw new Error('Move failed: ' + resp.status);
             renderAll(await resp.json());
         } catch (err) {
-            alert('Could not move recipe. Please try again.');
+            recoverFromMutationFailure(err);
         } finally {
             undimCard(card);
         }

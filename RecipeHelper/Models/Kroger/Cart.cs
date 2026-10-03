@@ -4,9 +4,26 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace RecipeHelper.Models.Kroger
 {
 
+    // Where an add-to-cart flow started -- carried through PreviewAddToCart's hidden
+    // form field and the BeginAddToCart/CompleteAddToCart session round-trip (Cart.cs
+    // "PendingCart" JSON) so CartController knows where to send the user back to on
+    // success or failure. Defaults to MealPlan since that's the original, longest-
+    // standing flow (Dinner/ReviewDinnerSelections and, since #165, a single recipe's
+    // "Add to Cart" both post into it the same way); Products (#166) is the only other
+    // flow that needs a different return destination today.
+    public static class CartOrigin
+    {
+        public const string MealPlan = "MealPlan";
+        public const string Products = "Products";
+    }
+
     public class AddToCartVM
     {
         public List<CartItemVM> Items { get; set; } = new List<CartItemVM>();
+        public string Origin { get; set; } = CartOrigin.MealPlan;
+        // Set by ViewProduct's direct "Add to Cart" (which skips the preview screen) so
+        // the flow returns to that product page instead of the Products list.
+        public string? ReturnProductId { get; set; }
 
     }
 
@@ -97,6 +114,7 @@ namespace RecipeHelper.Models.Kroger
     {
         public List<AddToCartPreviewItemVM> Items { get; set; } = new();
         public List<SkippedCartItem> Skipped { get; set; } = new();
+        public string Origin { get; set; } = CartOrigin.MealPlan;
     }
 
     // An ingredient ConvertIngredientsToCartItems couldn't turn into a cart line --
@@ -108,6 +126,39 @@ namespace RecipeHelper.Models.Kroger
         public string Name { get; set; } = "";
         public string Reason { get; set; } = "";
         public decimal Quantity { get; set; }
+        // Only set when the ingredient was mapped but fetching its Kroger product
+        // failed -- enough to re-run the conversion for just this item from the
+        // preview page's "Retry" button.
+        public string? Upc { get; set; }
+        public string? Measurement { get; set; }
+        // True only for transient lookup failures, which the preview lists in their
+        // own "Lookup failed" section with a Retry button. Unmapped items and products
+        // Kroger reports as not found stay under "Not mapped": retrying can't fix
+        // those, they need (re)mapping.
+        public bool Retryable { get; set; }
+    }
+
+    // One row of Cart/PreviewAddToCart (Views/Cart/_CartPreviewRow.cshtml). Index is
+    // the row's Items[i] position in the submitted form.
+    public class CartPreviewRowVM
+    {
+        public AddToCartPreviewItemVM Item { get; set; } = null!;
+        public int Index { get; set; }
+    }
+
+    // Response of CartController.RetryPreviewLookups (Views/Cart/_RetriedPreviewLookups.cshtml).
+    public class RetriedPreviewLookupsVM
+    {
+        public List<CartPreviewRowVM> Rows { get; set; } = new();
+        public List<SkippedCartItem> StillSkipped { get; set; } = new();
+    }
+
+    public class RetryPreviewLookupsRequest
+    {
+        public List<SkippedCartItem> Items { get; set; } = new();
+        // Index to give the first recovered row, so its Items[i].* inputs continue the
+        // form's existing contiguous sequence and still model-bind.
+        public int StartIndex { get; set; }
     }
 
     public class ConvertIngredientsResult

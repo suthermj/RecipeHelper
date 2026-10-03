@@ -29,6 +29,10 @@
   - [x] Allow checking off items as completed; completed items move to a "Completed" section at the bottom
 - [x] When generating a list/adding to cart, allow auto-exclusion of bulk pantry items (e.g. spices) that don't need to be purchased every trip
 
+## Architecture / Future
+
+- [ ] Multi-user support (logins, private-by-default recipes with an opt-in Public flag, a "Discover" tab for browsing/copying other users' public recipes) — planning doc in [`MULTI_USER_ROADMAP.md`](MULTI_USER_ROADMAP.md), not started; architecture and data flows to be reviewed thoroughly before implementation begins
+
 ## Infrastructure / DevOps
 
 - [x] Integrate Grafana for logging and metrics

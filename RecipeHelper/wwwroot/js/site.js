@@ -1,4 +1,21 @@
 if ('serviceWorker' in navigator) {
+    // Captured before register() so it reflects whether this page load was
+    // already being served by a service worker -- true on a repeat visit,
+    // false on this browser profile's first-ever visit (or after clearing
+    // site data / a fresh Playwright context). sw.js's activate handler
+    // calls self.clients.claim() unconditionally, which makes
+    // 'controllerchange' fire the very first time a worker ever claims a
+    // page too, not just on a real version swap -- without this guard,
+    // every brand-new visit silently reloaded itself once, moments after
+    // the page rendered, racing whatever the user (or a test) was doing at
+    // that instant. Confirmed via a smoke-test failure trace: two
+    // interaction tests failed mid-test with Playwright reporting their
+    // target element "detached from the DOM, retrying" and resolving to a
+    // freshly-loaded (closed) action sheet -- a full unrequested reload
+    // between two taps, not a browser/touch-synthesis quirk as first
+    // suspected.
+    var hadController = !!navigator.serviceWorker.controller;
+
     navigator.serviceWorker.register('/sw.js').then(function (registration) {
         function promptReload(worker) {
             showUpdateBanner(function () {
@@ -24,11 +41,15 @@ if ('serviceWorker' in navigator) {
         });
     });
 
-    // Reload once the new worker takes control (after SKIP_WAITING is posted),
-    // so the page picks up the fresh HTML/JS/CSS it now controls.
+    // Reload once the new worker takes control (after SKIP_WAITING is
+    // posted), so the page picks up the fresh HTML/JS/CSS it now controls.
+    // Gated on hadController: only a page that already had an active
+    // controller can be picking up a genuine update here (via the banner's
+    // SKIP_WAITING tap); a page with no prior controller that just got
+    // claimed for the first time has nothing staler to replace.
     var reloadedForUpdate = false;
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-        if (reloadedForUpdate) return;
+        if (!hadController || reloadedForUpdate) return;
         reloadedForUpdate = true;
         window.location.reload();
     });

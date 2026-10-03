@@ -53,7 +53,7 @@ namespace RecipeHelper.Controllers
             return View(recipes);
         }
 
-        public async Task<ActionResult> ViewRecipe(int Id)
+        public async Task<ActionResult> ViewRecipe(int Id, string? from = null)
         {
             var data = await _context.Recipes.AsNoTracking().Where(r => r.Id == Id).Select(r => new
             {
@@ -73,6 +73,17 @@ namespace RecipeHelper.Controllers
             }).FirstOrDefaultAsync();
 
             if (data == null) return RedirectToAction("Recipe");
+
+            if (from == "mealplan")
+            {
+                ViewData["BackLink"] = Url.Action("Index", "Dinner");
+                ViewData["BackLabel"] = "Meal Plan";
+            }
+            else
+            {
+                ViewData["BackLink"] = Url.Action("Recipe", "Recipe");
+                ViewData["BackLabel"] = "Recipes";
+            }
 
             var recipe = new ViewRecipeVM
             {
@@ -120,6 +131,7 @@ namespace RecipeHelper.Controllers
                         rp.Quantity,
                         MeasurementName = rp.Measurement.Name,
                         rp.SelectedKrogerUpc,
+                        SelectedKrogerName = rp.SelectedKrogerProduct != null ? rp.SelectedKrogerProduct.Name : null,
                         rp.IngredientId,
                         rp.Section
                     }).ToList(),
@@ -139,6 +151,7 @@ namespace RecipeHelper.Controllers
                         Id = rp.Id,
                         RawText = FormatIngredientText(rp.Quantity, rp.MeasurementName, rp.DisplayName),
                         SelectedKrogerUpc = rp.SelectedKrogerUpc,
+                        SelectedKrogerName = rp.SelectedKrogerName,
                         IngredientId = rp.IngredientId,
                         Section = rp.Section
                     }).ToList(),

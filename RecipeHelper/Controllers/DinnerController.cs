@@ -123,6 +123,42 @@ namespace RecipeHelper.Controllers
                 : null);
         }
 
+        // GET: Dinner/SelectIngredientRecipes — intermediate step between the meal plan
+        // and ingredient review, letting the user exclude recipes they don't need
+        // groceries for this round (e.g. a recipe carried over unchanged from last week
+        // that they already bought ingredients for). All recipes default to selected.
+        public async Task<ActionResult> SelectIngredientRecipes(DateTime weekStart)
+        {
+            var week = MealPlanService.GetWeekStart(weekStart);
+            var plan = await _mealPlanService.GetByWeekAsync(week);
+
+            var recipeEntries = plan?.Entries.Where(e => e.RecipeId.HasValue).ToList() ?? new List<MealPlanEntry>();
+            if (recipeEntries.Count == 0)
+                return RedirectToAction(nameof(Index), new { weekStart = week.ToString("yyyy-MM-dd") });
+
+            string[] dayAbbrev = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+
+            var vm = new SelectIngredientRecipesVM
+            {
+                WeekStart = week,
+                Recipes = recipeEntries
+                    .GroupBy(e => e.RecipeId!.Value)
+                    .Select(g => new IngredientRecipeSelectionVM
+                    {
+                        RecipeId = g.Key,
+                        RecipeName = g.First().Recipe?.Name ?? "",
+                        ImageUri = g.First().Recipe?.ImageUri,
+                        ThumbnailUri = g.First().Recipe?.ThumbnailUri,
+                        Occurrences = g.Count(),
+                        Days = g.OrderBy(e => e.DayOfWeek).Select(e => dayAbbrev[e.DayOfWeek]).ToList()
+                    })
+                    .OrderBy(r => r.RecipeName)
+                    .ToList()
+            };
+
+            return View(vm);
+        }
+
         // GET: Dinner/SelectWeeklyRecipes — kept for ingredient review flow
         public async Task<ActionResult> SelectWeeklyRecipes()
         {
@@ -177,6 +213,28 @@ namespace RecipeHelper.Controllers
                 }).ToList(),
             }).ToListAsync();
 
+            // Decide which merged row each ingredient belongs to: its linked Kroger UPC
+            // when it has one, so differently-worded ingredients that buy the same
+            // product ("Garlic Cloves (Minced)", "garlic minced", "garlic, minced")
+            // become one row to review and toggle instead of one per wording. An
+            // unlinked ingredient joins a UPC row when the same name is linked to
+            // exactly one product elsewhere in this selection (so a recipe that never
+            // got mapped doesn't split off its own duplicate row), else it merges by
+            // normalized name as before.
+            static string NameKey(string? name) => (name ?? "").Trim().ToLowerInvariant();
+            var upcsByName = recipeRows
+                .SelectMany(r => r.Ingredients)
+                .Where(i => !string.IsNullOrWhiteSpace(i.Upc))
+                .GroupBy(i => NameKey(i.Name))
+                .ToDictionary(g => g.Key, g => g.Select(i => i.Upc.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+            foreach (var ing in recipeRows.SelectMany(r => r.Ingredients))
+            {
+                var nameKey = NameKey(ing.Name);
+                ing.GroupKey = !string.IsNullOrWhiteSpace(ing.Upc) ? "upc:" + ing.Upc.Trim()
+                    : upcsByName.TryGetValue(nameKey, out var upcs) && upcs.Count == 1 ? "upc:" + upcs[0]
+                    : "name:" + nameKey;
+            }
+
             // Per-recipe grouping for the "group by recipe" view on the review page
             // (#78) -- built from the distinct recipeRows (not the occurrence-expanded
             // list below), so a recipe on multiple days produces one group with
@@ -199,7 +257,8 @@ namespace RecipeHelper.Controllers
                         Section = ing.Section,
                         Quantity = ing.Quantity * idCounts[row.Id],
                         Upc = ing.Upc,
-                        Measurement = ing.Measurement
+                        Measurement = ing.Measurement,
+                        GroupKey = ing.GroupKey
                     })
                     .OrderBy(ing => ing.Section)
                     .ThenBy(ing => ing.Name)
@@ -215,14 +274,14 @@ namespace RecipeHelper.Controllers
                     recipes.Add(row);
             }
 
-            // Keyed by normalized display name rather than canonical Ingredient.Id --
-            // two recipes' ingredients can resolve to different DB rows that both
-            // display as the same name (a canonicalization gap on import), and those
-            // need to merge here even though their Ids differ. ReviewDinnerSelections
-            // only posts ingredients onward by Name/Upc/Quantity/Measurement, never by
-            // Id, so this key change doesn't affect anything downstream.
+            // Keyed by GroupKey (linked UPC, else normalized display name -- see above)
+            // rather than canonical Ingredient.Id: two recipes' ingredients can resolve
+            // to different DB rows that both display as the same name (a
+            // canonicalization gap on import), and those need to merge here even though
+            // their Ids differ. ReviewDinnerSelections only posts ingredients onward by
+            // Name/Upc/Quantity/Measurement, never by Id, so this doesn't affect
+            // anything downstream.
             Dictionary<string, List<IngredientVM>> ingDict = new Dictionary<string, List<IngredientVM>>();
-            List<IngredientVM> tempIngredients = new List<IngredientVM>();
 
             foreach (var recipe in recipes)
             {
@@ -234,38 +293,26 @@ namespace RecipeHelper.Controllers
 
                 foreach (var ingredient in recipe.Ingredients)
                 {
-                    tempIngredients.Add(ingredient);
-                    var nameKey = ingredient.Name.Trim().ToLowerInvariant();
-                    if (ingDict.ContainsKey(nameKey))
-                    {
-                        ingDict[nameKey].Add(new IngredientVM
-                        {
-                            Id = ingredient.Id,
-                            Name = ingredient.Name,
-                            Section = ingredient.Section,
-                            Quantity = ingredient.Quantity,
-                            Upc = ingredient.Upc,
-                            Measurement = ingredient.Measurement
-                        });
-                    }
-                    else
-                    {
-                        List<IngredientVM> ingredientList =
-                        [
-                            new IngredientVM
-                            {
-                                Id = ingredient.Id,
-                                Name = ingredient.Name,
-                                Section = ingredient.Section,
-                                Quantity = ingredient.Quantity,
-                                Upc = ingredient.Upc,
-                                Measurement = ingredient.Measurement
-                            },
-                        ];
-                        ingDict.Add(nameKey, ingredientList);
-                    }
+                    if (!ingDict.TryGetValue(ingredient.GroupKey!, out var entries))
+                        ingDict[ingredient.GroupKey!] = entries = new List<IngredientVM>();
+                    entries.Add(ingredient);
                 }
             }
+
+            // One merged review row from a group's entries. Entries can have different
+            // names when they merged by UPC; the shortest is usually the plainest
+            // wording ("garlic minced" over "Garlic Cloves (Minced)"). The UPC comes from
+            // the first linked entry, since an unlinked entry may have joined the group.
+            static IngredientVM MergedRow(List<IngredientVM> entries, decimal quantity, string measurement) => new IngredientVM
+            {
+                Id = entries[0].Id,
+                Name = entries.OrderBy(e => e.Name.Trim().Length).First().Name,
+                Section = entries[0].Section,
+                Quantity = quantity,
+                Upc = entries.Select(e => e.Upc).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u)) ?? entries[0].Upc,
+                Measurement = measurement,
+                GroupKey = entries[0].GroupKey
+            };
 
             foreach (var ingredient in ingDict)
             {
@@ -275,15 +322,7 @@ namespace RecipeHelper.Controllers
                 if (allSame)
                 {
                     decimal totalQuantity = ingredient.Value.Sum(x => x.Quantity);
-                    model.Ingredients.Add(new IngredientVM
-                    {
-                        Id = ingredient.Value[0].Id,
-                        Name = ingredient.Value[0].Name,
-                        Section = ingredient.Value[0].Section,
-                        Quantity = totalQuantity,
-                        Upc = ingredient.Value[0].Upc,
-                        Measurement = ingredient.Value[0].Measurement
-                    });
+                    model.Ingredients.Add(MergedRow(ingredient.Value, totalQuantity, ingredient.Value[0].Measurement));
                 }
                 else
                 {
@@ -317,45 +356,27 @@ namespace RecipeHelper.Controllers
                     if (hasVolume)
                     {
                         var (displayQty, displayName) = UnitConverter.PickBestVolumeDisplay(totalVolumeBase);
-                        model.Ingredients.Add(new IngredientVM
-                        {
-                            Id = ingredient.Value[0].Id,
-                            Name = ingredient.Value[0].Name,
-                            Section = ingredient.Value[0].Section,
-                            Quantity = displayQty,
-                            Upc = ingredient.Value[0].Upc,
-                            Measurement = displayName
-                        });
+                        model.Ingredients.Add(MergedRow(ingredient.Value, displayQty, displayName));
                     }
 
                     if (hasWeight)
                     {
                         var (displayQty, displayName) = UnitConverter.PickBestWeightDisplay(totalWeightBase);
-                        model.Ingredients.Add(new IngredientVM
-                        {
-                            Id = ingredient.Value[0].Id,
-                            Name = ingredient.Value[0].Name,
-                            Section = ingredient.Value[0].Section,
-                            Quantity = displayQty,
-                            Upc = ingredient.Value[0].Upc,
-                            Measurement = displayName
-                        });
+                        model.Ingredients.Add(MergedRow(ingredient.Value, displayQty, displayName));
                     }
 
                     if (hasUnit)
                     {
-                        model.Ingredients.Add(new IngredientVM
-                        {
-                            Id = ingredient.Value[0].Id,
-                            Name = ingredient.Value[0].Name,
-                            Section = ingredient.Value[0].Section,
-                            Quantity = totalUnits,
-                            Upc = ingredient.Value[0].Upc,
-                            Measurement = "Unit"
-                        });
+                        model.Ingredients.Add(MergedRow(ingredient.Value, totalUnits, "Unit"));
                     }
                 }
             }
+
+            // Flag rows matching the user's pantry list so the review page's "Uncheck
+            // pantry" button can uncheck them (whole-word / UPC match, not substring).
+            var pantryItems = await _context.PantryItems.AsNoTracking().ToListAsync();
+            foreach (var ing in model.Ingredients.Concat(model.RecipeGroups.SelectMany(g => g.Ingredients)))
+                ing.IsPantry = PantryMatcher.IsPantryOrDefault(ing.Name, ing.Upc, pantryItems);
 
             // Dictionary iteration order isn't guaranteed, so sort explicitly by name --
             // this keeps an ingredient's split-dimension rows (e.g. a count-based entry

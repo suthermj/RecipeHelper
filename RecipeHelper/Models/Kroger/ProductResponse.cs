@@ -26,7 +26,10 @@ namespace RecipeHelper.Models.Kroger
         public float regularPrice { get; set; }
         public float promoPrice { get; set; }
         public string stockLevel { get; set; }
-        public bool onSale { get; set; }
+        // Derived rather than stored: nothing mapping from Kroger's API ever set it, so
+        // as a plain property it was always false and ViewProduct never showed the promo
+        // price. Same rule as AddToCartPreviewItemVM.OnSale.
+        public bool onSale => promoPrice > 0 && promoPrice < regularPrice;
 
         public bool HasMissingData()
         {

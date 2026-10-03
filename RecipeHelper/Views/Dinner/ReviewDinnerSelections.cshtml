@@ -42,6 +42,7 @@
     Func<(IngredientVM Item, bool IsRecipeView), object> RenderRow = @<div class="ingredient-row ios-cell cursor-pointer select-none transition-opacity"
          data-key="@item.Item.DimensionKey"
          data-name="@item.Item.Name.ToLowerInvariant()"
+         data-pantry="@(item.Item.IsPantry ? "true" : "false")"
          style="border-bottom: 0.5px solid var(--ios-separator);">
         <!-- Check circle -->
         <div class="check-circle h-6 w-6 rounded-full shrink-0 flex items-center justify-center transition-colors"
@@ -69,7 +70,7 @@
     {
         <div class="px-4 py-14 text-center">
             <p class="text-[15px]" style="color: var(--ios-label-2);">
-                No ingredients to display. Make sure you've selected at least one recipe.
+                No ingredients to display for the selected recipe@(Model.SelectedRecipes.Count == 1 ? "" : "s").
             </p>
         </div>
     }
@@ -329,14 +330,25 @@
         }
         searchInput?.addEventListener('input', applySearch);
 
-        var pantryKeywords = [
-            'olive oil','vegetable oil','canola oil','cooking oil',
-            'salt','pepper','black pepper',
-            'garlic powder','onion powder','baking powder','baking soda',
-            'brown sugar','sugar','flour','cornstarch',
-            'vinegar','soy sauce','butter','water',
-            'paprika','cumin','oregano','basil','thyme','cinnamon','oil'
-        ];
+        // Within each list (each recipe's group, and the flat All list), move unchecked
+        // rows below checked ones so what's left to review is together at the top.
+        // Stable: rows keep their original relative order inside each half. Only runs
+        // after "Uncheck pantry" -- not on every tap, so a row never jumps out from under
+        // your finger.
+        function sortCheckedFirst() {
+            document.querySelectorAll('.ios-group').forEach(function (group) {
+                var rows = Array.from(group.querySelectorAll(':scope > .ingredient-row'));
+                if (!rows.length) return;
+                rows.forEach(function (row, i) { if (row.dataset.idx === undefined) row.dataset.idx = i; });
+                function isChecked(row) {
+                    var cb = document.querySelector('.ing-inputs[data-key="' + CSS.escape(row.dataset.key) + '"] .ingredient-checkbox');
+                    return !!cb?.checked;
+                }
+                rows.sort(function (a, b) {
+                    return (isChecked(a) ? 0 : 1) - (isChecked(b) ? 0 : 1) || a.dataset.idx - b.dataset.idx;
+                }).forEach(function (row) { group.appendChild(row); });
+            });
+        }
 
         document.getElementById('selectAllBtn')?.addEventListener('click', function () {
             allKeys().forEach(function (key) { setKeyState(key, true); });
@@ -345,12 +357,10 @@
             allKeys().forEach(function (key) { setKeyState(key, false); });
         });
         document.getElementById('pantryBtn')?.addEventListener('click', function () {
-            allKeys().forEach(function (key) {
-                var name = key.split('|')[0];
-                if (pantryKeywords.some(function (kw) { return name.includes(kw); })) {
-                    setKeyState(key, false);
-                }
+            document.querySelectorAll('.ingredient-row[data-pantry="true"]').forEach(function (row) {
+                setKeyState(row.dataset.key, false);
             });
+            sortCheckedFirst();
         });
 
         // View toggle (All / Recipe), persisted in localStorage. Renaming the "Section"

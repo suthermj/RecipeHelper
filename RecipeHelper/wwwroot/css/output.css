@@ -923,6 +923,10 @@ video {
   margin-top: 1rem;
 }
 
+.mt-6 {
+  margin-top: 1.5rem;
+}
+
 .line-clamp-2 {
   overflow: hidden;
   display: -webkit-box;
@@ -1172,6 +1176,10 @@ video {
 
 .max-w-\[160px\] {
   max-width: 160px;
+}
+
+.max-w-\[180px\] {
+  max-width: 180px;
 }
 
 .max-w-\[80px\] {
@@ -2265,6 +2273,12 @@ html {
   font-size: 16px;
   position: relative;
   min-height: 100%;
+  /* Disable double-tap-to-zoom (mobile-only app, no benefit from it and it
+     makes fast repeated taps — e.g. the step list, day cards — feel laggy
+     while Safari waits to see if a second tap is coming). Pinch-zoom and
+     panning still work since "manipulation" only drops the double-tap
+     zoom gesture, not zooming/scrolling generally. */
+  touch-action: manipulation;
 }
 
 /* ─── Safe Area (iOS PWA) ─── */
@@ -2621,6 +2635,18 @@ html {
 .ios-inline-action:disabled {
   color: var(--ios-label-2);
   opacity: 0.7;
+}
+
+/* ─── Collapsible disclosure panel (e.g. Settings "Change Store") ─── */
+
+.store-change-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.store-change-panel.expanded {
+  max-height: 280px;
 }
 
 .ios-file-trigger {

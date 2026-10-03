@@ -22,29 +22,29 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="1.4.0" />
+    <PackageReference Include="AngleSharp" Version="1.8.1" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.14.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.17.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.20" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.19">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-	  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.0" />
-	  <PackageReference Include="Azure.Storage.Blobs" Version="12.23.0" />
-	  <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.11">
+	  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.19" />
+	  <PackageReference Include="Azure.Storage.Blobs" Version="12.29.2" />
+	  <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.11">
 	    <PrivateAssets>all</PrivateAssets>
 	    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 	  </PackageReference>
-	  <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="8.0.7" />
-	  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-	  <PackageReference Include="OpenAI" Version="2.8.0" />
-	  <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.9.0" />
-	  <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
-	  <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
-	  <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.9.0" />
-	  <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.9.0-beta.1" />
-	  <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
+	  <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
+	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+	  <PackageReference Include="OpenAI" Version="2.13.0" />
+	  <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+	  <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
+	  <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
+	  <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
+	  <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.18.0" />
+	  <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.18.0" />
   </ItemGroup>
 	<ItemGroup>
 		<UpToDateCheckBuilt Include="wwwroot/css/site.css" Set="Css" />

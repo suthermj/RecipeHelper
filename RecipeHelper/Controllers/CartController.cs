@@ -62,7 +62,123 @@ namespace RecipeHelper.Controllers
 
             foreach (var cartItem in detailedCartItems)
             {
-                // Adjust property names to your Product type
+                previewItems.Add(ToPreviewItem(cartItem));
+            }
+
+            var previewVm = new AddToCartPreviewVM
+            {
+                Items = previewItems,
+                Skipped = conversionResult.Skipped,
+                Origin = vm.Origin
+            };
+
+            _logger.LogInformation("PreviewAddToCart completed. PreviewItemCount={PreviewItemCount}, SkippedItemCount={SkippedItemCount}", previewItems.Count, conversionResult.Skipped.Count);
+
+            // Redirect-after-post so this page has a GET URL that's safe to reload
+            // (see the matching comment in DinnerController.SubmitDinnerSelections).
+            PendingResultCache.Set(HttpContext.Session, PendingPreviewSessionKey, previewVm);
+            return RedirectToAction(nameof(PreviewAddToCart));
+        }
+
+        private static AddToCartPreviewItemVM ToPreviewItem(DetailedCartItem cartItem) => new AddToCartPreviewItemVM
+        {
+            Upc = cartItem.Upc,
+            QuantityToAdd = cartItem.Quantity,
+            Name = cartItem.Name,
+            Brand = cartItem.Brand,
+            StockLevel = cartItem.StockLevel,
+            Size = cartItem.KrogerPackSize ?? "",
+            Aisle = cartItem.Aisle ?? "",
+            RegularPrice = cartItem.RegularPrice,
+            PromoPrice = cartItem.PromoPrice,
+            Include = true,
+            ConversionNote = cartItem.ConversionNote,
+            OriginalIngredient = cartItem.OriginalIngredient,
+        };
+
+        // POST: Cart/RetryPreviewLookups -- the preview page's "Retry" button on the
+        // "Not mapped" list. Re-runs the conversion for just the items whose Kroger
+        // product lookup failed and returns only the new rows as HTML; the page's JS
+        // inserts them into the existing form in place, so quantities/checkboxes the
+        // user already changed on the page are left untouched. Also folds the result
+        // into the cached preview so a reload of the page keeps the recovered items.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RetryPreviewLookups([FromBody] RetryPreviewLookupsRequest request)
+        {
+            var toRetry = (request?.Items ?? new()).Where(i => !string.IsNullOrWhiteSpace(i.Upc)).ToList();
+            _logger.LogInformation("RetryPreviewLookups started. ItemCount={ItemCount}", toRetry.Count);
+
+            var conversionResult = await _krogerService.ConvertIngredientsToCartItems(new AddToCartVM
+            {
+                Items = toRetry.Select(i => new CartItemVM
+                {
+                    Upc = i.Upc!,
+                    Name = i.Name,
+                    Quantity = i.Quantity,
+                    Measurement = i.Measurement ?? "",
+                    Include = true,
+                }).ToList()
+            });
+
+            var recovered = conversionResult.Items.Select(ToPreviewItem).ToList();
+            var startIndex = Math.Max(0, request?.StartIndex ?? 0);
+
+            if (PendingResultCache.TryGet<AddToCartPreviewVM>(HttpContext.Session, PendingPreviewSessionKey, out var cached) && cached != null)
+            {
+                var retriedUpcs = new HashSet<string>(toRetry.Select(i => i.Upc!), StringComparer.OrdinalIgnoreCase);
+                cached.Items.AddRange(recovered);
+                cached.Skipped = cached.Skipped
+                    .Where(s => s.Upc == null || !retriedUpcs.Contains(s.Upc))
+                    .Concat(conversionResult.Skipped)
+                    .ToList();
+                PendingResultCache.Set(HttpContext.Session, PendingPreviewSessionKey, cached);
+            }
+
+            _logger.LogInformation("RetryPreviewLookups completed. RecoveredCount={RecoveredCount}, StillSkippedCount={StillSkippedCount}", recovered.Count, conversionResult.Skipped.Count);
+
+            return PartialView("_RetriedPreviewLookups", new RetriedPreviewLookupsVM
+            {
+                Rows = recovered.Select((item, idx) => new CartPreviewRowVM { Item = item, Index = startIndex + idx }).ToList(),
+                StillSkipped = conversionResult.Skipped,
+            });
+        }
+
+        // POST: Cart/PreviewProductsToCart -- same preview screen as above, but for
+        // saved products (#166) instead of recipe/meal-plan ingredients. Saved products
+        // already carry a Kroger UPC and a pack-count quantity, so this builds preview
+        // items directly from Kroger product details instead of going through
+        // ConvertIngredientsToCartItems, which treats Quantity as an ingredient amount
+        // in a unit of measure and would misinterpret a pack count.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PreviewProductsToCart(List<string> upcs, int quantity = 1)
+        {
+            upcs = (upcs ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().ToList();
+            if (quantity < 1) quantity = 1;
+
+            _logger.LogInformation("PreviewProductsToCart started. UpcCount={UpcCount}, Quantity={Quantity}", upcs.Count, quantity);
+
+            var previewItems = new List<AddToCartPreviewItemVM>();
+            var skipped = new List<SkippedCartItem>();
+
+            foreach (var upc in upcs)
+            {
+                var product = await _krogerService.GetProductDetails(upc);
+                if (product == null || product.HasMissingData())
+                {
+                    skipped.Add(new SkippedCartItem
+                    {
+                        Name = upc,
+                        Reason = "Product details could not be retrieved.",
+                        Quantity = quantity
+                    });
+                    continue;
+                }
+
+                var cartItem = product.ToDetailedCartItem(quantity);
+                cartItem.KrogerPackSize = product.size;
+
                 previewItems.Add(new AddToCartPreviewItemVM
                 {
                     Upc = cartItem.Upc,
@@ -75,21 +191,18 @@ namespace RecipeHelper.Controllers
                     RegularPrice = cartItem.RegularPrice,
                     PromoPrice = cartItem.PromoPrice,
                     Include = true,
-                    ConversionNote = cartItem.ConversionNote,
-                    OriginalIngredient = cartItem.OriginalIngredient,
                 });
             }
 
             var previewVm = new AddToCartPreviewVM
             {
                 Items = previewItems,
-                Skipped = conversionResult.Skipped
+                Skipped = skipped,
+                Origin = CartOrigin.Products
             };
 
-            _logger.LogInformation("PreviewAddToCart completed. PreviewItemCount={PreviewItemCount}, SkippedItemCount={SkippedItemCount}", previewItems.Count, conversionResult.Skipped.Count);
+            _logger.LogInformation("PreviewProductsToCart completed. PreviewItemCount={PreviewItemCount}, SkippedItemCount={SkippedItemCount}", previewItems.Count, skipped.Count);
 
-            // Redirect-after-post so this page has a GET URL that's safe to reload
-            // (see the matching comment in DinnerController.SubmitDinnerSelections).
             PendingResultCache.Set(HttpContext.Session, PendingPreviewSessionKey, previewVm);
             return RedirectToAction(nameof(PreviewAddToCart));
         }
@@ -106,6 +219,20 @@ namespace RecipeHelper.Controllers
             return View(previewVm); // Views/Cart/PreviewAddToCart.cshtml
         }
 
+        // Where to send the user when an add-to-cart flow ends (success or failure).
+        // Products-origin flows go back to the product they came from (a direct add
+        // from ViewProduct) or to the Products list (multi-select); anything else
+        // uses the meal-plan/recipe fallback the caller passes in.
+        private IActionResult RedirectToOrigin(AddToCartVM? vm, IActionResult mealPlanFallback)
+        {
+            if (vm?.Origin != CartOrigin.Products)
+                return mealPlanFallback;
+
+            return string.IsNullOrWhiteSpace(vm.ReturnProductId)
+                ? RedirectToAction("Products", "Product")
+                : RedirectToAction("ViewProduct", "Product", new { productId = vm.ReturnProductId });
+        }
+
         // Called when user clicks "Add all items to cart"
         [HttpPost]
         public async Task<IActionResult> BeginAddToCart(AddToCartVM vm)
@@ -115,8 +242,8 @@ namespace RecipeHelper.Controllers
             if (!vm.Items.Any())
             {
                 _logger.LogWarning("BeginAddToCart: no items to add, redirecting back to review.");
-                TempData["ErrorMessage"] = "No valid ingredients were found to add to your Kroger cart.";
-                return RedirectToAction("ReviewDinnerSelections", "Dinner");
+                TempData["ErrorMessage"] = "No valid items were found to add to your Kroger cart.";
+                return RedirectToOrigin(vm, RedirectToAction("ReviewDinnerSelections", "Dinner"));
             }
 
             vm.Items = vm.Items.Where(i => i.Include).ToList();
@@ -142,6 +269,12 @@ namespace RecipeHelper.Controllers
         [HttpGet]
         public async Task<IActionResult> CompleteAddToCart()
         {
+            // Read PendingCart (and its Origin) before the token check below, so an
+            // expired-token redirect can still send a Products-origin flow back to
+            // Products instead of the meal-plan review page.
+            var pendingCartJson = HttpContext.Session.GetString("PendingCart");
+            var vm = string.IsNullOrEmpty(pendingCartJson) ? null : JsonSerializer.Deserialize<AddToCartVM>(pendingCartJson);
+
             var token = await _krogerAuthService.GetKrogerAccessTokenAsync();
             if (string.IsNullOrEmpty(token))
             {
@@ -149,18 +282,15 @@ namespace RecipeHelper.Controllers
                 // or back to the review page with an error message.
                 _logger.LogWarning("CompleteAddToCart: no valid Kroger access token, redirecting back to review.");
                 TempData["ErrorMessage"] = "Your Kroger session expired. Please try adding items again.";
-                return RedirectToAction("ReviewDinnerSelections", "Dinner");
+                return RedirectToOrigin(vm, RedirectToAction("ReviewDinnerSelections", "Dinner"));
             }
 
-            var pendingCartJson = HttpContext.Session.GetString("PendingCart");
-            if (string.IsNullOrEmpty(pendingCartJson))
+            if (vm == null)
             {
                 // nothing to process, fallback somewhere sensible
                 _logger.LogWarning("CompleteAddToCart: no PendingCart in session, redirecting to SelectWeeklyRecipes.");
                 return RedirectToAction("SelectWeeklyRecipes", "Dinner");
             }
-
-            var vm = JsonSerializer.Deserialize<AddToCartVM>(pendingCartJson);
 
             try
             {
@@ -182,7 +312,7 @@ namespace RecipeHelper.Controllers
                     // successful cart add.
                     _logger.LogWarning("CompleteAddToCart: AddToCartAsync reported failure. ItemCount={ItemCount}", itemCount);
                     TempData["ErrorMessage"] = "There was a problem adding items to your Kroger cart. Please try again.";
-                    return RedirectToAction("SelectWeeklyRecipes", "Dinner");
+                    return RedirectToOrigin(vm, RedirectToAction("SelectWeeklyRecipes", "Dinner"));
                 }
 
                 // Optional: clear it after use
@@ -190,7 +320,9 @@ namespace RecipeHelper.Controllers
 
                 _logger.LogInformation("CompleteAddToCart succeeded. ItemCount={ItemCount}", itemCount);
                 TempData["SuccessMessage"] = $"{itemCount} item{(itemCount == 1 ? "" : "s")} were added to your Kroger cart. " + "You can review or edit them in the Kroger app.";
-                return RedirectToAction("Recipe", "Recipe");
+                TempData["SuccessActionUrl"] = "https://www.kroger.com/cart";
+                TempData["SuccessActionLabel"] = "View Cart in Kroger";
+                return RedirectToOrigin(vm, RedirectToAction("Recipe", "Recipe"));
             }
             catch (Exception ex)
             {
@@ -200,7 +332,7 @@ namespace RecipeHelper.Controllers
                 _logger.LogError(ex, "CompleteAddToCart failed. ItemCount={ItemCount}, ExceptionType={ExceptionType}, ExceptionMessage={ExceptionMessage}",
                     vm.Items.Count, ex.GetType().FullName, ex.Message);
                 TempData["ErrorMessage"] = "There was a problem adding items to your Kroger cart. Please try again.";
-                return RedirectToAction("SelectWeeklyRecipes", "Dinner");
+                return RedirectToOrigin(vm, RedirectToAction("SelectWeeklyRecipes", "Dinner"));
 
             }
         }

@@ -91,6 +91,12 @@ ssh -i ~/.ssh/hetzner root@178.105.73.57 "systemctl restart recipehelper"
 ssh -i ~/.ssh/hetzner root@178.105.73.57 "systemctl status nginx"
 ```
 
+### Check request/upload timing
+The access log uses a `timed` format (`/etc/nginx/conf.d/timing-log.conf`): `rt` = total request time, `urt` = time the app spent, `rl` = request bytes. nginx buffers the full request body before proxying, so the app's own logs never include client upload time — `rt - urt` is where it shows up (e.g. slow photo imports).
+```bash
+ssh -i ~/.ssh/hetzner root@178.105.73.57 "grep ImportRecipeFromPhoto /var/log/nginx/access.log | tail -5"
+```
+
 ### Check SSL certificate expiry
 ```bash
 ssh -i ~/.ssh/hetzner root@178.105.73.57 "certbot certificates"

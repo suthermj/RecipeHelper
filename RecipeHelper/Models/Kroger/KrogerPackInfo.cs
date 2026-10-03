@@ -59,10 +59,16 @@ namespace RecipeHelper.Models.Kroger
                 pack.PrimaryQty = product.servingSizeQty * product.servingsPerPackage;
                 pack.PrimaryUnit = product.servingSizeUnitAbbreviation;
                 pack.Dimension = ToPackDimension(UnitConverter.GetDimension(servingUnit));
-                pack.IsComposite = false;
-                pack.CountEach = null;
                 pack.ParsedOk = true;
                 pack.FromServingData = true;
+
+                // Serving data only gives weight/volume -- keep any piece count the size
+                // string carries ("8 ct / 20 oz", "8 ct") so a counted ingredient like
+                // "8 tortillas" still divides by pieces-per-pack (BRANCH 2) instead of
+                // ordering one pack per piece.
+                var sizeCount = KrogerSizeParser.TryParse(product.size).CountEach;
+                pack.CountEach = sizeCount;
+                pack.IsComposite = sizeCount.HasValue;
             }
             else
             {

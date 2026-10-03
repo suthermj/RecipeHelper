@@ -18,6 +18,10 @@ namespace RecipeHelper
             base.OnModelCreating(builder);
 
 
+            builder.Entity<PantryItem>()
+                .HasIndex(p => p.NormalizedName)
+                .IsUnique();
+
             builder.Entity<KrogerProduct>()
                 .HasKey(p => p.Upc);
 
@@ -74,6 +78,7 @@ namespace RecipeHelper
         public DbSet<ShoppingList> ShoppingLists { get; set; }
         public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
 
+        public DbSet<PantryItem> PantryItems { get; set; }
         public DbSet<MealPlan> MealPlans { get; set; }
         public DbSet<MealPlanEntry> MealPlanEntries { get; set; }
     }

@@ -31,6 +31,25 @@ namespace RecipeHelper.Models.Dinner
         public List<ViewRecipeVM> AllRecipes { get; set; } = new();
     }
 
+    // Intermediate step between the meal plan and ingredient review (Dinner/SelectIngredientRecipes)
+    // -- lets the user exclude recipes they don't need groceries for this round (e.g. a recipe
+    // carried over unchanged from last week that they already bought ingredients for).
+    public class SelectIngredientRecipesVM
+    {
+        public DateTime WeekStart { get; set; }
+        public List<IngredientRecipeSelectionVM> Recipes { get; set; } = new();
+    }
+
+    public class IngredientRecipeSelectionVM
+    {
+        public int RecipeId { get; set; }
+        public string RecipeName { get; set; } = "";
+        public string? ImageUri { get; set; }
+        public string? ThumbnailUri { get; set; }
+        public int Occurrences { get; set; } // recipe on 2 days => 2
+        public List<string> Days { get; set; } = new();
+    }
+
     public class ShareMealPlanVM
     {
         public DateTime WeekStart { get; set; }

@@ -81,6 +81,29 @@ namespace RecipeHelper.Services
         }
 
         /// <summary>
+        /// Ensures a KrogerProduct row exists for the given UPC, fetching details from the
+        /// Kroger API and inserting one if it isn't already in the local DB. Must be called
+        /// before anything assigns this UPC to RecipeIngredient.SelectedKrogerUpc, which is a
+        /// real FK to KrogerProduct.Upc.
+        /// </summary>
+        private async Task EnsureKrogerProductExistsAsync(string krogerUpc)
+        {
+            var productExists = await _context.KrogerProducts.AnyAsync(p => p.Upc == krogerUpc);
+            if (productExists) return;
+
+            var krogerProduct = await _krogerService.GetProductDetails(krogerUpc);
+            if (krogerProduct != null)
+            {
+                _context.KrogerProducts.Add(new KrogerProduct
+                {
+                    Upc = krogerProduct.upc,
+                    Name = krogerProduct.name,
+                });
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        /// <summary>
         /// Canonicalizes a display name to find or create an Ingredient record,
         /// ensures the Kroger product exists in DB, and links ingredient ↔ product.
         /// </summary>
@@ -102,20 +125,7 @@ namespace RecipeHelper.Services
 
             if (!string.IsNullOrEmpty(krogerUpc))
             {
-                var productExists = await _context.KrogerProducts.AnyAsync(p => p.Upc == krogerUpc);
-                if (!productExists)
-                {
-                    var krogerProduct = await _krogerService.GetProductDetails(krogerUpc);
-                    if (krogerProduct != null)
-                    {
-                        _context.KrogerProducts.Add(new KrogerProduct
-                        {
-                            Upc = krogerProduct.upc,
-                            Name = krogerProduct.name,
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                }
+                await EnsureKrogerProductExistsAsync(krogerUpc);
 
                 var linkExists = await _context.IngredientKrogerProducts
                     .AnyAsync(l => l.IngredientId == ingredient.Id && l.Upc == krogerUpc);
@@ -192,6 +202,10 @@ namespace RecipeHelper.Services
                     existing.DisplayName = dto.DisplayName;
                     existing.Quantity = dto.Quantity;
                     existing.MeasurementId = dto.MeasurementId;
+                    if (!string.IsNullOrEmpty(dto.SelectedKrogerUpc))
+                    {
+                        await EnsureKrogerProductExistsAsync(dto.SelectedKrogerUpc);
+                    }
                     existing.SelectedKrogerUpc = dto.SelectedKrogerUpc;
                     existing.IngredientId = dto.IngredientId;
                     existing.Section = section;

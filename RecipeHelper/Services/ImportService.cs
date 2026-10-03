@@ -216,19 +216,40 @@ namespace RecipeHelper.Services
         // parser Create/Edit use. Untouched lines keep the importer's values and cost
         // nothing. When the edit changed which ingredient the line is, its earlier
         // ingredient match is cleared so SaveImportedRecipe re-resolves it by name.
-        internal async Task ReparseEditedLinesAsync(List<ImportedIngredient> ingredients)
+        internal Task ReparseEditedLinesAsync(List<ImportedIngredient> ingredients) =>
+            ReparseEditedLinesAsync(ingredients,
+                async lines => (await _ingredientService.TransformRawIngredients(lines, CancellationToken.None)).Items,
+                _logger);
+
+        internal static async Task ReparseEditedLinesAsync(
+            List<ImportedIngredient> ingredients,
+            Func<List<string>, Task<List<IngredientsService.ParsedIngredientItem>>> parse,
+            ILogger logger)
         {
             var edited = ingredients.Where(i => i.Include && IsEditedLine(i)).ToList();
             if (edited.Count == 0) return;
 
-            _logger.LogInformation("Re-parsing {Count} ingredient line(s) edited on the mapping page", edited.Count);
-            var parsed = await _ingredientService.TransformRawIngredients(
-                edited.Select(i => i.Text!.Trim()).ToList(), CancellationToken.None);
+            logger.LogInformation("Re-parsing {Count} ingredient line(s) edited on the mapping page", edited.Count);
+            var lines = edited.Select(i => i.Text!.Trim()).ToList();
+            List<IngredientsService.ParsedIngredientItem?> items = [.. await parse(lines)];
 
-            for (var i = 0; i < edited.Count && i < parsed.Items.Count; i++)
+            // Results are matched to lines by position, so a miscount (e.g. the model split
+            // "Salt and pepper to taste" into two items) would shift every later line onto
+            // the wrong parse. Fall back to one call per line so each gets its own result.
+            if (items.Count != edited.Count)
+            {
+                logger.LogWarning("Batch re-parse returned {Got} item(s) for {Expected} line(s); re-parsing one line at a time",
+                    items.Count, edited.Count);
+                items = new();
+                foreach (var line in lines)
+                    items.Add((await parse(new() { line })).FirstOrDefault());
+            }
+
+            for (var i = 0; i < edited.Count; i++)
             {
                 var ing = edited[i];
-                var p = parsed.Items[i];
+                var p = items[i];
+                if (p is null) continue; // parser returned nothing -- keep the importer's values
                 var newName = string.IsNullOrWhiteSpace(p.Name) ? ing.Name : p.Name.Trim();
 
                 if (!string.Equals(newName.Trim(), (ing.Name ?? "").Trim(), StringComparison.OrdinalIgnoreCase))

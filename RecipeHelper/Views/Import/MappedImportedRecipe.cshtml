@@ -165,7 +165,7 @@
                                       class="js-ingredient-name js-autoresize mt-1 field-input w-full font-semibold resize-none overflow-hidden"
                                       data-idx="@i"
                                       maxlength="500"
-                                      autocomplete="off">@(ing.Text ?? ing.Name)</textarea>
+                                      autocomplete="off">@(ing.Text ?? ing.OriginalText ?? ing.Name)</textarea>
                         </div>
 
                         <div class="flex items-center gap-2">

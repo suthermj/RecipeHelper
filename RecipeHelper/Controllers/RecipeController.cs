@@ -346,7 +346,7 @@ namespace RecipeHelper.Controllers
                 results.Add(new ParsedIngredientDto
                 {
                     DisplayName = item.Name ?? "",
-                    OriginalText = i < rawLines.Count ? rawLines[i] : null,
+                    OriginalText = i < rawLines.Count ? TruncateLine(rawLines[i]) : null,
                     // null = no set amount ("to taste") -- stored as 0, see RecipeIngredient.Quantity
                     Quantity = item.Quantity ?? 0m,
                     MeasurementId = measurement.Id,
@@ -355,6 +355,14 @@ namespace RecipeHelper.Controllers
             }
 
             return results;
+        }
+
+        // RecipeIngredient.OriginalText is MaxLength(500); same cap ImportService applies.
+        internal static string? TruncateLine(string? line)
+        {
+            line = line?.Trim();
+            if (string.IsNullOrEmpty(line)) return null;
+            return line.Length > 500 ? line[..500] : line;
         }
 
         private class ParsedIngredientDto

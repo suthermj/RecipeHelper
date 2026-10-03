@@ -57,6 +57,49 @@ namespace RecipeHelper.Tests
             Assert.Equal(expected, ImportService.IsEditedLine(ing));
         }
 
+        // Stands in for the AI parser: a line containing " and " comes back as two items
+        // (the model splitting "Salt and pepper to taste"), so a batch miscounts.
+        private static Task<List<IngredientsService.ParsedIngredientItem>> FakeParse(List<string> lines)
+        {
+            var known = new Dictionary<string, IngredientsService.ParsedIngredientItem[]>
+            {
+                ["Salt and pepper to taste"] = new[]
+                {
+                    new IngredientsService.ParsedIngredientItem { Name = "salt", Quantity = null, Unit = "unit" },
+                    new IngredientsService.ParsedIngredientItem { Name = "pepper", Quantity = null, Unit = "unit" },
+                },
+                ["2 cups rice"] = new[] { new IngredientsService.ParsedIngredientItem { Name = "rice", Quantity = 2, Unit = "cup" } },
+                ["1 lb ground beef"] = new[] { new IngredientsService.ParsedIngredientItem { Name = "ground beef", Quantity = 1, Unit = "lb" } },
+            };
+            return Task.FromResult(lines.SelectMany(l => known[l]).ToList());
+        }
+
+        [Fact]
+        public async Task ReparseEditedLines_BatchMiscount_DoesNotShiftLaterLines()
+        {
+            var ingredients = new List<ImportedIngredient>
+            {
+                new() { Include = true, Name = "salt", Text = "Salt and pepper to taste", OriginalText = "Salt, to taste", IngredientId = 1 },
+                new() { Include = true, Name = "rice", Text = "2 cups rice", OriginalText = "1 cup rice", Amount = 1, Unit = "cup", IngredientId = 2 },
+                new() { Include = true, Name = "ground beef", Text = "1 lb ground beef", OriginalText = "2 lb ground beef", Amount = 2, Unit = "lb", IngredientId = 3 },
+            };
+
+            await ImportService.ReparseEditedLinesAsync(ingredients, FakeParse, NullLogger.Instance);
+
+            Assert.Equal("salt", ingredients[0].Name);
+            Assert.Equal(0m, ingredients[0].Amount);
+            Assert.Equal(("rice", 2m, "cup", (int?)2), (ingredients[1].Name, ingredients[1].Amount, ingredients[1].Unit, ingredients[1].IngredientId));
+            Assert.Equal(("ground beef", 1m, "lb", (int?)3), (ingredients[2].Name, ingredients[2].Amount, ingredients[2].Unit, ingredients[2].IngredientId));
+        }
+
+        [Fact]
+        public void CreateEdit_LineCappedToColumnLength()
+        {
+            Assert.Equal(500, RecipeHelper.Controllers.RecipeController.TruncateLine(new string('x', 800))!.Length);
+            Assert.Equal("1 cup butter, divided", RecipeHelper.Controllers.RecipeController.TruncateLine("  1 cup butter, divided "));
+            Assert.Null(RecipeHelper.Controllers.RecipeController.TruncateLine("   "));
+        }
+
         [Fact]
         public void IngredientVM_NoSetAmount_RendersNoNumber()
         {

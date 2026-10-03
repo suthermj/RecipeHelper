@@ -6,6 +6,12 @@
     ViewData["BackLink"] = Url.Action("Products", "Product");
     ViewData["BackLabel"] = "Products";
     var imgBase = "https://www.kroger.com/product/images/large/front/";
+    var brands = (Model.ProductSearchResults ?? new List<RecipeHelper.Models.Kroger.KrogerProductDto>())
+        .Select(p => p.brand)
+        .Where(b => !string.IsNullOrWhiteSpace(b))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(b => b, StringComparer.OrdinalIgnoreCase)
+        .ToList();
 }
 
 <div class="pt-2 pb-32">
@@ -51,10 +57,21 @@
         <form asp-action="AddSelectedProducts" asp-controller="Product" method="post" id="resultsForm">
             <div class="flex items-center justify-between px-4 pb-2">
                 <p class="text-[13px]" style="color: var(--ios-label-2);">
-                    @Model.ProductSearchResults.Count() result@(Model.ProductSearchResults.Count() == 1 ? "" : "s")
+                    <span id="resultCount">@Model.ProductSearchResults.Count()</span> result@(Model.ProductSearchResults.Count() == 1 ? "" : "s")
                 </p>
                 <button type="button" id="clearSelections" class="hidden ios-btn-text-sm">Clear selections</button>
             </div>
+
+            @if (brands.Count > 1)
+            {
+                <div id="brandFilters" class="flex gap-2 overflow-x-auto px-4 pb-3" style="-webkit-overflow-scrolling: touch;">
+                    <button type="button" data-brand="" class="brand-chip is-active shrink-0 rounded-full px-4 py-3 text-[13px] font-medium">All</button>
+                    @foreach (var b in brands)
+                    {
+                        <button type="button" data-brand="@b" class="brand-chip shrink-0 rounded-full px-4 py-3 text-[13px] font-medium whitespace-nowrap">@b</button>
+                    }
+                </div>
+            }
 
             <div class="px-4 space-y-2">
                 @foreach (var product in Model.ProductSearchResults)
@@ -63,7 +80,7 @@
                     var name = product.name ?? "";
                     var price = product.regularPrice;
 
-                    <label class="ios-card flex items-center gap-3 p-3 cursor-pointer active:opacity-75 transition-opacity">
+                    <label data-brand="@(product.brand ?? "")" class="js-product ios-card flex items-center gap-3 p-3 cursor-pointer active:opacity-75 transition-opacity">
                         <div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl" style="background: var(--ios-fill);">
                             <img src="@(imgBase + upc)"
                                  alt="@name"
@@ -83,6 +100,10 @@
                         <input type="hidden" name="productPrices[@upc]" value="@price" disabled>
                     </label>
                 }
+            </div>
+
+            <div class="px-4 pt-3">
+                <button type="button" id="showMore" class="hidden w-full rounded-2xl py-3 text-[15px] font-semibold ios-card" style="color: var(--ios-red);">Show next 10</button>
             </div>
         </form>
     }
@@ -115,6 +136,11 @@
         <button type="submit" form="resultsForm" class="btn-primary flex-1">Add selected</button>
     </div>
 </div>
+
+<style>
+    .brand-chip { background: var(--ios-fill); color: var(--ios-label); }
+    .brand-chip.is-active { background: var(--ios-red); color: #fff; }
+</style>
 
 <script>
     (function () {
@@ -167,5 +193,36 @@
         clearBtnMobile?.addEventListener('click', clearSelections);
 
         updateActionBar();
+
+        // Brand filter + 10-at-a-time paging over the already-fetched results.
+        const PAGE = 10;
+        const items = Array.from(document.querySelectorAll('.js-product'));
+        const showMoreBtn = document.getElementById('showMore');
+        const resultCountEl = document.getElementById('resultCount');
+        let activeBrand = '';
+        let visibleLimit = PAGE;
+
+        function applyView() {
+            const matches = items.filter(el => !activeBrand || el.dataset.brand === activeBrand);
+            items.forEach(el => el.classList.add('hidden'));
+            matches.slice(0, visibleLimit).forEach(el => el.classList.remove('hidden'));
+            if (resultCountEl) resultCountEl.textContent = String(matches.length);
+            if (showMoreBtn) {
+                const remaining = matches.length - visibleLimit;
+                showMoreBtn.classList.toggle('hidden', remaining <= 0);
+                showMoreBtn.textContent = 'Show next ' + Math.min(PAGE, Math.max(remaining, 0));
+            }
+        }
+
+        showMoreBtn?.addEventListener('click', () => { visibleLimit += PAGE; applyView(); });
+        document.querySelectorAll('.brand-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                activeBrand = chip.dataset.brand;
+                visibleLimit = PAGE;
+                document.querySelectorAll('.brand-chip').forEach(c => c.classList.toggle('is-active', c === chip));
+                applyView();
+            });
+        });
+        applyView();
     })();
 </script>

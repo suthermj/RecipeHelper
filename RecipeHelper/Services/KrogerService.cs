@@ -188,14 +188,14 @@ namespace RecipeHelper.Services
             return null;
         }
 
-        public async Task<List<KrogerProductDto>?> SearchProductByFilter(string filterTerm)
+        public async Task<List<KrogerProductDto>?> SearchProductByFilter(string filterTerm, int limit = 10)
         {
             var client = _httpClientFactory.CreateClient();
             var token = await GetKrogerClientCredentialsToken();
 
             if (token != null)
             {
-                var url = $"{_baseUri}/products?filter.term={filterTerm}&filter.locationId={GetLocationId()}";
+                var url = $"{_baseUri}/products?filter.term={Uri.EscapeDataString(filterTerm)}&filter.limit={limit}&filter.locationId={GetLocationId()}";
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 var response = await client.GetAsync(url);
 

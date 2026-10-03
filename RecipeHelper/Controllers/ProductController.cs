@@ -71,7 +71,9 @@ namespace RecipeHelper.Controllers
         public async Task<ActionResult> SearchProduct(string searchTerm)
         {
 
-            var products = await _krogerService.SearchProductByFilter(searchTerm);
+            // Kroger caps a page at 50. Fetch that many up front; the view pages through
+            // them 10 at a time and filters by brand client-side, so selections survive.
+            var products = await _krogerService.SearchProductByFilter(searchTerm, limit: 50);
 
             if (products != null)
             {

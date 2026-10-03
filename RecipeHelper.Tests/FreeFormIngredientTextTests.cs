@@ -100,6 +100,37 @@ namespace RecipeHelper.Tests
             Assert.Null(RecipeHelper.Controllers.RecipeController.TruncateLine("   "));
         }
 
+        [Theory]
+        [InlineData("10 Ounces chunky salsa", "10 Ounces", "chunky salsa")]
+        [InlineData("1 Cup Shredded Lettuce", "1 Cup", "Shredded Lettuce")]
+        [InlineData("1 1/2 cups all-purpose flour, sifted", "1 1/2 cups", "all-purpose flour, sifted")]
+        [InlineData("1/2 tsp. cumin", "1/2 tsp.", "cumin")]
+        [InlineData("½ cup sugar", "½ cup", "sugar")]
+        [InlineData("2-3 cloves garlic", "2-3", "cloves garlic")]
+        [InlineData("2 eggs", "2", "eggs")]
+        [InlineData("1 (15 oz) can black beans", "1", "(15 oz) can black beans")]
+        [InlineData("16 oz canned black beans", "16 oz", "canned black beans")]
+        [InlineData("1 lb ground beef", "1 lb", "ground beef")]
+        [InlineData("Salt, to taste", "", "Salt, to taste")]
+        [InlineData("Olive oil, for frying", "", "Olive oil, for frying")]
+        [InlineData("3 cups", "", "3 cups")]                         // nothing left for the name
+        [InlineData("1 green onion", "1", "green onion")]           // "g" unit must not eat "green"
+        [InlineData("2 large carrots", "2", "large carrots")]       // "l" unit must not eat "large"
+        public void LineSplitter_SplitsLeadingAmount(string line, string amount, string rest)
+        {
+            Assert.Equal((amount, rest), IngredientLineSplitter.Split(line));
+        }
+
+        [Fact]
+        public void IngredientVM_FreeFormLine_RendersInAmountAndNameColumns()
+        {
+            var typed = new IngredientVM { Name = "chunky salsa", Text = "10 Ounces chunky salsa", Quantity = 10, Measurement = "Ounces" };
+            Assert.Equal(("10 Ounces", "chunky salsa"), (typed.AmountLabel, typed.NameLabel));
+
+            var legacy = new IngredientVM { Name = "chicken broth", Quantity = 0.5m, Measurement = "Cups" };
+            Assert.Equal(("1/2 Cups", "chicken broth"), (legacy.AmountLabel, legacy.NameLabel));
+        }
+
         [Fact]
         public void IngredientVM_NoSetAmount_RendersNoNumber()
         {

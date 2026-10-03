@@ -90,6 +90,15 @@ namespace RecipeHelper.Models
         // False for "to taste" / "as needed" ingredients, stored with Quantity 0.
         public bool HasAmount => Quantity != 0;
 
+        // The two columns the recipe page shows: amount ("1/2 Cups") and name. Taken from
+        // the line as written when there is one, else built from Quantity/Measurement.
+        public string AmountLabel => string.IsNullOrWhiteSpace(Text)
+            ? $"{DisplayQuantity} {DisplayMeasurement}".Trim()
+            : IngredientLineSplitter.Split(Text).Amount;
+        public string NameLabel => string.IsNullOrWhiteSpace(Text)
+            ? Name
+            : IngredientLineSplitter.Split(Text).Name;
+
         public string DisplayQuantity       // The property name you use in Razor
         {
             get                             // Computed getter

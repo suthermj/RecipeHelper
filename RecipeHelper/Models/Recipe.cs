@@ -79,14 +79,32 @@ namespace RecipeHelper.Models
     {
         public int Id { get; set; }
         public string Name { get; set; }
+        // The ingredient line as written (RecipeIngredient.OriginalText); null for
+        // ingredients saved before that existed.
+        public string? Text { get; set; }
         public string? Section { get; set; }
         public decimal Quantity { get; set; }
         public string Measurement { get; set; }
         public string Upc { get; set; }
+
+        // False for "to taste" / "as needed" ingredients, stored with Quantity 0.
+        public bool HasAmount => Quantity != 0;
+
+        // The two columns the recipe page shows: amount ("1/2 Cups") and name. Taken from
+        // the line as written when there is one, else built from Quantity/Measurement.
+        public string AmountLabel => string.IsNullOrWhiteSpace(Text)
+            ? $"{DisplayQuantity} {DisplayMeasurement}".Trim()
+            : IngredientLineSplitter.Split(Text).Amount;
+        public string NameLabel => string.IsNullOrWhiteSpace(Text)
+            ? Name
+            : IngredientLineSplitter.Split(Text).Name;
+
         public string DisplayQuantity       // The property name you use in Razor
         {
             get                             // Computed getter
             {
+                if (!HasAmount) return "";
+
                 // If the measurement is Unit, we want whole numbers (ex: 2.00 → 2)
                 if (Measurement?.Equals("Unit", StringComparison.OrdinalIgnoreCase) == true)
                 {
@@ -102,6 +120,7 @@ namespace RecipeHelper.Models
         {
             get                             // Computed getter
             {
+                if (!HasAmount) return "";
                 if (Quantity == 1 && Measurement?.Equals("Unit", StringComparison.OrdinalIgnoreCase) == false)
                 {
                     // Handle compound units like "Fluid Ounces" → "Fluid Ounce"

@@ -179,7 +179,11 @@
                             }
                             <div class="ios-cell">
                                 <span class="text-[15px]" style="color: var(--ios-label);">
-                                    @if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
+                                    @if (!string.IsNullOrWhiteSpace(ing.Text))
+                                    {
+                                        @ing.Text
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(ing.DisplayAmount))
                                     {
                                         <span class="font-semibold">@ing.DisplayAmount</span>
                                         @(" " + ing.Name)
@@ -226,6 +230,7 @@
                     var ing = Model.Preview.Ingredients[i];
                     <input type="hidden" name="Ingredients[@i].Name" value="@ing.Name" />
                     <input type="hidden" name="Ingredients[@i].CleanName" value="@ing.CleanName" />
+                    <input type="hidden" name="Ingredients[@i].Text" value="@ing.Text" />
                     <input type="hidden" name="Ingredients[@i].Amount" value="@(ing.Amount ?? 0)" />
                     <input type="hidden" name="Ingredients[@i].Unit" value="@ing.Unit" />
                     <input type="hidden" name="Ingredients[@i].Section" value="@ing.Section" />

@@ -18,6 +18,14 @@ namespace RecipeHelper.Models
         public Ingredient Ingredient { get; set; } = null!;
         public string DisplayName { get; set; } = null!;
 
+        // The ingredient line as written ("Salt and pepper to taste", "1 cup butter,
+        // divided") -- what the recipe shows. Quantity/Measurement below are parsed from
+        // it and only drive shopping math. Null for ingredients saved before this
+        // existed; callers fall back to formatting Quantity/Measurement/DisplayName.
+        [MaxLength(500)]
+        public string? OriginalText { get; set; }
+
+        // 0 = no set amount ("to taste", "as needed").
         [Column(TypeName = "decimal(10,2)")]
         public decimal Quantity { get; set; }
 

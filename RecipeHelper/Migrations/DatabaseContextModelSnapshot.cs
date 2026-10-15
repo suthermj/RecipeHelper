@@ -339,6 +339,10 @@ namespace RecipeHelper.Migrations
                     b.Property<int?>("MeasurementId")
                         .HasColumnType("int");
 
+                    b.Property<string>("OriginalText")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(10,2)");
 

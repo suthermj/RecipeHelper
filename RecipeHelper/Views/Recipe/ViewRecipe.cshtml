@@ -99,10 +99,10 @@
                 }
                 <div class="ios-cell" style="align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
                     <span class="text-[15px] font-semibold flex-shrink-0" style="color: var(--ios-label); width: 120px; white-space: nowrap;">
-                        @ingredient.DisplayQuantity @ingredient.DisplayMeasurement
+                        @ingredient.AmountLabel
                     </span>
                     <span class="text-[15px] flex-1" style="color: var(--ios-label-2);">
-                        @ingredient.Name
+                        @ingredient.NameLabel
                     </span>
                 </div>
             }
@@ -237,10 +237,10 @@
                             }
                             <div class="ios-cell" style="align-items: flex-start; padding-top: 12px; padding-bottom: 12px;">
                                 <span class="text-[15px] font-semibold flex-shrink-0" style="color:var(--ios-label); width: 120px; white-space: nowrap;">
-                                    @ingredient.DisplayQuantity @ingredient.DisplayMeasurement
+                                    @ingredient.AmountLabel
                                 </span>
                                 <span class="text-[15px] flex-1" style="color:var(--ios-label-2);">
-                                    <span class="js-ingr-name" data-ingr-name="@ingredient.Name">@ingredient.Name</span>
+                                    <span class="js-ingr-name" data-ingr-name="@ingredient.Name">@ingredient.NameLabel</span>
                                 </span>
                             </div>
                         }

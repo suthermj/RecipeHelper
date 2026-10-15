@@ -15,6 +15,7 @@ namespace RecipeHelper.Models.Import
     {
         public string Name { get; set; } = "";
         public string CleanName { get; set; } = "";
+        public string? Text { get; set; }
         public decimal Amount { get; set; }
         public string? Unit { get; set; }
         public string? Section { get; set; }
@@ -39,6 +40,7 @@ namespace RecipeHelper.Models.Import
         // Source (from Spoonacular parsing)
         [Required]
         public string Name { get; set; } = "";
+        public string? Text { get; set; }
 
         public decimal Amount { get; set; }
         public string? Unit { get; set; }

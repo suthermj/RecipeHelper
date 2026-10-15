@@ -457,6 +457,13 @@
                 title.textContent = name;
                 col.appendChild(title);
 
+                const sizeText = (it.size && it.size !== 'N/A') ? it.size : '';
+                if (sizeText) {
+                    const sub = document.createElement('div');
+                    sub.className = 'text-xs text-gray-500 mt-0.5 truncate';
+                    sub.textContent = sizeText;
+                    col.appendChild(sub);
+                }
 
                 li.appendChild(col);
 

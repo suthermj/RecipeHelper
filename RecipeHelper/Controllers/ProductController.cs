@@ -106,6 +106,8 @@ namespace RecipeHelper.Controllers
             {
                 name = p.name,                // or whatever property you're using
                 upc = p.upc,
+                size = p.size,
+                brand = p.brand,
                 imageUrl = $"https://www.kroger.com/product/images/medium/front/{p.upc}",               // or build from UPC
                 id = p.ProductId                            // if you ever store it locally
             });

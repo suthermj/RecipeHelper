@@ -436,7 +436,22 @@
             modalResultsEmpty.classList.add('hidden');
             modalResults.classList.remove('hidden');
 
-            items.slice(0, 20).forEach(it => {
+            // Group Kroger results that are the same product (name + brand) in different sizes.
+            const groups = [];
+            const byKey = new Map();
+            items.forEach(it => {
+                const key = (activeMode !== 'db' && it.size && it.size !== 'N/A')
+                    ? `${(it.name || '').toLowerCase()}|${(it.brand || '').toLowerCase()}`
+                    : null;
+                if (key && byKey.has(key)) { byKey.get(key).push(it); return; }
+                const g = [it];
+                groups.push(g);
+                if (key) byKey.set(key, g);
+            });
+
+            groups.slice(0, 20).forEach(g => {
+                const it = g[0];
+
                 const upc = (it.upc || '').toString();
                 const name = it.name || '';
 
@@ -458,7 +473,7 @@
                 col.appendChild(title);
 
                 const sizeText = (it.size && it.size !== 'N/A') ? it.size : '';
-                if (sizeText) {
+                if (sizeText && g.length === 1) {
                     const sub = document.createElement('div');
                     sub.className = 'text-xs text-gray-500 mt-0.5 truncate';
                     sub.textContent = sizeText;
@@ -467,9 +482,30 @@
 
                 li.appendChild(col);
 
-                li.dataset.upc = upc;
-                li.dataset.name = name;
-                li.dataset.source = (activeMode === 'db') ? 'My products' : 'Kroger';
+                if (g.length > 1) {
+                    const hint = document.createElement('div');
+                    hint.className = 'text-xs text-gray-500 mt-0.5';
+                    hint.textContent = `${g.length} sizes \u00b7 tap to choose`;
+                    col.appendChild(hint);
+
+                    const chips = document.createElement('div');
+                    chips.className = 'js-size-chips hidden flex flex-wrap gap-2 mt-2';
+                    g.forEach(v => {
+                        const chip = document.createElement('button');
+                        chip.type = 'button';
+                        chip.className = 'js-size-chip min-h-[44px] px-4 rounded-full border border-gray-300 bg-white text-sm font-medium text-gray-900 hover:bg-gray-50';
+                        chip.textContent = v.size;
+                        chip.dataset.upc = (v.upc || '').toString();
+                        chip.dataset.name = v.name || '';
+                        chips.appendChild(chip);
+                    });
+                    col.appendChild(chips);
+                    li.dataset.group = '1';
+                } else {
+                    li.dataset.upc = upc;
+                    li.dataset.name = name;
+                    li.dataset.source = (activeMode === 'db') ? 'My products' : 'Kroger';
+                }
 
                 modalResults.appendChild(li);
             });
@@ -649,9 +685,16 @@
             const li = e.target.closest('li');
             if (!li || activeIdx == null) return;
 
-            const upc = li.dataset.upc || '';
-            const name = li.dataset.name || '';
-            const source = li.dataset.source || (activeMode === 'db' ? 'My products' : 'Kroger');
+            const chip = e.target.closest('.js-size-chip');
+            if (!chip && li.dataset.group) {
+                li.querySelector('.js-size-chips').classList.toggle('hidden');
+                return;
+            }
+
+            const src = chip || li;
+            const upc = src.dataset.upc || '';
+            const name = src.dataset.name || '';
+            const source = (chip ? 'Kroger' : li.dataset.source) || (activeMode === 'db' ? 'My products' : 'Kroger');
 
             setHiddenSelection(activeIdx, upc, name, source);
             setCurrentSelection(activeIdx, { name, upc });

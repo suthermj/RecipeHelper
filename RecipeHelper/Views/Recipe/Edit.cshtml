@@ -748,12 +748,60 @@
                 return clean ? `https://www.kroger.com/product/images/medium/front/${encodeURIComponent(clean)}` : "";
             }
 
+            // Group Kroger results that are the same product (name + brand) in different sizes.
+            function groupProducts(data) {
+                const groups = [];
+                const byKey = new Map();
+                data.forEach(p => {
+                    const size = p.size ?? p.Size ?? '';
+                    const key = size
+                        ? `${(p.name ?? p.Name ?? '').toLowerCase()}|${(p.brand ?? p.Brand ?? '').toLowerCase()}`
+                        : null;
+                    if (key && byKey.has(key)) { byKey.get(key).push(p); return; }
+                    const g = [p];
+                    groups.push(g);
+                    if (key) byKey.set(key, g);
+                });
+                return groups;
+            }
+
+            function renderGroup(g) {
+                const first = g[0];
+                const name = escapeHtml(first.name ?? first.Name ?? '');
+                const img = productImageUrl(escapeHtml(first.upc ?? first.Upc ?? ''));
+                const chips = g.map(p => {
+                    const upc = escapeHtml(p.upc ?? p.Upc ?? '');
+                    const size = escapeHtml(p.size ?? p.Size ?? '');
+                    return `<button type="button"
+                                    class="product-result-item min-h-[44px] px-4 rounded-full border border-gray-300 bg-white text-sm font-medium text-gray-900 hover:bg-gray-50"
+                                    data-upc="${upc}" data-name="${name}">${size}</button>`;
+                }).join('');
+                return `
+                    <div class="border-b border-gray-100">
+                        <button type="button" class="product-group-toggle w-full text-left px-3 py-3 hover:bg-gray-50" aria-expanded="false">
+                            <div class="flex items-center gap-3">
+                                <div class="h-12 w-12 rounded-lg border border-gray-200 bg-white overflow-hidden flex items-center justify-center shrink-0">
+                                    <img src="${img}" alt="" class="h-full w-full object-cover" loading="lazy" />
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-sm font-medium text-gray-900 truncate">${name}</div>
+                                    <div class="text-xs text-gray-500 mt-1">${g.length} sizes &middot; tap to choose</div>
+                                </div>
+                            </div>
+                        </button>
+                        <div class="product-group-sizes hidden flex flex-wrap gap-2 px-3 pb-3">${chips}</div>
+                    </div>
+                `;
+            }
+
             function renderProducts(data) {
                 if (!Array.isArray(data) || data.length === 0) {
                     productResults.innerHTML = `<div class="px-3 py-3 text-sm text-gray-600">No results</div>`;
                     return;
                 }
-                productResults.innerHTML = data.map(p => {
+                productResults.innerHTML = groupProducts(data).map(g => {
+                    if (g.length > 1) return renderGroup(g);
+                    const p = g[0];
                     const upc = escapeHtml(p.upc ?? p.Upc ?? '');
                     const name = escapeHtml(p.name ?? p.Name ?? '');
                     const sub = escapeHtml(p.size ?? p.Size ?? p.brand ?? p.Brand ?? '');
@@ -808,6 +856,13 @@
             });
 
             productResults.addEventListener('click', (e) => {
+                const toggle = e.target.closest('.product-group-toggle');
+                if (toggle) {
+                    const sizes = toggle.nextElementSibling;
+                    const open = sizes.classList.toggle('hidden') === false;
+                    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    return;
+                }
                 const btn = e.target.closest('.product-result-item');
                 if (!btn || !activeRowForProduct) return;
                 const upc = btn.getAttribute('data-upc') ?? '';

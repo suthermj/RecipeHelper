@@ -128,8 +128,7 @@ namespace RecipeHelper.Services
             {
                 await EnsureKrogerProductExistsAsync(krogerUpc);
 
-                var linkExists = await _context.IngredientKrogerProducts
-                    .AnyAsync(l => l.IngredientId == ingredient.Id && l.Upc == krogerUpc);
+                var linkExists = await _ingredientService.IngredientProductLinkExists(ingredient.Id, krogerUpc);
 
                 if (!linkExists)
                 {

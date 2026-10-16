@@ -8,6 +8,23 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+## 2026-10-16
+
+### Added
+
+- Product picker (#192): Kroger search results now show the package size (e.g. "32 oz") under the product name in the import mapping modal, Create Recipe, and Edit Recipe, so same-named products can be told apart. `SearchKroger` now returns `size` and `brand`. Kroger results that are the same product (same name + brand) in different sizes now collapse into one row; tapping it reveals size chips (e.g. "10 lbs" · "25 lb") and choosing one selects that UPC.
+
+### Changed
+
+- Telemetry (traces, metrics, logs) now goes to Azure Application Insights instead of Grafana Cloud (#195), using `Azure.Monitor.OpenTelemetry.Exporter` with Entra auth through the existing `AzureAd` service principal. Export is on only when `ApplicationInsights:ConnectionString` is configured. The Grafana OTLP exporter, its `/v1/{signal}` path workaround, and the Grafana settings in `launchSettings.json` are removed. Adds `scripts/kql.sh` for running KQL queries against the workspace with `az login` or a read-only service principal.
+- App Insights now receives only Warning and above from framework (`Microsoft.*` / `System.*`) logs, plus your own `RecipeHelper.*` logs and startup/shutdown. Framework Information logs ("Request starting", "Sending file", "Executed DbCommand", …) duplicated `AppRequests`/`AppDependencies` and made up ~95% of `AppTraces`. They reached prod because the gitignored `appsettings.json` holds the `Logging` levels, so the filter now lives in `Program.cs`. Console/journalctl output is unchanged. Request telemetry is now named after the action that ran (`GET Dinner/Index`) instead of the route template, so `AppRequests` can be grouped by endpoint, and static-file requests (`/sw.js`, `/manifest.json`, css/js, images — ~70% of `AppRequests`) are no longer recorded. Also adds `UseForwardedHeaders()`, so the app sees nginx's real scheme and client IP: request URLs are recorded as `https://`, and the "Failed to determine the https port for redirect" warning stops.
+
+### Fixed
+
+- Saving an imported recipe failed with a 500 ("another instance with the same key value for {'IngredientId', 'Upc'} is already being tracked") when two lines resolved to the same ingredient and Kroger product, e.g. butter in both the cake and the frosting. The save loop adds ingredient↔product links and only saves at the end, but `IngredientsService.IngredientProductLinkExists` only checked the database, so the second line added the same link again. It now also checks links added earlier in the same save. Recipe Create/Edit (`RecipeService.ResolveIngredientAsync`) had the same check and now uses this one. Reproduced with `IngredientProductLinkPendingTests`: it threw the production exception before the fix and saves one link after.
+
+## Earlier (undated)
+
 ### Added
 
 - Add Product search now fetches up to 50 results and shows them 10 at a time with a "Show next 10" button, plus brand filter chips built from the brands in the results. Selections are kept while paging or filtering.
@@ -18,7 +35,6 @@ by date rather than by release version.
 
 ### Changed
 
-- Telemetry (traces, metrics, logs) now goes to Azure Application Insights instead of Grafana Cloud (#194), using `Azure.Monitor.OpenTelemetry.Exporter` with Entra auth through the existing `AzureAd` service principal. Export is on only when `ApplicationInsights:ConnectionString` is configured. The Grafana OTLP exporter, its `/v1/{signal}` path workaround, and the Grafana settings in `launchSettings.json` are removed. Adds `scripts/kql.sh` for running KQL queries against the workspace with `az login` or a read-only service principal.
 - Ingredients are now kept and shown as the line the recipe wrote ("Salt, to taste", "1 cup butter, divided", "Olive oil, for frying") instead of being rebuilt from a parsed amount + unit + name. The parsed amount now only drives shopping math, and "no set amount" is stored as 0 instead of a fake 0 or 1.
   - **Import mapping page:** each card's name box plus `0 | Unit ▾` amount/unit inputs are replaced by one free-text line, pre-filled from the recipe. Photo import now returns each printed line (splitting "Salt and pepper to taste" into one line per ingredient), and URL import uses Spoonacular's original line. Untouched lines save with the importer's parsed values at no extra cost; only lines you edit are re-parsed, in one AI call per save (`ImportService.ReparseEditedLinesAsync`).
   - **Create / Edit:** the typed line is now saved and shown back on Edit instead of the rebuilt "1 Salt". The line parser returns no amount for "to taste" / "as needed" / "for garnish" (it used to assume 1), and it no longer drops "optional" lines, which could shift product links onto the wrong ingredients.

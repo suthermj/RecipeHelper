@@ -1,6 +1,7 @@
 using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
@@ -93,7 +94,30 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(t =>
     {
         t.AddSource("RecipeHelper.*")
-            .AddAspNetCoreInstrumentation()
+            .AddAspNetCoreInstrumentation(o =>
+            {
+                // Static assets (sw.js, manifest.json, css/js, images) were ~70% of AppRequests
+                // and drown out the real requests. MVC routes have no file extension, so they're
+                // all kept; a missing static file still shows in nginx's access log.
+                o.Filter = ctx => !Path.HasExtension(ctx.Request.Path.Value);
+                // The conventional route makes every request's name the template
+                // ("GET {controller=Recipe}/{action=Recipe}/{id?}"), so AppRequests can't be
+                // grouped by endpoint. Rename to the action that actually ran -- the Azure
+                // Monitor exporter builds the request name from http.route.
+                o.EnrichWithHttpResponse = (activity, response) =>
+                {
+                    // url.scheme is captured before UseForwardedHeaders runs, so it'd always
+                    // say http (nginx -> localhost); re-read it once the scheme is corrected.
+                    activity.SetTag("url.scheme", response.HttpContext.Request.Scheme);
+                    var values = response.HttpContext.GetRouteData()?.Values;
+                    if (values?["controller"] is string controller && values["action"] is string action)
+                    {
+                        var route = $"{controller}/{action}";
+                        activity.SetTag("http.route", route);
+                        activity.DisplayName = $"{response.HttpContext.Request.Method} {route}";
+                    }
+                };
+            })
             .AddHttpClientInstrumentation()
             .AddSqlClientInstrumentation();
         if (exportToAzureMonitor)
@@ -117,10 +141,25 @@ builder.Logging.AddOpenTelemetry(o =>
     if (exportToAzureMonitor)
         o.AddAzureMonitorLogExporter(ConfigureAzureMonitor);
 });
+// Framework Information logs ("Request starting", "Sending file", "Executed DbCommand", ...)
+// duplicate what AppRequests/AppDependencies already record, so only Warning+ from them
+// goes to App Insights. Set in code because appsettings.json is gitignored and never
+// reaches prod. Console (journalctl) is unaffected and keeps the full detail.
+builder.Logging.AddFilter<OpenTelemetryLoggerProvider>("Microsoft", LogLevel.Warning);
+builder.Logging.AddFilter<OpenTelemetryLoggerProvider>("System", LogLevel.Warning);
+builder.Logging.AddFilter<OpenTelemetryLoggerProvider>("Microsoft.Hosting.Lifetime", LogLevel.Information);
+
+// nginx terminates TLS and proxies to localhost:5000 with X-Forwarded-For/-Proto. Without
+// this the app sees every request as http from 127.0.0.1 (wrong URLs in telemetry, and
+// HttpsRedirection warns it can't determine the https port). The default trusted proxy
+// list is loopback only, which is exactly where nginx sits.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

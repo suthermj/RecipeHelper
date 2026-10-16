@@ -72,6 +72,12 @@ namespace RecipeHelper.Services
 
         public async Task<bool> IngredientProductLinkExists(int ingredientId, string upc)
         {
+            // Callers add links in a loop and save once at the end, so a link added earlier
+            // in the same save isn't in the database yet -- check the change tracker too, or
+            // the same ingredient + product on two recipe lines gets added twice and EF throws.
+            if (_context.IngredientKrogerProducts.Local.Any(l => l.IngredientId == ingredientId && l.Upc == upc))
+                return true;
+
             var ingredient = await _context.IngredientKrogerProducts.Where(i => i.IngredientId == ingredientId && i.Upc == upc).FirstOrDefaultAsync();
 
             if (ingredient is null) return false;

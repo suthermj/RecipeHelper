@@ -96,6 +96,10 @@ builder.Services.AddOpenTelemetry()
         t.AddSource("RecipeHelper.*")
             .AddAspNetCoreInstrumentation(o =>
             {
+                // Static assets (sw.js, manifest.json, css/js, images) were ~70% of AppRequests
+                // and drown out the real requests. MVC routes have no file extension, so they're
+                // all kept; a missing static file still shows in nginx's access log.
+                o.Filter = ctx => !Path.HasExtension(ctx.Request.Path.Value);
                 // The conventional route makes every request's name the template
                 // ("GET {controller=Recipe}/{action=Recipe}/{id?}"), so AppRequests can't be
                 // grouped by endpoint. Rename to the action that actually ran -- the Azure

@@ -310,6 +310,10 @@ namespace RecipeHelper.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ShareToken")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("SourceUrl")
                         .HasColumnType("nvarchar(max)");
 
@@ -317,6 +321,10 @@ namespace RecipeHelper.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ShareToken")
+                        .IsUnique()
+                        .HasFilter("[ShareToken] IS NOT NULL");
 
                     b.ToTable("Recipes");
                 });

@@ -95,7 +95,7 @@
     "util-deprecate": "^1.0.2",
     "which": "^2.0.2",
     "wrap-ansi": "^10.0.1",
-    "wrap-ansi-cjs": "^7.0.0",
+    "wrap-ansi-cjs": "^8.0.0",
     "yaml": "^2.9.0"
   },
   "scripts": {

@@ -68,7 +68,8 @@ gh pr merge <number> --squash --delete-branch
 | `Controllers/ImportController.cs` | Recipe import flow: URL fetch → Spoonacular preview → mapping page → save |
 | `Services/ImportService.cs` | Saves mapped import to DB; **only `SelectedUpc` is persisted** — `SuggestedUpc` is a UI hint only |
 | `Services/StorageService.cs` | Blob upload/delete; uses `ClientSecretCredential` in prod, connection string in dev |
-| `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Grafana Cloud OTLP) |
+| `Program.cs` | DI registration + OpenTelemetry wiring (traces / metrics / logs → Azure Application Insights) |
+| `scripts/kql.sh` | Run a KQL query against the App Insights / Log Analytics workspace (see Observability) |
 | `deploy/deploy.sh` | Full deploy: CSS build → dotnet publish → scp → restart systemd |
 | `wwwroot/sw.js` | Service worker: static-asset + page caching; `CACHE_VERSION` auto-stamped at deploy time (see PWA note above) |
 | `wwwroot/js/site.js` | SW registration + "update available" reload banner; also global loading-overlay wiring |
@@ -193,9 +194,9 @@ npx playwright test --ui      # interactive UI mode (recommended for visual revi
 
 ## Observability
 
-- **Stack:** OpenTelemetry SDK → OTLP/HTTP → Grafana Cloud (free tier).
-- **Wired in `Program.cs`** — traces (ASP.NET, HttpClient, SqlClient), metrics (ASP.NET, HttpClient, runtime), and logs all export over OTLP.
-- **Config precedence:** `OpenTelemetry:*` section in appsettings first, then `OTEL_*` env-var fallback. Prod uses `appsettings.Production.json`; local dev uses env vars set in `Properties/launchSettings.json`.
-- **Critical: per-signal path is appended manually.** `ConfigureOtlp(opts, signalPath)` writes `{base}/v1/{signal}` to `opts.Endpoint`. The OTel .NET SDK does NOT auto-append `/v1/traces` etc. when the endpoint is set programmatically (only when read from the `OTEL_EXPORTER_OTLP_ENDPOINT` env var by the SDK itself). Without this, Grafana's gateway silently drops metrics + traces.
-- **Service identity:** `service.name=recipe-helper`, `deployment.environment=Production|Development`.
-- **VM host metrics (CPU/mem/disk) are NOT covered** by the app instrumentation. Use Grafana Cloud → Connections → Integrations → "Linux Server" (installs Alloy on the VM) when needed.
+- **Stack:** OpenTelemetry SDK → `Azure.Monitor.OpenTelemetry.Exporter` → Azure Application Insights `insights-recipehelper-germanycentral` (workspace-based; Log Analytics workspace `law-recipehelper-germanycentral`, ID `08fe8a78-2078-4d77-9527-2d81121b48cb`). Both are in RG `rg-recipehelper-germanycentral`, subscription `a4dd9a73-b1d2-4b67-94f0-a7e7fe0bacf7` — **not** the default `az` subscription, so pass `--subscription` to `az` commands.
+- **Wired in `Program.cs`** — traces (ASP.NET, HttpClient, SqlClient), metrics (ASP.NET, HttpClient, runtime), and logs. Export only happens when `ApplicationInsights:ConnectionString` is set (prod `appsettings.Production.json`); local dev exports nothing.
+- **Entra auth for ingestion:** exporters use a `ClientSecretCredential` from the `AzureAd` section (`sp-recipe-helper-p`, needs **Monitoring Metrics Publisher** on the App Insights resource). The connection string isn't a secret once local auth is disabled on the resource.
+- **Querying logs (Claude):** `bash scripts/kql.sh "<KQL>" [timespan, default P1D]` — e.g. `AppRequests | where Success == false`, `AppDependencies`, `AppExceptions`, `AppTraces`, joined on `OperationId`. Locally it uses `az login`; in Claude Code cloud environments it uses `AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET` env vars for a read-only SP (Log Analytics Reader on the workspace only). Don't use App Insights API keys (retired).
+- **Service identity:** `service.name=recipe-helper` (→ `AppRoleName`), `deployment.environment=Production|Development`.
+- **VM host metrics (CPU/mem/disk) are NOT covered** by the app instrumentation (Azure equivalent: Azure Arc + Azure Monitor Agent).

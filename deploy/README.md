@@ -166,26 +166,20 @@ ssh -i ~/.ssh/hetzner root@178.105.73.57 "certbot renew && systemctl reload ngin
 
 ---
 
-## Observability (Grafana Cloud)
+## Observability (Azure Application Insights)
 
-The app sends OpenTelemetry data (traces, metrics, logs) to Grafana Cloud over OTLP/HTTP.
+The app sends OpenTelemetry data (traces, metrics, logs) to Application Insights `insights-recipehelper-germanycentral` (workspace-based, backed by Log Analytics workspace `law-recipehelper-germanycentral`, resource group `rg-recipehelper-germanycentral`, subscription `a4dd9a73-b1d2-4b67-94f0-a7e7fe0bacf7`) via `Azure.Monitor.OpenTelemetry.Exporter`.
 
-**Config lives in `RecipeHelper/appsettings.Production.json`** — that file is gitignored but the `dotnet publish` step in `deploy.sh` bundles it into the publish output, so deploying ships the config automatically. The relevant section:
+**Config lives in `appsettings.Production.json`** (on the VM at `/etc/recipehelper/`, copied into the app dir on every deploy). Add:
 
 ```json
-"OpenTelemetry": {
-  "ServiceName": "recipe-helper",
-  "ServiceNamespace": "recipe-helper",
-  "Otlp": {
-    "Endpoint": "https://otlp-gateway-prod-us-east-3.grafana.net/otlp",
-    "Protocol": "http/protobuf",
-    "Headers": "Authorization=Basic <base64(instanceId:glc_token)>"
-  }
+"ApplicationInsights": {
+  "ConnectionString": "InstrumentationKey=...;IngestionEndpoint=...;..."
 }
 ```
 
-`Program.cs` wires three exporters and appends `/v1/traces`, `/v1/metrics`, `/v1/logs` to the base endpoint per signal (the .NET SDK does not auto-append when `Endpoint` is set programmatically).
+Ingestion authenticates with Entra using the existing `AzureAd` service principal (`sp-recipe-helper-p`), which needs the **Monitoring Metrics Publisher** role on the App Insights resource. With that in place, disable local (key) auth on the resource so the connection string alone can't send data. If `ApplicationInsights:ConnectionString` is missing (e.g. local dev), the app runs without exporting telemetry.
 
-In Grafana Cloud, filter by `service_name="recipe-helper"`. Traces appear immediately; metrics export on a 60-second interval.
+**Querying:** `scripts/kql.sh "<KQL>" [timespan]` runs a query against the workspace — uses `az login` locally, or `AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET` (a read-only service principal with **Log Analytics Reader** on the workspace) in Claude Code cloud environments.
 
-**To add VM host metrics (CPU, memory, disk, network):** Grafana Cloud → Connections → Integrations → "Linux Server". It generates a one-line installer for Grafana Alloy plus pre-built dashboards. Not covered by the app's OpenTelemetry instrumentation.
+**VM host metrics (CPU, memory, disk, network)** are not covered by the app instrumentation. The Azure equivalent would be Azure Arc + Azure Monitor Agent on the Hetzner VM.

@@ -209,9 +209,9 @@ empty-state card) is already done.
 
 ## 15. Alerting
 
-**Status:** Open (Grafana configuration, mostly outside this repo)
+**Status:** Open (Azure Monitor configuration, mostly outside this repo)
 
 - Alert on a 5xx rate spike, on Kroger 429s / lookup failures, and on the service
-  being down. The telemetry already reaches Grafana Cloud (see Observability in
-  CLAUDE.md).
+  being down. The telemetry already reaches Application Insights (see Observability
+  in CLAUDE.md).
 - Document the alert rules in `deploy/README.md`.

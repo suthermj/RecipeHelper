@@ -1,10 +1,11 @@
+using Azure.Identity;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
 using OpenAI;
 using OpenTelemetry;
-using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -58,40 +59,29 @@ builder.Services.AddSession(options =>
 });
 builder.Services.AddControllers();
 
-// OpenTelemetry: read from appsettings first, fall back to OTEL_* env vars.
-var otelServiceName = builder.Configuration["OpenTelemetry:ServiceName"]
-    ?? Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME")
-    ?? "recipe-helper";
-var otelServiceNamespace = builder.Configuration["OpenTelemetry:ServiceNamespace"]
-    ?? "recipe-helper";
-var otlpEndpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"]
-    ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
-var otlpHeaders = builder.Configuration["OpenTelemetry:Otlp:Headers"]
-    ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_HEADERS");
-var otlpProtocol = builder.Configuration["OpenTelemetry:Otlp:Protocol"]
-    ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_PROTOCOL")
-    ?? "http/protobuf";
+// OpenTelemetry → Azure Application Insights. Ingestion authenticates with the same Entra
+// service principal as blob storage (needs "Monitoring Metrics Publisher" on the App Insights
+// resource), so the connection string only says *where* to send — it isn't a secret once
+// local auth is disabled on the resource. No connection string (e.g. local dev) = no export.
+var otelServiceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? "recipe-helper";
+var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+var exportToAzureMonitor = !string.IsNullOrWhiteSpace(appInsightsConnectionString);
+// One credential shared by all three exporters so they share its token cache.
+var azureMonitorCredential = exportToAzureMonitor
+    ? new ClientSecretCredential(
+        builder.Configuration["AzureAd:TenantId"],
+        builder.Configuration["AzureAd:ClientId"],
+        builder.Configuration["AzureAd:ClientSecret"])
+    : null;
 
-// NOTE: When OtlpExporterOptions.Endpoint is set programmatically, the SDK does NOT append
-// the per-signal path (/v1/traces, /v1/metrics, /v1/logs). It only appends them when the
-// value comes from the OTEL_EXPORTER_OTLP_ENDPOINT env var. So we append the path ourselves
-// per signal — otherwise Grafana Cloud's OTLP gateway gets POSTs to bare /otlp and silently drops them.
-void ConfigureOtlp(OtlpExporterOptions opts, string signalPath)
+void ConfigureAzureMonitor(AzureMonitorExporterOptions opts)
 {
-    if (!string.IsNullOrWhiteSpace(otlpEndpoint))
-    {
-        var baseUri = otlpEndpoint.TrimEnd('/');
-        opts.Endpoint = new Uri($"{baseUri}/{signalPath}");
-    }
-    if (!string.IsNullOrWhiteSpace(otlpHeaders))
-        opts.Headers = otlpHeaders;
-    opts.Protocol = otlpProtocol.Equals("grpc", StringComparison.OrdinalIgnoreCase)
-        ? OtlpExportProtocol.Grpc
-        : OtlpExportProtocol.HttpProtobuf;
+    opts.ConnectionString = appInsightsConnectionString;
+    opts.Credential = azureMonitorCredential;
 }
 
 var otelResource = ResourceBuilder.CreateDefault()
-    .AddService(serviceName: otelServiceName, serviceNamespace: otelServiceNamespace, serviceVersion: "1.0.0")
+    .AddService(serviceName: otelServiceName, serviceVersion: "1.0.0")
     .AddAttributes(new KeyValuePair<string, object>[]
     {
         new("deployment.environment", builder.Environment.EnvironmentName),
@@ -99,26 +89,33 @@ var otelResource = ResourceBuilder.CreateDefault()
     });
 
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService(serviceName: otelServiceName, serviceNamespace: otelServiceNamespace, serviceVersion: "1.0.0"))
-    .WithTracing(t => t
-        .AddSource("RecipeHelper.*")
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddSqlClientInstrumentation()
-        .AddOtlpExporter(o => ConfigureOtlp(o, "v1/traces")))
-    .WithMetrics(m => m
-        .AddMeter("RecipeHelper.*")
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddRuntimeInstrumentation()
-        .AddOtlpExporter(o => ConfigureOtlp(o, "v1/metrics")));
+    .ConfigureResource(r => r.AddService(serviceName: otelServiceName, serviceVersion: "1.0.0"))
+    .WithTracing(t =>
+    {
+        t.AddSource("RecipeHelper.*")
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddSqlClientInstrumentation();
+        if (exportToAzureMonitor)
+            t.AddAzureMonitorTraceExporter(ConfigureAzureMonitor);
+    })
+    .WithMetrics(m =>
+    {
+        m.AddMeter("RecipeHelper.*")
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation();
+        if (exportToAzureMonitor)
+            m.AddAzureMonitorMetricExporter(ConfigureAzureMonitor);
+    });
 
 builder.Logging.AddOpenTelemetry(o =>
 {
     o.SetResourceBuilder(otelResource);
     o.IncludeFormattedMessage = true;
     o.IncludeScopes = true;
-    o.AddOtlpExporter(e => ConfigureOtlp(e, "v1/logs"));
+    if (exportToAzureMonitor)
+        o.AddAzureMonitorLogExporter(ConfigureAzureMonitor);
 });
 
 var app = builder.Build();

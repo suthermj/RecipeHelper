@@ -19,7 +19,7 @@ This repository is an ASP.NET Core MVC app for managing recipes, ingredients, sh
 - Tailwind CSS build via npm
 - OpenAI SDK for ingredient parsing/canonicalization
 - Azure Blob Storage for recipe images
-- OpenTelemetry OTLP export
+- OpenTelemetry export to Azure Application Insights
 
 ## Project Layout
 
@@ -49,7 +49,7 @@ App settings expect these sections/values:
 - `Oauth`
 - `Spoonacular`
 - `OpenAI`
-- `OpenTelemetry`
+- `ApplicationInsights:ConnectionString` (optional; telemetry export is skipped when absent)
 
 Development launch profiles are in `Properties/launchSettings.json`.
 
@@ -58,7 +58,7 @@ Local URLs:
 - HTTP: `http://localhost:5074`
 - HTTPS: `https://localhost:7127`
 
-Treat API keys, OAuth secrets, storage connection strings, and OTLP auth headers as secrets. Do not duplicate or expose them in commits.
+Treat API keys, OAuth secrets, storage connection strings, and the `AzureAd` client secret as secrets. Do not duplicate or expose them in commits.
 
 ## Build and Run
 

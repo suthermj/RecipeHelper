@@ -15,12 +15,7 @@
       "launchBrowser": true,
       "applicationUrl": "http://localhost:5074",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "OTEL_SERVICE_NAME": "recipe-helper",
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp-gateway-prod-us-east-3.grafana.net/otlp",
-        "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-        "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=recipe-helper",
-        "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Basic MTY2NTU0MzpnbGNfZXlKdklqb2lNVGM0TmpRME55SXNJbTRpT2lKeVpXTnBjR1V0YUdWc2NHVnlJaXdpYXlJNklqZHlhamN3ZURaV2FqVllOelIyYkRGTWJWWk9aa2N4TnlJc0ltMGlPbnNpY2lJNkluQnliMlF0ZFhNdFpXRnpkQzB6SW4xOQ=="
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     "https": {
@@ -29,12 +24,7 @@
       "launchBrowser": true,
       "applicationUrl": "https://localhost:7127;http://localhost:5074",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "OTEL_SERVICE_NAME": "recipe-helper",
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp-gateway-prod-us-east-3.grafana.net/otlp",
-        "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-        "OTEL_RESOURCE_ATTRIBUTES": "service.namespace=recipe-helper",
-        "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Basic MTY2NTU0MzpnbGNfZXlKdklqb2lNVGM0TmpRME55SXNJbTRpT2lKeVpXTnBjR1V0YUdWc2NHVnlJaXdpYXlJNklqZHlhamN3ZURaV2FqVllOelIyYkRGTWJWWk9aa2N4TnlJc0ltMGlPbnNpY2lJNkluQnliMlF0ZFhNdFpXRnpkQzB6SW4xOQ=="
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     "Production (local)": {

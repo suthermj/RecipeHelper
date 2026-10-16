@@ -12,7 +12,7 @@ A recipe management and meal prep app with Kroger shopping cart integration. Imp
 - **Meal Planning** — Select up to 7 recipes for the week and automatically aggregate ingredients with smart unit conversions
 - **Kroger Integration** — Search Kroger products, link ingredients to specific items (by UPC), and bulk-add to your Kroger shopping cart via OAuth
 - **Unit Conversion** — Handles volume, weight, and count units with cross-dimension conversion via ingredient density tables
-- **Observability** — OpenTelemetry traces, metrics, and logs exported to Grafana Cloud over OTLP/HTTP
+- **Observability** — OpenTelemetry traces, metrics, and logs exported to Azure Application Insights
 
 ## Tech Stack
 
@@ -24,7 +24,7 @@ A recipe management and meal prep app with Kroger shopping cart integration. Imp
 | AI | OpenAI GPT-4o-mini (ingredient parsing) |
 | Storage | Azure Blob Storage (recipe images) |
 | APIs | Spoonacular (recipe import), Kroger (products & cart) |
-| Observability | OpenTelemetry SDK → Grafana Cloud (Tempo / Mimir / Loki) |
+| Observability | OpenTelemetry SDK → Azure Application Insights (Log Analytics / KQL) |
 | Hosting | Hetzner Cloud VPS (Ubuntu), nginx, Let's Encrypt SSL |
 
 ## Project Structure

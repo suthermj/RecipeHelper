@@ -102,6 +102,9 @@ builder.Services.AddOpenTelemetry()
                 // Monitor exporter builds the request name from http.route.
                 o.EnrichWithHttpResponse = (activity, response) =>
                 {
+                    // url.scheme is captured before UseForwardedHeaders runs, so it'd always
+                    // say http (nginx -> localhost); re-read it once the scheme is corrected.
+                    activity.SetTag("url.scheme", response.HttpContext.Request.Scheme);
                     var values = response.HttpContext.GetRouteData()?.Values;
                     if (values?["controller"] is string controller && values["action"] is string action)
                     {

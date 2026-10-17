@@ -1,4 +1,4 @@
-using Azure.Identity;
+using Azure.Core;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -13,8 +13,20 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RecipeHelper;
 using RecipeHelper.Services;
+using RecipeHelper.Utility;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// One Azure credential for Key Vault, blob storage and App Insights (see AzureCredentials).
+var azureCredential = AzureCredentials.Create(builder.Configuration);
+builder.Services.AddSingleton<TokenCredential>(azureCredential);
+
+// Secrets (OpenAI, Spoonacular, Kroger, OAuth) load from Key Vault when KeyVault:Uri is set.
+// Vault secret names use "--" for ":" (OpenAI--ApiKey -> OpenAI:ApiKey), and override the
+// same keys from appsettings. Without KeyVault:Uri, config comes from appsettings as before.
+var keyVaultUri = builder.Configuration["KeyVault:Uri"];
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+    builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), azureCredential);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -29,7 +41,7 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo("/var/lib/recipehelper/keys"))
     .SetApplicationName("RecipeHelper");
 builder.Services.AddScoped<KrogerService, KrogerService>();  // Registering your Kroger service
-// Singleton (not Scoped): StorageService builds a ClientSecretCredential + BlobServiceClient
+// Singleton (not Scoped): StorageService builds a BlobServiceClient
 // in its constructor. All fields are set once there and never mutated, and the Azure SDK
 // clients are documented thread-safe/immutable, so this is safe to share across requests --
 // and lets Azure.Identity's in-memory AAD token cache actually persist between requests
@@ -61,24 +73,17 @@ builder.Services.AddSession(options =>
 builder.Services.AddControllers();
 
 // OpenTelemetry → Azure Application Insights. Ingestion authenticates with the same Entra
-// service principal as blob storage (needs "Monitoring Metrics Publisher" on the App Insights
+// identity as blob storage (needs "Monitoring Metrics Publisher" on the App Insights
 // resource), so the connection string only says *where* to send — it isn't a secret once
 // local auth is disabled on the resource. No connection string (e.g. local dev) = no export.
 var otelServiceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? "recipe-helper";
 var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
 var exportToAzureMonitor = !string.IsNullOrWhiteSpace(appInsightsConnectionString);
-// One credential shared by all three exporters so they share its token cache.
-var azureMonitorCredential = exportToAzureMonitor
-    ? new ClientSecretCredential(
-        builder.Configuration["AzureAd:TenantId"],
-        builder.Configuration["AzureAd:ClientId"],
-        builder.Configuration["AzureAd:ClientSecret"])
-    : null;
 
 void ConfigureAzureMonitor(AzureMonitorExporterOptions opts)
 {
     opts.ConnectionString = appInsightsConnectionString;
-    opts.Credential = azureMonitorCredential;
+    opts.Credential = azureCredential;
 }
 
 var otelResource = ResourceBuilder.CreateDefault()

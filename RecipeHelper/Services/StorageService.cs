@@ -44,7 +44,7 @@ namespace RecipeHelper.Services
         // one of our own blobs vs. an external recipe-source URL that needs re-hosting.
         public string AccountUri => _accountUri;
 
-        public StorageService(IConfiguration configuration, ILogger<StorageService> logger)
+        public StorageService(IConfiguration configuration, ILogger<StorageService> logger, TokenCredential credential)
         {
             _logger = logger;
             var storageSettings = configuration.GetSection("StorageSettings");
@@ -59,11 +59,7 @@ namespace RecipeHelper.Services
             }
             else
             {
-                // Production: Entra service principal
-                var tenantId = configuration["AzureAd:TenantId"] ?? throw new InvalidOperationException("AzureAd:TenantId not configured");
-                var clientId = configuration["AzureAd:ClientId"] ?? throw new InvalidOperationException("AzureAd:ClientId not configured");
-                var clientSecret = configuration["AzureAd:ClientSecret"] ?? throw new InvalidOperationException("AzureAd:ClientSecret not configured");
-                var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+                // Production: Entra identity (service principal or Arc managed identity, see AzureCredentials)
                 _blobServiceClient = new BlobServiceClient(new Uri(_accountUri), credential);
                 _blobContainerClient = new BlobContainerClient(new Uri($"{_accountUri}/recipe-images"), credential);
             }

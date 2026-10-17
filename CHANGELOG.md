@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- Rate limiting on endpoints that spend money or use the stored Kroger account, until login exists: photo import (`gpt-5.4`), URL import (Spoonacular), import preview/save and recipe Create/Edit (OpenAI parsing), and Kroger add-to-cart (`Cart/BeginAddToCart`, which uses the saved Kroger token for any visitor). Each client IP gets 10 requests per minute on these, with a 30-per-minute cap across all IPs so spreading requests over many addresses doesn't get around it. Over the limit returns 429 "Too many requests. Please wait a minute and try again." with `Retry-After: 60`, and logs a `RecipeHelper.RateLimiting` warning to App Insights. Normal use never comes close. Verified by running the app locally: 10 POSTs to `Import/SaveImportedRecipe` passed the limiter (and were rejected by antiforgery as expected), the 11th and 12th got 429 plus the warning, and unlimited endpoints were unaffected.
+
 ### Fixed
 
 - Imported recipes could show their sections twice ("Ingredients / Filling / Icing", then "Ingredients / Filling / Icing" again). `GetImportedRecipePreview` resolved ingredients that matched an existing one and ones that had to be fuzzy-searched in two passes, then appended the fuzzy ones after all the others. `SaveImportedRecipe` stores that order as `SortOrder`, so every not-yet-known ingredient moved to the end and repeated its section header. Fuzzy results now go back into their original positions. Seen on a photo-imported Cinnamon Roll Bread, whose 5 new ingredients (yeast, cinnamon, powdered sugar, vanilla paste, heavy cream) all ended up last. Reproduced with `ImportPreviewOrderTests`: it fails with the old append order and passes with the fix.

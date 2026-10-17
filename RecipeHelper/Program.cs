@@ -2,6 +2,9 @@ using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using RecipeHelper.Utility;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
@@ -59,6 +62,38 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true; // Make the session cookie essential
 });
 builder.Services.AddControllers();
+
+// Caps on endpoints that spend money or use the stored Kroger account (see RateLimitPolicies).
+// Per client IP via the policy, plus a global cap across all IPs so spreading requests over
+// many addresses doesn't get around it. Client IP is real thanks to UseForwardedHeaders.
+builder.Services.AddRateLimiter(o =>
+{
+    o.AddPolicy(RateLimitPolicies.PaidApi, ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = RateLimitPolicies.PerIpPermitsPerMinute,
+            Window = TimeSpan.FromMinutes(1),
+        }));
+    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+        ctx.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == RateLimitPolicies.PaidApi
+            ? RateLimitPartition.GetFixedWindowLimiter("paid-api-global", _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = RateLimitPolicies.GlobalPermitsPerMinute,
+                Window = TimeSpan.FromMinutes(1),
+            })
+            : RateLimitPartition.GetNoLimiter("unlimited"));
+    o.OnRejected = async (context, ct) =>
+    {
+        var http = context.HttpContext;
+        http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("RecipeHelper.RateLimiting")
+            .LogWarning("Rate limit hit: {Method} {Path} from {ClientIp}",
+                http.Request.Method, http.Request.Path, http.Connection.RemoteIpAddress);
+        http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        http.Response.Headers.RetryAfter = "60";
+        await http.Response.WriteAsync("Too many requests. Please wait a minute and try again.", ct);
+    };
+});
 
 // OpenTelemetry → Azure Application Insights. Ingestion authenticates with the same Entra
 // service principal as blob storage (needs "Monitoring Metrics Publisher" on the App Insights
@@ -190,6 +225,8 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseRouting();
+
+app.UseRateLimiter();
 
 app.UseAuthorization();
 

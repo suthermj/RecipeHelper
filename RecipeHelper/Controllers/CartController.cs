@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 ﻿using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using RecipeHelper.Models.Kroger;
@@ -235,6 +236,7 @@ namespace RecipeHelper.Controllers
 
         // Called when user clicks "Add all items to cart"
         [HttpPost]
+        [EnableRateLimiting(RateLimitPolicies.PaidApi)]
         public async Task<IActionResult> BeginAddToCart(AddToCartVM vm)
         {
             _logger.LogInformation("AddToCart called with {ItemCount} items.", vm.Items.Count);

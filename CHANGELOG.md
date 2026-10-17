@@ -8,6 +8,10 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- View Product (#198): a collapsed "Used in N recipes" disclosure lists every recipe that links the product (thumbnail, name, and the ingredient line that uses it) and links to the recipe. Shows "Not used in any recipes" when there are none.
+
 ### Fixed
 
 - Imported recipes could show their sections twice ("Ingredients / Filling / Icing", then "Ingredients / Filling / Icing" again). `GetImportedRecipePreview` resolved ingredients that matched an existing one and ones that had to be fuzzy-searched in two passes, then appended the fuzzy ones after all the others. `SaveImportedRecipe` stores that order as `SortOrder`, so every not-yet-known ingredient moved to the end and repeated its section header. Fuzzy results now go back into their original positions. Seen on a photo-imported Cinnamon Roll Bread, whose 5 new ingredients (yeast, cinnamon, powdered sugar, vanilla paste, heavy cream) all ended up last. Reproduced with `ImportPreviewOrderTests`: it fails with the old append order and passes with the fix.

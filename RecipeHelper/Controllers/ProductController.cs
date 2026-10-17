@@ -7,6 +7,14 @@ using RecipeHelper.Services;
 
 namespace RecipeHelper.Controllers
 {
+    public class ProductRecipeUsage
+    {
+        public int RecipeId { get; set; }
+        public string RecipeName { get; set; } = "";
+        public string? ImageUrl { get; set; }
+        public string IngredientText { get; set; } = "";
+    }
+
     public class ProductController : Controller
     {
         private readonly DatabaseContext _context;
@@ -58,6 +66,21 @@ namespace RecipeHelper.Controllers
 
             if (!string.IsNullOrWhiteSpace(product.Name))
                 krogerProduct.name = product.Name;
+
+            // One row per recipe ingredient line (not per recipe): a recipe can link the
+            // same product on several lines.
+            ViewBag.UsedInRecipes = await _context.RecipeIngredients
+                .AsNoTracking()
+                .Where(ri => ri.SelectedKrogerUpc == product.Upc)
+                .OrderBy(ri => ri.Recipe.Name).ThenBy(ri => ri.SortOrder)
+                .Select(ri => new ProductRecipeUsage
+                {
+                    RecipeId = ri.RecipeId,
+                    RecipeName = ri.Recipe.Name,
+                    ImageUrl = ri.Recipe.ThumbnailUri ?? ri.Recipe.ImageUri,
+                    IngredientText = ri.OriginalText ?? ri.DisplayName
+                })
+                .ToListAsync();
 
             ViewBag.ProductId = product.Upc;
             return View(krogerProduct);

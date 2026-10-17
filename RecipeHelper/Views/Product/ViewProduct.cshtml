@@ -5,6 +5,9 @@
     ViewData["BackLink"] = Url.Action("Products", "Product");
     ViewData["BackLabel"] = "Products";
     var productId = ViewBag.ProductId;
+    var usedIn = (ViewBag.UsedInRecipes as List<RecipeHelper.Controllers.ProductRecipeUsage>) ?? new();
+    var usedInRecipeCount = usedIn.Select(u => u.RecipeId).Distinct().Count();
+    const string defaultRecipeImg = "https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp";
 }
 
 @section NavRight {
@@ -136,6 +139,37 @@
                 <span class="text-[17px] font-bold" style="color: var(--ios-label);">$@regular.ToString("0.00")</span>
             }
         </div>
+    </div>
+    <!-- Recipes using this product -->
+    <p class="ios-section-hdr">Recipes</p>
+    <div class="ios-group">
+        @if (usedIn.Count == 0)
+        {
+            <div class="ios-cell">
+                <span class="text-[15px]" style="color: var(--ios-label-2);">Not used in any recipes</span>
+            </div>
+        }
+        else
+        {
+            <details>
+                <summary class="ios-cell justify-between cursor-pointer" style="min-height: 44px;">
+                    <span class="text-[15px] font-medium" style="color: var(--ios-label);">Used in @usedInRecipeCount @(usedInRecipeCount == 1 ? "recipe" : "recipes")</span>
+                    <span class="text-[13px]" style="color: var(--ios-label-2);">Show</span>
+                </summary>
+                @foreach (var u in usedIn)
+                {
+                    <a asp-controller="Recipe" asp-action="ViewRecipe" asp-route-Id="@u.RecipeId"
+                       class="ios-cell gap-3" style="min-height: 56px;">
+                        <img src="@(string.IsNullOrWhiteSpace(u.ImageUrl) ? defaultRecipeImg : u.ImageUrl)" alt=""
+                             class="h-10 w-10 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[15px] font-medium truncate" style="color: var(--ios-label);">@u.RecipeName</div>
+                            <div class="text-[13px] truncate" style="color: var(--ios-label-2);">@u.IngredientText</div>
+                        </div>
+                    </a>
+                }
+            </details>
+        }
     </div>
 </div>
 

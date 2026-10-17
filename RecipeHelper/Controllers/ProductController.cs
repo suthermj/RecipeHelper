@@ -12,7 +12,6 @@ namespace RecipeHelper.Controllers
         public int RecipeId { get; set; }
         public string RecipeName { get; set; } = "";
         public string? ImageUrl { get; set; }
-        public List<string> IngredientTexts { get; set; } = new();
     }
 
     public class ProductController : Controller
@@ -67,31 +66,19 @@ namespace RecipeHelper.Controllers
             if (!string.IsNullOrWhiteSpace(product.Name))
                 krogerProduct.name = product.Name;
 
-            // One row per recipe: a recipe can link the same product on several lines,
-            // so each row carries all of that recipe's matching ingredient lines.
-            var usageRows = await _context.RecipeIngredients
+            // One row per recipe, even if it links this product on several ingredient lines.
+            ViewBag.UsedInRecipes = await _context.RecipeIngredients
                 .AsNoTracking()
                 .Where(ri => ri.SelectedKrogerUpc == product.Upc)
-                .OrderBy(ri => ri.Recipe.Name).ThenBy(ri => ri.SortOrder)
-                .Select(ri => new
+                .Select(ri => new ProductRecipeUsage
                 {
-                    ri.RecipeId,
+                    RecipeId = ri.RecipeId,
                     RecipeName = ri.Recipe.Name,
-                    ImageUrl = ri.Recipe.ThumbnailUri ?? ri.Recipe.ImageUri,
-                    IngredientText = ri.OriginalText ?? ri.DisplayName
+                    ImageUrl = ri.Recipe.ThumbnailUri ?? ri.Recipe.ImageUri
                 })
+                .Distinct()
+                .OrderBy(u => u.RecipeName)
                 .ToListAsync();
-
-            ViewBag.UsedInRecipes = usageRows
-                .GroupBy(r => r.RecipeId)
-                .Select(g => new ProductRecipeUsage
-                {
-                    RecipeId = g.Key,
-                    RecipeName = g.First().RecipeName,
-                    ImageUrl = g.First().ImageUrl,
-                    IngredientTexts = g.Select(x => x.IngredientText).ToList()
-                })
-                .ToList();
 
             ViewBag.ProductId = product.Upc;
             return View(krogerProduct);
@@ -198,6 +185,59 @@ namespace RecipeHelper.Controllers
             var products = await _productService.SearchForDbProduct(term);
 
             return Json(products);
+        }
+
+        public class ReplaceProductRequest
+        {
+            public string? OldUpc { get; set; }
+            public string? NewUpc { get; set; }
+            public List<int>? RecipeIds { get; set; }
+        }
+
+        /// <summary>
+        /// Re-points every ingredient line in the chosen recipes that links OldUpc at NewUpc.
+        /// Only RecipeIngredient.SelectedKrogerUpc changes; the Ingredient ↔ product default
+        /// mappings are left alone.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ReplaceProductInRecipes([FromBody] ReplaceProductRequest req)
+        {
+            var oldUpc = req?.OldUpc?.Trim();
+            var newUpc = req?.NewUpc?.Trim();
+            var recipeIds = req?.RecipeIds?.Distinct().ToList() ?? new List<int>();
+
+            if (string.IsNullOrEmpty(oldUpc) || string.IsNullOrEmpty(newUpc))
+                return BadRequest(new { error = "Both the current and the new product are required." });
+            if (oldUpc == newUpc)
+                return BadRequest(new { error = "Pick a different product." });
+            if (recipeIds.Count == 0)
+                return BadRequest(new { error = "Select at least one recipe." });
+
+            // SelectedKrogerUpc is a real FK to KrogerProduct.Upc, so the new product must exist locally.
+            if (!await _context.KrogerProducts.AnyAsync(p => p.Upc == newUpc))
+            {
+                var details = await _krogerService.GetProductDetails(newUpc);
+                if (details is null || string.IsNullOrWhiteSpace(details.upc))
+                    return BadRequest(new { error = "Couldn't load that product from Kroger." });
+
+                _context.KrogerProducts.Add(new KrogerProduct { Upc = details.upc, Name = details.name ?? details.upc });
+                await _context.SaveChangesAsync();
+            }
+
+            var lines = await _context.RecipeIngredients
+                .Where(ri => ri.SelectedKrogerUpc == oldUpc && recipeIds.Contains(ri.RecipeId))
+                .ToListAsync();
+
+            foreach (var line in lines)
+                line.SelectedKrogerUpc = newUpc;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("ReplaceProductInRecipes: {OldUpc} -> {NewUpc}, Recipes={Recipes}, Lines={Lines}",
+                oldUpc, newUpc, lines.Select(l => l.RecipeId).Distinct().Count(), lines.Count);
+
+            return Json(new { recipes = lines.Select(l => l.RecipeId).Distinct().Count(), lines = lines.Count });
         }
     }
 }

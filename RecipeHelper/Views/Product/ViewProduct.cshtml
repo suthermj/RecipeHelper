@@ -163,16 +163,65 @@
                        class="ios-cell gap-3" style="min-height: 56px;">
                         <img src="@(string.IsNullOrWhiteSpace(u.ImageUrl) ? defaultRecipeImg : u.ImageUrl)" alt=""
                              class="h-10 w-10 rounded-lg object-cover flex-shrink-0" loading="lazy" />
-                        <div class="min-w-0 flex-1">
-                            <div class="text-[15px] font-medium truncate" style="color: var(--ios-label);">@u.RecipeName</div>
-                            <div class="text-[13px] truncate" style="color: var(--ios-label-2);">@string.Join(" · ", u.IngredientTexts)</div>
-                        </div>
+                        <div class="min-w-0 flex-1 text-[15px] font-medium truncate" style="color: var(--ios-label);">@u.RecipeName</div>
                     </a>
                 }
             </details>
+            <button type="button" id="openReplace" class="ios-cell justify-between w-full text-left" style="min-height: 44px;">
+                <span class="text-[15px] font-medium" style="color: var(--ios-red);">Replace product in recipes…</span>
+            </button>
         }
     </div>
 </div>
+
+@if (usedIn.Count > 0)
+{
+    <!-- Replace-product sheet -->
+    <div id="replaceModal" class="hidden fixed inset-0 z-[200]" style="background: rgba(0,0,0,0.4);">
+        <div class="absolute inset-x-0 bottom-0 flex flex-col rounded-t-2xl"
+             style="background: var(--ios-surface); max-height: 85vh; padding-bottom: env(safe-area-inset-bottom);">
+            <div class="flex items-center justify-between px-4 py-3">
+                <button type="button" id="replaceCancel" class="ios-btn-text-sm" style="min-height:44px;">Cancel</button>
+                <span class="text-[17px] font-semibold" style="color: var(--ios-label);">Replace product</span>
+                <span style="width:60px;"></span>
+            </div>
+            <div class="overflow-y-auto px-4 pb-3 flex-1">
+                <p class="text-[13px] mb-2" style="color: var(--ios-label-2);">New product</p>
+                <div id="replacePicked" class="hidden ios-group" style="margin:0 0 12px 0;">
+                    <div class="ios-cell gap-3">
+                        <img id="replacePickedImg" alt="" class="h-10 w-10 object-contain flex-shrink-0" />
+                        <div id="replacePickedName" class="min-w-0 flex-1 text-[15px] font-medium" style="color: var(--ios-label);"></div>
+                        <button type="button" id="replaceChange" class="ios-btn-text-sm">Change</button>
+                    </div>
+                </div>
+                <div id="replaceSearchWrap">
+                    <input id="replaceSearch" type="search" placeholder="Search products…" class="field-input w-full" autocomplete="off" />
+                    <div id="replaceResults" class="ios-group" style="margin:8px 0 12px 0;"></div>
+                </div>
+
+                <div class="flex items-center justify-between mb-2 mt-2">
+                    <p class="text-[13px]" style="color: var(--ios-label-2);">Recipes</p>
+                    <button type="button" id="replaceToggleAll" class="ios-btn-text-sm">Deselect all</button>
+                </div>
+                <div class="ios-group" style="margin:0;">
+                    @foreach (var u in usedIn)
+                    {
+                        <label class="ios-cell gap-3 cursor-pointer" style="min-height: 52px;">
+                            <input type="checkbox" class="js-replace-recipe h-5 w-5 flex-shrink-0" value="@u.RecipeId" checked />
+                            <img src="@(string.IsNullOrWhiteSpace(u.ImageUrl) ? defaultRecipeImg : u.ImageUrl)" alt=""
+                                 class="h-8 w-8 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                            <span class="min-w-0 flex-1 text-[15px] truncate" style="color: var(--ios-label);">@u.RecipeName</span>
+                        </label>
+                    }
+                </div>
+                <div id="replaceStatus" class="hidden mt-3 text-[13px]"></div>
+            </div>
+            <div class="px-4 pt-2 pb-3">
+                <button type="button" id="replaceConfirm" class="btn-primary w-full" disabled style="opacity:.5;">Replace</button>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- hidden form for anti-forgery token -->
 <form id="afForm" method="post" class="hidden">
@@ -278,3 +327,119 @@
         });
     })();
 </script>
+
+@if (usedIn.Count > 0)
+{
+<script>
+    (function () {
+        const oldUpc = @Json.Serialize(productId?.ToString());
+        const token = document.querySelector('#afForm input[name="__RequestVerificationToken"]').value;
+        const $ = (id) => document.getElementById(id);
+        const modal = $('replaceModal'), search = $('replaceSearch'), results = $('replaceResults');
+        const boxes = () => [...document.querySelectorAll('.js-replace-recipe')];
+        let picked = null, timer = null, seq = 0;
+
+        function refresh() {
+            const n = boxes().filter(b => b.checked).length;
+            const ok = picked && n > 0;
+            const btn = $('replaceConfirm');
+            btn.disabled = !ok;
+            btn.style.opacity = ok ? '1' : '.5';
+            btn.textContent = n > 0 ? `Replace in ${n} recipe${n === 1 ? '' : 's'}` : 'Replace';
+            $('replaceToggleAll').textContent = boxes().every(b => b.checked) ? 'Deselect all' : 'Select all';
+        }
+        function status(text, ok) {
+            const s = $('replaceStatus');
+            s.textContent = text; s.classList.remove('hidden');
+            s.style.color = ok ? '#34C759' : 'var(--ios-red)';
+        }
+        function setPicked(p) {
+            picked = p;
+            $('replacePicked').classList.toggle('hidden', !p);
+            $('replaceSearchWrap').classList.toggle('hidden', !!p);
+            if (p) {
+                $('replacePickedName').textContent = p.name;
+                $('replacePickedImg').src = 'https://www.kroger.com/product/images/medium/front/' + p.upc;
+            }
+            refresh();
+        }
+        function renderResults(items) {
+            results.replaceChildren();
+            for (const p of items) {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'ios-cell gap-3 w-full text-left';
+                row.style.minHeight = '56px';
+                const img = document.createElement('img');
+                img.src = 'https://www.kroger.com/product/images/medium/front/' + p.upc;
+                img.alt = ''; img.className = 'h-10 w-10 object-contain flex-shrink-0'; img.loading = 'lazy';
+                const box = document.createElement('div');
+                box.className = 'min-w-0 flex-1';
+                const nm = document.createElement('div');
+                nm.className = 'text-[15px] font-medium'; nm.style.color = 'var(--ios-label)'; nm.textContent = p.name;
+                const sub = document.createElement('div');
+                sub.className = 'text-[13px]'; sub.style.color = 'var(--ios-label-2)';
+                sub.textContent = [p.saved ? 'Saved' : null, p.brand, p.size].filter(Boolean).join(' · ');
+                box.append(nm, sub);
+                row.append(img, box);
+                row.addEventListener('click', () => setPicked(p));
+                results.append(row);
+            }
+        }
+        async function runSearch(term) {
+            const mine = ++seq;
+            const get = (url) => fetch(url).then(r => r.ok ? r.json() : []).catch(() => []);
+            const [saved, kroger] = await Promise.all([
+                get('@Url.Action("SearchDb", "Product")?term=' + encodeURIComponent(term)),
+                get('@Url.Action("SearchKroger", "Product")?term=' + encodeURIComponent(term))
+            ]);
+            if (mine !== seq) return;
+            const seen = new Set([oldUpc]);
+            const items = [];
+            for (const p of (saved || [])) if (!seen.has(p.upc)) { seen.add(p.upc); items.push({ upc: p.upc, name: p.name, saved: true }); }
+            for (const p of (kroger || [])) if (!seen.has(p.upc)) { seen.add(p.upc); items.push({ upc: p.upc, name: p.name, brand: p.brand, size: p.size }); }
+            renderResults(items);
+        }
+
+        $('openReplace').addEventListener('click', () => { modal.classList.remove('hidden'); refresh(); });
+        $('replaceCancel').addEventListener('click', () => modal.classList.add('hidden'));
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+        $('replaceChange').addEventListener('click', () => { setPicked(null); search.focus(); });
+        search.addEventListener('input', () => {
+            clearTimeout(timer);
+            const term = search.value.trim();
+            if (term.length < 2) { seq++; results.replaceChildren(); return; }
+            timer = setTimeout(() => runSearch(term), 300);
+        });
+        $('replaceToggleAll').addEventListener('click', () => {
+            const all = boxes().every(b => b.checked);
+            boxes().forEach(b => b.checked = !all);
+            refresh();
+        });
+        boxes().forEach(b => b.addEventListener('change', refresh));
+
+        $('replaceConfirm').addEventListener('click', async () => {
+            const ids = boxes().filter(b => b.checked).map(b => parseInt(b.value, 10));
+            const btn = $('replaceConfirm');
+            btn.disabled = true; btn.textContent = 'Replacing…';
+            try {
+                const resp = await fetch('@Url.Action("ReplaceProductInRecipes", "Product")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ oldUpc, newUpc: picked.upc, recipeIds: ids })
+                });
+                if (!resp.ok) {
+                    let msg = 'Replace failed.';
+                    try { const j = await resp.json(); if (j?.error) msg = j.error; } catch {}
+                    status(msg, false); refresh(); return;
+                }
+                // Server is the source of truth: reload so the list reflects what actually changed.
+                location.reload();
+            } catch (err) {
+                console.error(err);
+                status('Network error.', false); refresh();
+            }
+        });
+    })();
+</script>
+}

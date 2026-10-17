@@ -10,7 +10,8 @@ by date rather than by release version.
 
 ### Added
 
-- View Product (#198): a collapsed "Used in N recipes" disclosure lists each recipe that links the product (thumbnail, name, and the ingredient line(s) that use it, joined with "·" when a recipe uses it more than once) and links to the recipe; the toggle reads Show/Hide. Back from that recipe returns to the product. Shows "Not used in any recipes" when there are none.
+- View Product (#198): a collapsed "Used in N recipes" disclosure lists each recipe that links the product (thumbnail and name, one row per recipe) and links to it; the toggle reads Show/Hide, and Back from that recipe returns to the product. Shows "Not used in any recipes" when there are none.
+- View Product: "Replace product in recipes…" opens a sheet to search for a different product (saved products first, then Kroger) and choose which recipes to switch, all pre-selected. Every ingredient line in the chosen recipes that used the old product is re-pointed at the new one.
 
 ### Fixed
 

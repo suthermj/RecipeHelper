@@ -125,7 +125,7 @@
     @if (hasResult)
     {
         var img = string.IsNullOrWhiteSpace(Model!.Preview!.Image)
-            ? Url.Content("~/images/default-recipe.png")
+            ? "https://sarecipehelper.blob.core.windows.net/recipe-images/default-recipe-image.webp"
             : Model.Preview.Image;
 
         <div class="px-4 space-y-4">

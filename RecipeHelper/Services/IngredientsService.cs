@@ -262,6 +262,13 @@ namespace RecipeHelper.Services
               several ingredients (e.g. "Salt and pepper to taste"), return one item per
               ingredient, each with text written for that ingredient alone ("Salt, to taste",
               "Pepper, to taste")
+            - An "or" between ingredients is a choice, not a list: "1 tablespoon milk or heavy
+              cream" is ONE item -- name is the first option ("milk"), and text keeps the full
+              line including the alternative. This applies only to "or" -- lines joined by
+              "and" or "+" are still split as above
+            - Two amounts of the same ingredient joined by "+" are two items, one per amount:
+              "1 tablespoon sugar + ¼ cup sugar, separated" → "1 tablespoon sugar, separated"
+              and "¼ cup sugar, separated"
             - quantity: decimal number or null (convert fractions: 1/2 → 0.5, 3/4 → 0.75, 1/3 → 0.33).
               null when the line has no set amount ("to taste", "as needed", "for garnish")
             - unit: use one of: tsp, tbsp, cup, oz, fl oz, lb, g, ml, l, pt, qt — or null for unitless items (e.g. 2 eggs)

@@ -104,9 +104,6 @@ namespace RecipeHelper.Services
                 SourceUrl = importedRecipe.SourceUrl
             };
 
-            var ingredientList = new List<ImportPreviewIngredient>();
-
-
             var ingredientDict = await _context.Ingredients.AsNoTracking()
                 .Select(i => new { i.Id, i.CanonicalName })
                 .ToDictionaryAsync(x => x.CanonicalName, x => x.Id);
@@ -143,6 +140,11 @@ namespace RecipeHelper.Services
             }).ToList();
 
             var ingredientsNoExactMatch = new List<PreviewImportedRecipeIngredient>();
+            // Exact matches and fuzzy-searched ingredients are resolved separately, but each
+            // goes back into its original position -- SaveImportedRecipe stores this order as
+            // SortOrder, so appending the fuzzy ones at the end split sections in two.
+            var previewSlots = new ImportPreviewIngredient?[mergedIngredients.Count];
+            var noExactMatchIndices = new List<int>();
 
             // Canonicalize (OpenAI call, no DbContext access) up front across all
             // ingredients at once instead of one sequential await per ingredient in the
@@ -195,21 +197,29 @@ namespace RecipeHelper.Services
                         ingredientPreview.SuggestedProductName = defaultMap.ProductName;
                     }
 
-                    ingredientList.Add(ingredientPreview);
+                    previewSlots[idx] = ingredientPreview;
                 }
                 else
                 {
                     ingredient.CleanName = cleanedName;
                     ingredientsNoExactMatch.Add(ingredient);
+                    noExactMatchIndices.Add(idx);
                 }
             }
 
             var fuzzySearchIngredients = await IngredientFuzzySearch(ingredientsNoExactMatch, ingredientDict);
-            ingredientList.AddRange(fuzzySearchIngredients);
-            importPreview.Ingredients = ingredientList;
+            importPreview.Ingredients = FillInOriginalOrder(previewSlots, noExactMatchIndices, fuzzySearchIngredients);
             return importPreview;
         }
 
+
+        // Puts gapItems[i] at slots[gapIndices[i]] and returns the filled slots in order.
+        internal static List<T> FillInOriginalOrder<T>(T?[] slots, IReadOnlyList<int> gapIndices, IReadOnlyList<T> gapItems) where T : class
+        {
+            for (var i = 0; i < gapIndices.Count; i++)
+                slots[gapIndices[i]] = gapItems[i];
+            return slots.Select(s => s!).ToList();
+        }
 
         // A line the user edited on the mapping page no longer matches the importer's
         // Name/Amount/Unit, so it's re-parsed -- all edited lines in one AI call, the same

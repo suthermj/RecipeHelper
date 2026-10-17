@@ -8,6 +8,12 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Fixed
+
+- Imported recipes could show their sections twice ("Ingredients / Filling / Icing", then "Ingredients / Filling / Icing" again). `GetImportedRecipePreview` resolved ingredients that matched an existing one and ones that had to be fuzzy-searched in two passes, then appended the fuzzy ones after all the others. `SaveImportedRecipe` stores that order as `SortOrder`, so every not-yet-known ingredient moved to the end and repeated its section header. Fuzzy results now go back into their original positions. Seen on a photo-imported Cinnamon Roll Bread, whose 5 new ingredients (yeast, cinnamon, powdered sugar, vanilla paste, heavy cream) all ended up last. Reproduced with `ImportPreviewOrderTests`: it fails with the old append order and passes with the fix.
+- Photo import split "1 tablespoon milk or heavy cream" into two ingredients (milk and heavy cream), so the shopping list would buy both. The extraction prompt told the model to split lines that list several ingredients ("Salt and pepper to taste") but never said that "X or Y" is a choice. It now returns one item named after the first option, with the full line kept as its text. Lines joined by "+" or "and" are still split, with an explicit example so "1 tablespoon sugar + ¼ cup sugar" stays as two amounts. Verified against `gpt-5.4` on the Cinnamon Roll Bread photo: the old prompt split milk/cream in 3 of 3 runs, and the new prompt kept it as one item while still splitting the sugar in 3 of 3 runs. An earlier wording without the "+" example made the model merge the sugar line and drop the ¼ cup.
+- Placeholder images on the import pages, Add Product and Products were broken. They pointed at `/images/default-recipe.png` and `/images/default-product.png`, which never existed (App Insights showed the 404s). The recipe placeholder now uses the same default recipe image as the rest of the app, and a new `wwwroot/images/default-product.svg` (gray shopping bag) is the product placeholder.
+
 ## 2026-10-16
 
 ### Added

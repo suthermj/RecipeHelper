@@ -3010,6 +3010,14 @@ html {
   opacity: 0.5;
 }
 
+.group[open] .group-open\:inline {
+  display: inline;
+}
+
+.group[open] .group-open\:hidden {
+  display: none;
+}
+
 @media (min-width: 640px) {
   .sm\:inset-0 {
     inset: 0px;

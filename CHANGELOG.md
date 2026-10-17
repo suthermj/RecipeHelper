@@ -10,7 +10,7 @@ by date rather than by release version.
 
 ### Added
 
-- View Product (#198): a collapsed "Used in N recipes" disclosure lists every recipe that links the product (thumbnail, name, and the ingredient line that uses it) and links to the recipe. Shows "Not used in any recipes" when there are none.
+- View Product (#198): a collapsed "Used in N recipes" disclosure lists each recipe that links the product (thumbnail, name, and the ingredient line(s) that use it, joined with "·" when a recipe uses it more than once) and links to the recipe; the toggle reads Show/Hide. Back from that recipe returns to the product. Shows "Not used in any recipes" when there are none.
 
 ### Fixed
 

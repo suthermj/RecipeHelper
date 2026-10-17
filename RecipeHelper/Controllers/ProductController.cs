@@ -12,7 +12,7 @@ namespace RecipeHelper.Controllers
         public int RecipeId { get; set; }
         public string RecipeName { get; set; } = "";
         public string? ImageUrl { get; set; }
-        public string IngredientText { get; set; } = "";
+        public List<string> IngredientTexts { get; set; } = new();
     }
 
     public class ProductController : Controller
@@ -67,20 +67,31 @@ namespace RecipeHelper.Controllers
             if (!string.IsNullOrWhiteSpace(product.Name))
                 krogerProduct.name = product.Name;
 
-            // One row per recipe ingredient line (not per recipe): a recipe can link the
-            // same product on several lines.
-            ViewBag.UsedInRecipes = await _context.RecipeIngredients
+            // One row per recipe: a recipe can link the same product on several lines,
+            // so each row carries all of that recipe's matching ingredient lines.
+            var usageRows = await _context.RecipeIngredients
                 .AsNoTracking()
                 .Where(ri => ri.SelectedKrogerUpc == product.Upc)
                 .OrderBy(ri => ri.Recipe.Name).ThenBy(ri => ri.SortOrder)
-                .Select(ri => new ProductRecipeUsage
+                .Select(ri => new
                 {
-                    RecipeId = ri.RecipeId,
+                    ri.RecipeId,
                     RecipeName = ri.Recipe.Name,
                     ImageUrl = ri.Recipe.ThumbnailUri ?? ri.Recipe.ImageUri,
                     IngredientText = ri.OriginalText ?? ri.DisplayName
                 })
                 .ToListAsync();
+
+            ViewBag.UsedInRecipes = usageRows
+                .GroupBy(r => r.RecipeId)
+                .Select(g => new ProductRecipeUsage
+                {
+                    RecipeId = g.Key,
+                    RecipeName = g.First().RecipeName,
+                    ImageUrl = g.First().ImageUrl,
+                    IngredientTexts = g.Select(x => x.IngredientText).ToList()
+                })
+                .ToList();
 
             ViewBag.ProductId = product.Upc;
             return View(krogerProduct);

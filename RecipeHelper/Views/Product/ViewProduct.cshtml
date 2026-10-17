@@ -6,7 +6,7 @@
     ViewData["BackLabel"] = "Products";
     var productId = ViewBag.ProductId;
     var usedIn = (ViewBag.UsedInRecipes as List<RecipeHelper.Controllers.ProductRecipeUsage>) ?? new();
-    var usedInRecipeCount = usedIn.Select(u => u.RecipeId).Distinct().Count();
+    var usedInRecipeCount = usedIn.Count;
     const string defaultRecipeImg = "https://recipestoragep.blob.core.windows.net/recipe-images/default-recipe-image.webp";
 }
 
@@ -151,20 +151,21 @@
         }
         else
         {
-            <details>
+            <details class="group">
                 <summary class="ios-cell justify-between cursor-pointer" style="min-height: 44px;">
                     <span class="text-[15px] font-medium" style="color: var(--ios-label);">Used in @usedInRecipeCount @(usedInRecipeCount == 1 ? "recipe" : "recipes")</span>
-                    <span class="text-[13px]" style="color: var(--ios-label-2);">Show</span>
+                    <span class="text-[13px] group-open:hidden" style="color: var(--ios-label-2);">Show</span>
+                    <span class="text-[13px] hidden group-open:inline" style="color: var(--ios-label-2);">Hide</span>
                 </summary>
                 @foreach (var u in usedIn)
                 {
-                    <a asp-controller="Recipe" asp-action="ViewRecipe" asp-route-Id="@u.RecipeId"
+                    <a asp-controller="Recipe" asp-action="ViewRecipe" asp-route-Id="@u.RecipeId" asp-route-from="product" asp-route-productId="@productId"
                        class="ios-cell gap-3" style="min-height: 56px;">
                         <img src="@(string.IsNullOrWhiteSpace(u.ImageUrl) ? defaultRecipeImg : u.ImageUrl)" alt=""
                              class="h-10 w-10 rounded-lg object-cover flex-shrink-0" loading="lazy" />
                         <div class="min-w-0 flex-1">
                             <div class="text-[15px] font-medium truncate" style="color: var(--ios-label);">@u.RecipeName</div>
-                            <div class="text-[13px] truncate" style="color: var(--ios-label-2);">@u.IngredientText</div>
+                            <div class="text-[13px] truncate" style="color: var(--ios-label-2);">@string.Join(" · ", u.IngredientTexts)</div>
                         </div>
                     </a>
                 }

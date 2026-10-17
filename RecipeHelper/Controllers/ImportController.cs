@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
@@ -34,6 +35,7 @@ namespace RecipeHelper.Controllers
         }
 
         [HttpGet]
+        [EnableRateLimiting(RateLimitPolicies.PaidApi)]
         public async Task<ActionResult> ImportRecipe(ImportRecipePageVM model)
         {
             model ??= new ImportRecipePageVM();
@@ -106,6 +108,7 @@ namespace RecipeHelper.Controllers
         [ValidateAntiForgeryToken]
         [RequestSizeLimit(PhotoImportRequestSizeLimitBytes)]
         [RequestFormLimits(MultipartBodyLengthLimit = PhotoImportRequestSizeLimitBytes)]
+        [EnableRateLimiting(RateLimitPolicies.PaidApi)]
         public async Task<IActionResult> ImportRecipeFromPhoto(PhotoImportPageVM vm)
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -215,6 +218,7 @@ namespace RecipeHelper.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting(RateLimitPolicies.PaidApi)]
         public async Task<IActionResult> GetImportedRecipePreview(PreviewImportedRecipeVM vm)
         {
             if (string.IsNullOrWhiteSpace(vm.Title) || vm.Ingredients.Count == 0)
@@ -257,6 +261,7 @@ namespace RecipeHelper.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting(RateLimitPolicies.PaidApi)]
         public async Task<IActionResult> SaveImportedRecipe(MappedImportedRecipeVM vm)
         {
             if (string.IsNullOrWhiteSpace(vm.Title) || vm.Ingredients.Count == 0)

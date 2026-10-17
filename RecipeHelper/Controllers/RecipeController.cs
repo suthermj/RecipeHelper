@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -177,6 +178,7 @@ namespace RecipeHelper.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting(RateLimitPolicies.PaidApi)]
         public async Task<ActionResult> CreateRecipe(CreateRecipeVM vm)
         {
             var normalizedTitle = vm.Title?.Trim();
@@ -232,6 +234,7 @@ namespace RecipeHelper.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting(RateLimitPolicies.PaidApi)]
         public async Task<ActionResult> EditRecipe(EditRecipeVM vm)
         {
             _logger.LogInformation("EditRecipe started. RecipeId={RecipeId}, Title={Title}", vm.RecipeId, vm.Title);

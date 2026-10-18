@@ -8,6 +8,11 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- View Product (#198): a collapsed "Used in N recipes" disclosure lists each recipe that links the product (thumbnail and name, one row per recipe) and links to it; the toggle reads Show/Hide, and Back from that recipe returns to the product. Shows "Not used in any recipes" when there are none.
+- View Product: "Replace product in recipes…" opens a sheet to search for a different product (saved products first, then Kroger) and choose which recipes to switch, all pre-selected. Every ingredient line in the chosen recipes that used the old product is re-pointed at the new one.
+
 ### Fixed
 
 - Imported recipes could show their sections twice ("Ingredients / Filling / Icing", then "Ingredients / Filling / Icing" again). `GetImportedRecipePreview` resolved ingredients that matched an existing one and ones that had to be fuzzy-searched in two passes, then appended the fuzzy ones after all the others. `SaveImportedRecipe` stores that order as `SortOrder`, so every not-yet-known ingredient moved to the end and repeated its section header. Fuzzy results now go back into their original positions. Seen on a photo-imported Cinnamon Roll Bread, whose 5 new ingredients (yeast, cinnamon, powdered sugar, vanilla paste, heavy cream) all ended up last. Reproduced with `ImportPreviewOrderTests`: it fails with the old append order and passes with the fix.

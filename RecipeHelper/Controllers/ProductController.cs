@@ -84,6 +84,75 @@ namespace RecipeHelper.Controllers
             return View(krogerProduct);
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateProduct(string productId, string updatedProductName)
+        {
+            if (string.IsNullOrWhiteSpace(updatedProductName))
+                return BadRequest(new { error = "Name cannot be empty." });
+
+            var product = await _context.KrogerProducts.FindAsync(productId);
+            if (product is null)
+                return NotFound(new { error = "Product not found." });
+
+            product.Name = updatedProductName.Trim();
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, productId, name = product.Name });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteProduct(string productId)
+        {
+            var product = await _context.KrogerProducts
+                .Include(p => p.IngredientMappings)
+                .FirstOrDefaultAsync(p => p.Upc == productId);
+            if (product is null)
+                return RedirectToAction("Products");
+
+            // Recipes link products with a hard FK, so unlink those ingredient lines first;
+            // the ingredients stay in their recipes, just without a "buy this" product.
+            var recipeLines = await _context.RecipeIngredients.Where(ri => ri.SelectedKrogerUpc == productId).ToListAsync();
+            foreach (var line in recipeLines) line.SelectedKrogerUpc = null;
+
+            // Shopping-list items keep their text; they just lose the product link.
+            var listItems = await _context.ShoppingListItems.Where(i => i.Upc == productId).ToListAsync();
+            foreach (var item in listItems) item.Upc = null;
+
+            // Pantry items match by UPC first, then name; keep the item, drop the dead UPC.
+            var pantryItems = await _context.PantryItems.Where(p => p.KrogerUpc == productId).ToListAsync();
+            foreach (var item in pantryItems) item.KrogerUpc = null;
+
+            // If this was an ingredient's default product, promote another of its mappings.
+            var defaultedIngredientIds = product.IngredientMappings.Where(m => m.IsDefault).Select(m => m.IngredientId).ToList();
+            if (defaultedIngredientIds.Count > 0)
+            {
+                var replacements = await _context.IngredientKrogerProducts
+                    .Where(m => defaultedIngredientIds.Contains(m.IngredientId) && m.Upc != productId)
+                    .OrderBy(m => m.CreatedUtc)
+                    .ToListAsync();
+                foreach (var m in replacements.GroupBy(m => m.IngredientId).Select(g => g.First()))
+                    m.IsDefault = true;
+            }
+
+            _context.IngredientKrogerProducts.RemoveRange(product.IngredientMappings);
+            _context.KrogerProducts.Remove(product);
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DeleteProduct failed for {Upc}", productId);
+                TempData["ErrorMessage"] = "Failed to delete product.";
+                return RedirectToAction("ViewProduct", new { productId });
+            }
+
+            TempData["SuccessMessage"] = "Product successfully deleted";
+            return RedirectToAction("Products");
+        }
+
         public ActionResult AddProduct()
         {
             return View(new ProductSearchVM());

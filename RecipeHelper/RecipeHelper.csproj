@@ -25,7 +25,7 @@
     <PackageReference Include="AngleSharp" Version="1.8.5" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.10.0" />
-    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.17.2" />
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="15.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.21" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.20">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

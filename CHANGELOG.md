@@ -8,6 +8,12 @@ by date rather than by release version.
 
 ## [Unreleased]
 
+### Added
+
+- View Product (#198): a collapsed "Used in N recipes" disclosure lists each recipe that links the product (thumbnail and name, one row per recipe) and links to it; the toggle reads Show/Hide, and Back from that recipe returns to the product. Shows "Not used in any recipes" when there are none.
+- Delete product (View Product) returned a blank page because the `DeleteProduct`/`UpdateProduct` actions had been removed when products moved to UPC-keyed `KrogerProducts`; both are restored. Deleting a product now also unlinks it from every recipe ingredient line that used it (the ingredients stay) and says how many recipes are affected in the confirm prompt.
+- View Product: "Replace product in recipes…" opens a sheet to search for a different product (saved products first, then Kroger) and choose which recipes to switch, all pre-selected. Every ingredient line in the chosen recipes that used the old product is re-pointed at the new one.
+
 ### Changed
 
 - The app can now read its secrets from Azure Key Vault and authenticate to Azure as the VM's Azure Arc managed identity, so the Hetzner VM can run with no secrets on disk. When `KeyVault:Uri` is set, the 4 API secrets (OpenAI, Spoonacular, Kroger client secret, OAuth client secret) load from `kv-recipehelper-gwc` at startup; vault names use `--` for `:`. A new `AzureCredentials.Create` is the one credential for Key Vault, blob storage and App Insights: the `sp-recipe-helper-p` client secret when `AzureAd:ClientSecret` is set, otherwise the managed identity. SQL switches to `Authentication=Active Directory Managed Identity` through its connection string. Nothing changes until the VM config is swapped, so the code is safe to deploy first. The setup steps (Arc onboarding, vault and role assignments, SQL user, config swap, rollback, cleanup) are in `deploy/arc-keyvault/README.md`, and `deploy/arc-keyvault/push-secrets.py` copies the secrets into the vault without printing them.

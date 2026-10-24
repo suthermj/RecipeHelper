@@ -53,7 +53,7 @@ namespace RecipeHelper.Controllers
             return View(recipes);
         }
 
-        public async Task<ActionResult> ViewRecipe(int Id, string? from = null)
+        public async Task<ActionResult> ViewRecipe(int Id, string? from = null, string? productId = null)
         {
             var data = await _context.Recipes.AsNoTracking().Where(r => r.Id == Id).Select(r => new
             {
@@ -79,6 +79,11 @@ namespace RecipeHelper.Controllers
             {
                 ViewData["BackLink"] = Url.Action("Index", "Dinner");
                 ViewData["BackLabel"] = "Meal Plan";
+            }
+            else if (from == "product" && !string.IsNullOrWhiteSpace(productId))
+            {
+                ViewData["BackLink"] = Url.Action("ViewProduct", "Product", new { productId });
+                ViewData["BackLabel"] = "Product";
             }
             else
             {

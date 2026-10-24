@@ -45,7 +45,9 @@ gh pr merge <number> --squash --delete-branch
 
 **DB:** Azure SQL Server (`sql-recipe-helper.database.windows.net`, `germanywestcentral`) via EF Core. `DatabaseContext` in project root. Auth via Entra service principal — connection string uses `Authentication=Active Directory Service Principal`.
 
-**Blob Storage:** Azure Storage Account `sarecipehelper` (`germanywestcentral`), container `recipe-images`. Auth via `ClientSecretCredential` using `AzureAd` config section (no connection string in prod). `StorageService` falls back to connection string when `StorageSettings:connectionString` is present (local dev only).
+**Blob Storage:** Azure Storage Account `sarecipehelper` (`germanywestcentral`), container `recipe-images`. Auth via the shared `TokenCredential` from `Utility/AzureCredentials.cs` (no connection string in prod). `StorageService` falls back to connection string when `StorageSettings:connectionString` is present (local dev only).
+
+**Secrets / Azure identity (migration in progress):** `AzureCredentials.Create` returns the `sp-recipe-helper-p` `ClientSecretCredential` when `AzureAd:ClientSecret` is set, otherwise the VM's Azure Arc managed identity (`vm-recipehelper-hetzner`). With `KeyVault:Uri` set, the API secrets load from Key Vault `kv-recipehelper-gwc` (names use `--` for `:`) and SQL uses `Authentication=Active Directory Managed Identity`. Setup and rollback steps: `deploy/arc-keyvault/README.md`. Until those steps are done, prod still runs on the service principal plus the on-disk `appsettings.Production.json`.
 
 **CSS:** Tailwind via `npm run css:build` → `wwwroot/css/output.css`. Never hand-edit output.css.
 

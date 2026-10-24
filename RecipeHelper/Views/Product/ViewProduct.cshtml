@@ -30,6 +30,12 @@
         </div>
     }
 
+    @if (TempData["ErrorMessage"] is string errMsg && !string.IsNullOrWhiteSpace(errMsg))
+    {
+        <div id="errorMessage" class="mx-4 mb-3 rounded-2xl px-4 py-3 text-[14px]"
+             style="background: #FFF0F0; color: var(--ios-red);">@errMsg</div>
+    }
+
     <!-- Product image -->
     <div class="flex justify-center px-4 pb-4">
         <div class="rounded-2xl overflow-hidden" style="background: var(--ios-surface); box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
@@ -238,7 +244,7 @@
         const btnCancel  = document.getElementById('cancelNameBtn');
         const statusMsg  = document.getElementById('statusMsg');
 
-        const productId = @productId;
+        const productId = @Json.Serialize(productId?.ToString());
         const updateUrl = '@Url.Action("UpdateProduct", "Product")';
         const token = document.querySelector('#afForm input[name="__RequestVerificationToken"]').value;
 
@@ -276,7 +282,7 @@
 
             try {
                 const body = new URLSearchParams({
-                    productId: String(productId),
+                    productId: productId,
                     updatedProductName: newName,
                     __RequestVerificationToken: token
                 });
@@ -315,7 +321,7 @@
         })();
 
         document.getElementById('deleteForm')?.addEventListener('submit', (e) => {
-            if (!confirm('Delete this product?')) e.preventDefault();
+            if (!confirm(@Json.Serialize(usedInRecipeCount > 0 ? "Delete this product? It will be unlinked from " + usedInRecipeCount + (usedInRecipeCount == 1 ? " recipe." : " recipes.") : "Delete this product?"))) e.preventDefault();
         });
 
         var qtyInput = document.getElementById('qtyInput');

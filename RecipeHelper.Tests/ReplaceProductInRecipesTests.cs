@@ -68,3 +68,87 @@ namespace RecipeHelper.Tests
         }
     }
 }
+
+namespace RecipeHelper.Tests
+{
+    // ViewProduct posted to DeleteProduct/UpdateProduct, which were removed from the
+    // controller when products moved to UPC-keyed KrogerProducts -- the POST hit no action
+    // and the user saw a blank page.
+    public class DeleteProductTests
+    {
+        private static (ProductController ctl, DatabaseContext db) Setup()
+        {
+            var db = new DatabaseContext(new DbContextOptionsBuilder<DatabaseContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            db.KrogerProducts.AddRange(new KrogerProduct { Upc = "USED", Name = "Used" }, new KrogerProduct { Upc = "FREE", Name = "Free" });
+            var ing = new Ingredient { CanonicalName = "butter" };
+            db.Ingredients.Add(ing);
+            db.Recipes.Add(new Recipe { Id = 1, Name = "A" });
+            db.SaveChanges();
+            db.RecipeIngredients.Add(new RecipeIngredient { RecipeId = 1, IngredientId = ing.Id, DisplayName = "butter", SelectedKrogerUpc = "USED" });
+            db.IngredientKrogerProducts.Add(new IngredientKrogerProduct { IngredientId = ing.Id, Upc = "FREE" });
+            db.SaveChanges();
+            var ctl = new ProductController(db, null!, NullLogger<ProductController>.Instance,
+                new ProductService(db, NullLogger<ProductService>.Instance))
+            { TempData = new Microsoft.AspNetCore.Mvc.ViewFeatures.TempDataDictionary(new Microsoft.AspNetCore.Http.DefaultHttpContext(), new FakeTempData()) };
+            return (ctl, db);
+        }
+
+        private class FakeTempData : Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider
+        {
+            public IDictionary<string, object> LoadTempData(Microsoft.AspNetCore.Http.HttpContext c) => new Dictionary<string, object>();
+            public void SaveTempData(Microsoft.AspNetCore.Http.HttpContext c, IDictionary<string, object> v) { }
+        }
+
+        [Fact]
+        public async Task Delete_UnusedProduct_RemovesItAndItsMappings()
+        {
+            var (ctl, db) = Setup();
+            var r = await ctl.DeleteProduct("FREE");
+            Assert.Equal("Products", ((RedirectToActionResult)r).ActionName);
+            Assert.False(await db.KrogerProducts.AnyAsync(p => p.Upc == "FREE"));
+            Assert.Empty(await db.IngredientKrogerProducts.ToListAsync());
+        }
+
+        [Fact]
+        public async Task Delete_ProductUsedInRecipe_UnlinksItFromTheRecipeLine()
+        {
+            var (ctl, db) = Setup();
+            var r = await ctl.DeleteProduct("USED");
+            Assert.Equal("Products", ((RedirectToActionResult)r).ActionName);
+            Assert.False(await db.KrogerProducts.AnyAsync(p => p.Upc == "USED"));
+            var line = await db.RecipeIngredients.SingleAsync();
+            Assert.Null(line.SelectedKrogerUpc);
+            Assert.Equal("butter", line.DisplayName);
+        }
+
+
+        [Fact]
+        public async Task Delete_ClearsPantryUpc_AndPromotesAnotherDefaultMapping()
+        {
+            var (ctl, db) = Setup();
+            var ing = await db.Ingredients.SingleAsync();
+            // FREE is ing's default; add a second mapping that should take over.
+            (await db.IngredientKrogerProducts.SingleAsync()).IsDefault = true;
+            db.IngredientKrogerProducts.Add(new IngredientKrogerProduct { IngredientId = ing.Id, Upc = "USED", IsDefault = false });
+            db.PantryItems.Add(new PantryItem { Name = "Butter", NormalizedName = "butter", KrogerUpc = "FREE" });
+            await db.SaveChangesAsync();
+
+            await ctl.DeleteProduct("FREE");
+
+            var pantry = await db.PantryItems.SingleAsync();
+            Assert.Null(pantry.KrogerUpc);
+            Assert.Equal("butter", pantry.NormalizedName);
+            var remaining = await db.IngredientKrogerProducts.SingleAsync();
+            Assert.Equal("USED", remaining.Upc);
+            Assert.True(remaining.IsDefault);
+        }
+        [Fact]
+        public async Task Update_RenamesByUpc()
+        {
+            var (ctl, db) = Setup();
+            await ctl.UpdateProduct("FREE", "  Better name ");
+            Assert.Equal("Better name", (await db.KrogerProducts.FindAsync("FREE"))!.Name);
+        }
+    }
+}

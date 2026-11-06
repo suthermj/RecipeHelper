@@ -10,6 +10,7 @@ by date rather than by release version.
 
 ### Added
 
+- Recipe sharing (#91): a "Share" button on the recipe page opens the iOS share sheet (or copies the link where sharing isn't available) with a public read-only link to the recipe: name, image, ingredients and instructions only, with no edit, cart or pricing. The link is created on first share and stays the same afterwards. Adds `Recipes.ShareToken` (migration `AddRecipeShareToken`); the token generator is now shared with meal-plan sharing.
 - View Product (#198): a collapsed "Used in N recipes" disclosure lists each recipe that links the product (thumbnail and name, one row per recipe) and links to it; the toggle reads Show/Hide, and Back from that recipe returns to the product. Shows "Not used in any recipes" when there are none.
 - Delete product (View Product) returned a blank page because the `DeleteProduct`/`UpdateProduct` actions had been removed when products moved to UPC-keyed `KrogerProducts`; both are restored. Deleting a product now also unlinks it from every recipe ingredient line that used it (the ingredients stay) and says how many recipes are affected in the confirm prompt.
 - View Product: "Replace product in recipes…" opens a sheet to search for a different product (saved products first, then Kroger) and choose which recipes to switch, all pre-selected. Every ingredient line in the chosen recipes that used the old product is re-pointed at the new one.

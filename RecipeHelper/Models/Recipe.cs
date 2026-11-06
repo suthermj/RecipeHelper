@@ -21,6 +21,7 @@ namespace RecipeHelper.Models
         public string? Instructions { get; set; }
         public string? DinnerCategory { get; set; }
         public string? SourceUrl { get; set; }
+        public string? ShareToken { get; set; }
         public List<RecipeIngredient> Ingredients { get; set; } = [];
     }
 

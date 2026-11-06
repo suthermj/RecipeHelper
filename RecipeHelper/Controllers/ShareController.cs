@@ -8,9 +8,12 @@ namespace RecipeHelper.Controllers
     {
         private readonly MealPlanService _mealPlanService;
 
-        public ShareController(MealPlanService mealPlanService)
+        private readonly RecipeService _recipeService;
+
+        public ShareController(MealPlanService mealPlanService, RecipeService recipeService)
         {
             _mealPlanService = mealPlanService;
+            _recipeService = recipeService;
         }
 
         // GET: Share/MealPlan/{token} — public, read-only week view
@@ -27,6 +30,16 @@ namespace RecipeHelper.Controllers
             };
 
             return View(vm);
+        }
+
+        // GET: Share/Recipe/{token} — public, read-only recipe view
+        [HttpGet("Share/Recipe/{token}")]
+        public async Task<IActionResult> Recipe(string token)
+        {
+            var recipe = await _recipeService.GetByShareTokenAsync(token);
+            if (recipe == null) return NotFound();
+
+            return View(recipe);
         }
     }
 }

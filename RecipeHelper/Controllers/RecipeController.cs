@@ -107,6 +107,18 @@ namespace RecipeHelper.Controllers
             return View(recipe);
         }
 
+        // POST: Recipe/GetShareLink — get or create the public share link for a recipe
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> GetShareLink(int recipeId)
+        {
+            var token = await _recipeService.GetOrCreateShareTokenAsync(recipeId);
+            if (token == null) return NotFound();
+
+            var url = Url.Action("Recipe", "Share", new { token }, Request.Scheme);
+            return Json(new { url });
+        }
+
         public IActionResult SaveRecipe(ViewRecipeVM model)
         {
             return RedirectToAction("Recipe");

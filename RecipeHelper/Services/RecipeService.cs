@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RecipeHelper.Models;
 using RecipeHelper.Models.IngredientModels;
 using RecipeHelper.Models.Kroger;
+using RecipeHelper.Utility;
 
 namespace RecipeHelper.Services
 {
@@ -21,6 +22,55 @@ namespace RecipeHelper.Services
             _krogerService = krogerService;
             _storageService = storageService;
             _ingredientService = ingredientService;
+        }
+
+        // Returns the recipe's existing share token, generating and persisting one on first call.
+        public async Task<string?> GetOrCreateShareTokenAsync(int recipeId)
+        {
+            var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == recipeId);
+            if (recipe == null) return null;
+
+            if (string.IsNullOrEmpty(recipe.ShareToken))
+            {
+                recipe.ShareToken = ShareToken.Generate();
+                await _context.SaveChangesAsync();
+            }
+
+            return recipe.ShareToken;
+        }
+
+        public async Task<ViewRecipeVM?> GetByShareTokenAsync(string token)
+        {
+            var data = await _context.Recipes.AsNoTracking().Where(r => r.ShareToken == token).Select(r => new
+            {
+                r.Id,
+                r.Name,
+                r.ImageUri,
+                r.Instructions,
+                r.DinnerCategory,
+                Ingredients = r.Ingredients.OrderBy(rp => rp.SortOrder).Select(rp => new IngredientVM
+                {
+                    Name = rp.DisplayName,
+                    Text = rp.OriginalText,
+                    Quantity = rp.Quantity,
+                    Measurement = rp.Measurement.Name,
+                    Section = rp.Section,
+                }).ToList(),
+            }).FirstOrDefaultAsync();
+
+            if (data == null) return null;
+
+            return new ViewRecipeVM
+            {
+                Id = data.Id,
+                RecipeName = data.Name,
+                ImageUri = data.ImageUri ?? string.Empty,
+                DinnerCategory = data.DinnerCategory,
+                Ingredients = data.Ingredients,
+                Instructions = string.IsNullOrEmpty(data.Instructions)
+                    ? new()
+                    : JsonSerializer.Deserialize<List<string>>(data.Instructions) ?? new()
+            };
         }
 
         public async Task<bool> RecipeNameExists(string recipeName)

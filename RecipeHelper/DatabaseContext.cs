@@ -45,6 +45,15 @@ namespace RecipeHelper
                 .HasPrincipalKey(p => p.Upc)
                 .IsRequired(false);
 
+            builder.Entity<Recipe>()
+                .Property(r => r.ShareToken)
+                .HasMaxLength(450);
+
+            builder.Entity<Recipe>()
+                .HasIndex(r => r.ShareToken)
+                .IsUnique()
+                .HasFilter("[ShareToken] IS NOT NULL");
+
             builder.Entity<MealPlan>()
                 .Property(p => p.ShareToken)
                 .HasMaxLength(450);
